@@ -985,17 +985,87 @@ private class WakeWordLoop(
     }
 }
 
+private fun shouldSearchWeb(query: String): Boolean {
+    val q = query.lowercase(Locale.ROOT)
+    return listOf(
+        "vyhľadaj", "vyhladaj", "hľadaj na internete", "hladaj na internete",
+        "na internete", "na webe", "zdroje", "cituj", "aktuálne", "aktualne",
+        "najnovšie", "najnovsie", "dnes", "teraz", "novinky", "správy", "spravy",
+        "cena", "počasie", "pocasie", "otváracie hodiny", "otvaracie hodiny",
+        "dokumentácia", "dokumentacia", "latest", "current", "today", "recent",
+        "news", "search the web", "look up", "research"
+    ).any { q.contains(it) }
+}
+
+private fun searchWeb(query: String): String {
+    var connection: HttpURLConnection? = null
+    return try {
+        val url = URL("https://html.duckduckgo.com/html/?q=" + URLEncoder.encode(query, "UTF-8"))
+        connection = (url.openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 8000
+            readTimeout = 10000
+            setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36")
+            setRequestProperty("Accept-Language", "sk-SK,sk;q=0.9,en;q=0.7")
+        }
+        if (connection.responseCode !in 200..299) return ""
+        val html = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+        fun clean(value: String): String = value
+            .replace(Regex("(?is)<script[^>]*>.*?</script>"), " ")
+            .replace(Regex("(?is)<style[^>]*>.*?</style>"), " ")
+            .replace(Regex("(?s)<[^>]+>"), " ")
+            .replace("&amp;", "&").replace("&quot;", "\"").replace("&#x27;", "'")
+            .replace("&#39;", "'").replace("&lt;", "<").replace("&gt;", ">")
+            .replace("&#x2F;", "/").replace("&nbsp;", " ")
+            .replace(Regex("\\s+"), " ").trim()
+        val results = mutableListOf<String>()
+        val pattern = Regex(
+            """(?is)<div[^>]*class=["'][^"']*result[^"']*["'][^>]*>.*?<a[^>]*class=["'][^"']*result__a[^"']*["'][^>]*href=["']([^"']+)["'][^>]*>(.*?)</a>.*?(?:<a[^>]*class=["'][^"']*result__snippet[^"']*["'][^>]*>(.*?)</a>|<div[^>]*class=["'][^"']*result__snippet[^"']*["'][^>]*>(.*?)</div>)"""
+        )
+        for (match in pattern.findAll(html).take(5)) {
+            val title = clean(match.groupValues[2])
+            val snippet = clean(match.groupValues[3].ifBlank { match.groupValues[4] })
+            val href = match.groupValues[1].replace("&amp;", "&")
+            if (title.isNotBlank()) results.add("• $title\n$snippet\nURL: $href")
+        }
+        results.joinToString("\n\n").take(9000)
+    } catch (_: Exception) {
+        ""
+    } finally {
+        connection?.disconnect()
+    }
+}
+
 private fun askAi(endpoint: String, key: String, model: String, history: List<Message>, memory: String): String {
     var connection: HttpURLConnection? = null
     return try {
+        if (endpoint.isBlank() || key.isBlank() || model.isBlank()) {
+            return "Pane, AI ešte nie je nakonfigurovaná. V Nastaveniach zadajte API endpoint, podporovaný model a API kľúč."
+        }
+        val lastUserQuery = history.lastOrNull { !it.jarvis }?.text.orEmpty()
+        val webContext = if (shouldSearchWeb(lastUserQuery)) searchWeb(lastUserQuery) else ""
+        val systemPrompt = """
+Si JARVIS, pokročilý slovenský AI asistent. Používateľa oslovuj „pane“. Odpovedaj po slovensky, prirodzene, presne a priamo.
+Zvládaj zložité otázky, matematiku, vysvetľovanie, plánovanie, analýzu, programovanie a ladenie kódu. Pri programovaní poskytuj kompletné, použiteľné riešenia, uveď názvy súborov, potrebné závislosti a presné kroky spustenia. Ak používateľ žiada kód, napíš skutočný kód, nie iba opis. Nevyhlasuj, že si kód spustil alebo zmenil súbory, pokiaľ to aplikácia naozaj nevykonala.
+Ak je priložený webový kontext, použi ho na aktuálne fakty, rozlišuj fakty od odhadov a pripoj URL relevantných zdrojov. Výsledky vyhľadávania môžu byť neúplné; ak chýbajú, otvorene to povedz a nevymýšľaj citácie. Pri otázkach vyžadujúcich aktuálne údaje použi poskytnuté webové výsledky, ak sú dostupné.
+Pri návrhoch projektov identifikuj praktické možnosti, odporuč najlepšiu a navrhni ďalší krok. Pri vizualizácii jasne odlišuj textový návrh a jednoduchý preddefinovaný 3D náhľad od skutočného generovania ľubovoľných 3D modelov.
+Máš prístup iba k funkciám, ktoré aplikácia výslovne implementuje; nikdy netvrď, že si vykonal akciu, ktorú aplikácia nepotvrdila.
+Trvalá pamäť používateľa (použi len keď relevantná):
+$memory
+\${if (webContext.isNotBlank()) "\nWEBOVÉ VÝSLEDKY (môžu byť neúplné; používaj ich kriticky):\n$webContext" else ""}
+""".trimIndent()
         connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"; connectTimeout = 15000; readTimeout = 45000; doOutput = true
-            setRequestProperty("Content-Type", "application/json")
-            setRequestProperty("Authorization", "Bearer " + key)
+            requestMethod = "POST"
+            connectTimeout = 20000
+            readTimeout = 90000
+            doOutput = true
+            setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            setRequestProperty("Authorization", "Bearer $key")
+            setRequestProperty("Accept", "application/json")
         }
         val apiMessages = JSONArray()
-            .put(JSONObject().put("role", "system").put("content", "Si JARVIS, slovenský AI asistent a proaktívny návrhový partner. Používateľa oslovuj pane. Odpovedaj prirodzene, vecne, stručne a pravdivo. Nečakaj iba na pokyny: pri návrhoch projektov sám identifikuj 2 až 4 konkrétne možnosti, vysvetli ich výhody a nevýhody, odporuč najlepšiu možnosť a navrhni ďalší krok. Formuluj praktické návrhy typu: „Toto môžeme umiestniť sem, pretože…“, „Môžeme zvoliť A alebo B…“. Pri vizualizácii rozdeľ odpoveď na: CIEĽ, NÁVRH, ALTERNATÍVY, ODPORÚČANIE, ĎALŠIE ÚPRAVY. Ak používateľ žiada trasu alebo reálne miesto, nikdy si nevymýšľaj skutočné ulice, vzdialenosti ani navigačné pokyny; najprv objasni mesto/adresu, ak nie je jednoznačná, a jasne rozlišuj medzi schematickým konceptom a overenými geografickými dátami. Aplikácia zatiaľ zobrazuje textový návrh a jednoduchý 3D drôtený model; netvrď, že už vie vykresliť ľubovoľné 3D objekty alebo overenú trasu, ak to nebolo skutočne vykonané. Máš prístup iba k funkciám, ktoré aplikácia výslovne implementuje; nikdy netvrď, že si vykonal akciu, ktorú aplikácia nepotvrdila.\\nTrvalá pamäť používateľa (použi len keď relevantná):\\n" + memory))
-        history.forEach { message ->
+            .put(JSONObject().put("role", "system").put("content", systemPrompt))
+        history.takeLast(24).forEach { message ->
             apiMessages.put(JSONObject()
                 .put("role", if (message.jarvis) "assistant" else "user")
                 .put("content", message.text))
@@ -1003,15 +1073,44 @@ private fun askAi(endpoint: String, key: String, model: String, history: List<Me
         val body = JSONObject().apply {
             put("model", model)
             put("messages", apiMessages)
-            put("temperature", 0.6)
+            put("temperature", 0.4)
         }.toString()
         connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
         val code = connection.responseCode
         val stream = if (code in 200..299) connection.inputStream else connection.errorStream
-        val response = stream.bufferedReader().use { it.readText() }
-        if (code !in 200..299) "AI služba vrátila chybu (" + code + "). Skontrolujte API kľúč, model a endpoint."
-        else JSONObject(response).optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")?.optString("content")?.takeIf { it.isNotBlank() } ?: "AI služba vrátila prázdnu odpoveď."
-    } catch (_: Exception) {
-        "Nepodarilo sa pripojiť k AI službe. Skontrolujte internet a nastavenia API."
-    } finally { connection?.disconnect() }
+        val response = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+        if (code !in 200..299) {
+            val detail = runCatching {
+                val json = JSONObject(response)
+                json.optJSONObject("error")?.optString("message").orEmpty()
+                    .ifBlank { json.optString("message") }
+            }.getOrDefault("")
+            when (code) {
+                401 -> "Pane, AI odmietla API kľúč (401). Skontrolujte, či je kľúč správny a aktívny."
+                402, 429 -> "Pane, AI odmietla požiadavku (HTTP $code). Skontrolujte kredit, limit alebo kvótu účtu. \${detail.take(220)}"
+                404 -> "Pane, endpoint alebo model neexistuje (404). Skontrolujte API endpoint a presný názov modelu. \${detail.take(220)}"
+                else -> "Pane, AI služba vrátila chybu HTTP $code. \${detail.take(260)}"
+            }
+        } else {
+            val json = JSONObject(response)
+            val choices = json.optJSONArray("choices")
+            val choice = choices?.optJSONObject(0)
+            val message = choice?.optJSONObject("message")
+            val content = message?.optString("content").orEmpty()
+            val refusal = message?.optString("refusal").orEmpty()
+            when {
+                content.isNotBlank() -> content
+                refusal.isNotBlank() -> refusal
+                else -> "Pane, AI služba odpovedala v neznámom formáte. Skontrolujte kompatibilitu endpointu s OpenAI Chat Completions API."
+            }
+        }
+    } catch (e: Exception) {
+        val message = e.message.orEmpty()
+        if (message.contains("Unable to resolve host", true) || message.contains("UnknownHost", true))
+            "Pane, zariadenie sa nevie pripojiť na internet. Skontrolujte Wi-Fi alebo mobilné dáta."
+        else
+            "Pane, spojenie s AI zlyhalo: \${message.take(180).ifBlank { "neznáma chyba" }}. Skontrolujte internet, endpoint a nastavenia modelu."
+    } finally {
+        connection?.disconnect()
+    }
 }
