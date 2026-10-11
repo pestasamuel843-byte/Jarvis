@@ -289,6 +289,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                         Text(if (listening) "POČÚVAM…" else "ASISTENT PRIPRAVENÝ", color = Cyan, fontSize = 10.sp, letterSpacing = 2.sp)
                     }
                 }
+                }
                 if (showWorkspace) {
                     ProjectWorkspace(title = "JARVIS • Interaktívny návrh", description = workspaceDescription, onClose = { showWorkspace = false }, initialMapMode = lastWorkspaceRequest.contains("premiet", true) || lastWorkspaceRequest.contains("cestu okolo", true) || lastWorkspaceRequest.contains("trasu", true) || lastWorkspaceRequest.contains("mapu", true) || lastWorkspaceRequest.contains("okolie školy", true), onRefine = { instruction ->
                         if (key.isNotBlank() && !busy) {
