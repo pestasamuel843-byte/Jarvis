@@ -20,7 +20,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.clip
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.graphics.Path
@@ -135,6 +135,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
         when {
             text.contains("projekt", true) || text.contains("nakresli", true) || text.contains("pracovný priestor", true) || text.contains("navrhni", true) || text.contains("vizualiz", true) || text.contains("premietni", true) || text.contains("ukáž mi v 3d", true) || text.contains("model", true) || text.contains("mapu", true) || text.contains("mapa", true) || text.contains("zobraz map", true) || text.contains("ukáž map", true) || text.contains("cestu okolo", true) || text.contains("trasu", true) || text.contains("okolie školy", true) || text.contains("mozog", true) || text.contains("nemocnicu", true) || text.contains("auto", true) -> {
                 showWorkspace = true
+                showChat = false
                 lastWorkspaceRequest = text
                 if (key.isNotBlank()) {
                     val status = "Otváram pracovný priestor a pripravujem návrh, pane."
@@ -565,8 +566,6 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                     Text("KONVERZÁCIA", color = Muted, fontSize = 11.sp, letterSpacing = 1.5.sp)
                     TextButton(onClick = { showChat = false }) { Text("DOMOV", color = Cyan) }
                 }
-                Spacer(Modifier.height(8.dp))
-                Text("KONVERZÁCIA", color = Muted, fontSize = 11.sp, letterSpacing = 1.5.sp)
                 Spacer(Modifier.height(8.dp))
                 LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                     items(chat) { message ->
