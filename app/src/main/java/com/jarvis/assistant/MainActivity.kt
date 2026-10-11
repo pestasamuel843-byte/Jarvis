@@ -287,7 +287,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                     }
                 }
                 if (showWorkspace) {
-                    ProjectWorkspace(title = "JARVIS • Interaktívny návrh", description = workspaceDescription, onClose = { showWorkspace = false }, onRefine = { instruction ->
+                    ProjectWorkspace(title = "JARVIS • Interaktívny návrh", description = workspaceDescription, onClose = { showWorkspace = false }, initialMapMode = text.contains("premiet", true) || text.contains("cestu okolo", true) || text.contains("trasu", true) || text.contains("okolie školy", true), onRefine = { instruction ->
                         if (key.isNotBlank() && !busy) {
                             busy = true
                             chat.add(Message(false, instruction))
