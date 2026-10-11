@@ -16,6 +16,8 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -130,6 +132,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     var busy by remember { mutableStateOf(false) }
     var listening by remember { mutableStateOf(false) }
     var wakeMode by remember { mutableStateOf(false) }
+    var appForeground by remember { mutableStateOf(true) }
     var showWorkspace by remember { mutableStateOf(false) }
     var showChat by remember { mutableStateOf(false) }
     var lastWorkspaceRequest by remember { mutableStateOf("") }
@@ -509,8 +512,23 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
         }
     }
 
-    DisposableEffect(wakeMode) {
-        if (!wakeMode) {
+    val activityLifecycle = (context as? ComponentActivity)?.lifecycle
+    DisposableEffect(activityLifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                appForeground = false
+                wakeMode = false
+                listening = false
+            } else if (event == Lifecycle.Event.ON_START) {
+                appForeground = true
+            }
+        }
+        activityLifecycle?.addObserver(observer)
+        onDispose { activityLifecycle?.removeObserver(observer) }
+    }
+
+    DisposableEffect(wakeMode, appForeground) {
+        if (!wakeMode || !appForeground) {
             listening = false
             onDispose { }
         } else {
