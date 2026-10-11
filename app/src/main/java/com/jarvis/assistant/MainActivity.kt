@@ -274,7 +274,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                     context.packageManager.getLaunchIntentForPackage(it.activityInfo.packageName)
                 }
                 if (launchIntent != null) {
-                    val appName = match.loadLabel(context.packageManager).toString()
+                    val appName = match?.loadLabel(context.packageManager)?.toString() ?: requested
                     val answer = "Otváram aplikáciu $appName, pane."
                     chat.add(Message(true, answer)); speak(answer)
                     runCatching { context.startActivity(launchIntent) }
