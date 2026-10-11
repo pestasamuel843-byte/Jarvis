@@ -88,6 +88,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var listening by remember { mutableStateOf(false) }
     var showWorkspace by remember { mutableStateOf(false) }
+    var workspaceDescription by remember { mutableStateOf("Povedzte JARVISu, čo chcete navrhnúť. Návrh AI sa zobrazí tu a náčrt môžete kresliť prstom.") }
     val chat = remember { mutableStateListOf(Message(true, "Dobrý deň, pane. JARVIS je pripravený. Systémy sú online.")) }
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
@@ -107,8 +108,22 @@ private fun JarvisScreen(speak: (String) -> Unit) {
         when {
             text.contains("projekt", true) || text.contains("nakresli", true) || text.contains("pracovný priestor", true) -> {
                 showWorkspace = true
-                val answer = "Otváram pracovný priestor, pane. Môžete kresliť prstom a rozvíjať návrh."
-                chat.add(Message(true, answer)); speak(answer)
+                if (key.isNotBlank()) {
+                    val status = "Otváram pracovný priestor a pripravujem návrh, pane."
+                    chat.add(Message(true, status)); speak(status)
+                    busy = true
+                    scope.launch {
+                        val answer = withContext(Dispatchers.IO) { askAi(endpoint, key, model, chat.toList().takeLast(20)) }
+                        workspaceDescription = answer
+                        chat.add(Message(true, answer))
+                        speak(answer)
+                        busy = false
+                    }
+                } else {
+                    val answer = "Otváram pracovný priestor, pane. Nastavte AI kľúč, ak chcete návrh projektu generovať konverzáciou. Náčrt môžete kresliť prstom."
+                    workspaceDescription = answer
+                    chat.add(Message(true, answer)); speak(answer)
+                }
             }
             text.contains("batéria", true) || text.contains("stav batérie", true) -> {
                 val battery = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
@@ -220,7 +235,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                     }
                 }
                 if (showWorkspace) {
-                    ProjectWorkspace(title = "JARVIS • Návrh", onClose = { showWorkspace = false })
+                    ProjectWorkspace(title = "JARVIS • Návrh", description = workspaceDescription, onClose = { showWorkspace = false })
                     Spacer(Modifier.height(10.dp))
                 }
                 Spacer(Modifier.height(14.dp))
