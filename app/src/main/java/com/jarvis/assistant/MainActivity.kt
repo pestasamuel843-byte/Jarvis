@@ -13,6 +13,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -65,10 +66,11 @@ private val Muted = Color(0xFF9BAFC2)
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = null
+    @Volatile private var speechOutputActive = false
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         tts = TextToSpeech(this, this)
-        setContent { JarvisScreen(::speak) }
+        setContent { JarvisScreen(::speak, { speechOutputActive }) }
     }
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
@@ -76,6 +78,13 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             engine.language = Locale("sk", "SK")
             engine.setSpeechRate(0.96f)
             engine.setPitch(1.0f)
+            engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) { speechOutputActive = true }
+                override fun onDone(utteranceId: String?) { speechOutputActive = false }
+                @Deprecated("Deprecated in Java")
+                override fun onError(utteranceId: String?) { speechOutputActive = false }
+                override fun onError(utteranceId: String?, errorCode: Int) { speechOutputActive = false }
+            })
             // Select only an explicitly identified Slovak male voice. Never pretend that pitch-shifting
             // a female voice makes it male; Android can use only voices installed by its TTS provider.
             val maleSlovak = engine.voices
@@ -93,7 +102,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         }
     }
     private fun speak(text: String) {
-        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis")
+        val engine = tts ?: return
+        // Mark speech synchronously so the microphone loop cannot hear JARVIS speaking.
+        speechOutputActive = true
+        val result = engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis")
+        if (result == TextToSpeech.ERROR) speechOutputActive = false
     }
     override fun onDestroy() {
         tts?.stop()
@@ -105,7 +118,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 private data class Message(val jarvis: Boolean, val text: String)
 
 @Composable
-private fun JarvisScreen(speak: (String) -> Unit) {
+private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("jarvis", Context.MODE_PRIVATE) }
     val scope = rememberCoroutineScope()
@@ -509,7 +522,8 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                 },
                 onWake = {
                     speak("Počúvam, pane.")
-                }
+                },
+                canListen = { !isSpeaking() && !busy }
             )
             wakeLoop.start()
             onDispose {
@@ -827,7 +841,8 @@ private fun DashboardAction(symbol: String, label: String, modifier: Modifier = 
 private class WakeWordLoop(
     context: Context,
     private val onCommand: (String) -> Unit,
-    private val onWake: () -> Unit
+    private val onWake: () -> Unit,
+    private val canListen: () -> Boolean
 ) {
     private val appContext = context.applicationContext
     private val handler = Handler(Looper.getMainLooper())
@@ -928,6 +943,12 @@ private class WakeWordLoop(
 
     private fun listenOnce() {
         if (stopped) return
+        // SpeechRecognizer must not run over TTS output or while an AI response is being prepared.
+        // Otherwise it transcribes JARVIS itself, causing repeated toggling and false commands.
+        if (!canListen()) {
+            scheduleRestart(350L)
+            return
+        }
         val speech = recognizer ?: run {
             start()
             return
