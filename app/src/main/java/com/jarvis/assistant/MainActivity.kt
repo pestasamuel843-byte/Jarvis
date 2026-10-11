@@ -103,7 +103,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                     chat.add(Message(true, status)); speak(status)
                     busy = true
                     scope.launch {
-                        val answer = withContext(Dispatchers.IO) { askAi(endpoint, key, model, chat.toList().takeLast(20)) }
+                        val answer = withContext(Dispatchers.IO) { askAi(endpoint, key, model, chat.toList().takeLast(20), prefs.getString("memories", "").orEmpty()) }
                         workspaceDescription = answer
                         prefs.edit().putString("workspace_description", answer).apply()
                         chat.add(Message(true, answer))
@@ -121,6 +121,27 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                 val battery = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
                 val percent = battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
                 val answer = if (percent >= 0) "Batéria má $percent percent, pane." else "Stav batérie sa nepodarilo zistiť."
+                chat.add(Message(true, answer)); speak(answer)
+            }
+            text.startsWith("zapamätaj si ", true) || text.startsWith("pamätaj si ", true) || text.startsWith("nauč sa ", true) -> {
+                val fact = text.substringAfter(' ').substringAfter(' ').trim()
+                val old = prefs.getString("memories", "").orEmpty()
+                val updated = (old.lines().filter { it.isNotBlank() } + fact).distinct().takeLast(100).joinToString("\n")
+                prefs.edit().putString("memories", updated).apply()
+                val answer = "Zapamätal som si to pre ďalšie konverzácie, pane."
+                chat.add(Message(true, answer)); speak(answer)
+            }
+            text.contains("čo si pamätáš", true) || text.contains("moje preferencie", true) || text == "pamäť" -> {
+                val memories = prefs.getString("memories", "").orEmpty()
+                val answer = if (memories.isBlank()) "Zatiaľ nemám uložené žiadne naučené preferencie, pane. Povedzte napríklad: zapamätaj si, že odpovede chcem stručné." else "Toto si pamätám, pane:\\n" + memories
+                chat.add(Message(true, answer)); speak(if (memories.isBlank()) answer else "Zobrazil som uloženú pamäť, pane.")
+            }
+            text.startsWith("zabudni ", true) -> {
+                val query = text.substringAfter(' ').trim()
+                val old = prefs.getString("memories", "").orEmpty()
+                val remaining = old.lines().filter { it.isNotBlank() && !it.contains(query, ignoreCase = true) }
+                prefs.edit().putString("memories", remaining.joinToString("\\n")).apply()
+                val answer = "Odstránil som z pamäti položky zodpovedajúce zadaniu, pane."
                 chat.add(Message(true, answer)); speak(answer)
             }
             text.contains("ukáž poznámky", true) || text.contains("moje poznámky", true) || text == "poznámky" -> {
@@ -356,7 +377,7 @@ private fun listen(context: Context, onResult: (String) -> Unit, onDone: () -> U
     })
 }
 
-private fun askAi(endpoint: String, key: String, model: String, history: List<Message>): String {
+private fun askAi(endpoint: String, key: String, model: String, history: List<Message>, memory: String): String {
     var connection: HttpURLConnection? = null
     return try {
         connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
@@ -365,7 +386,7 @@ private fun askAi(endpoint: String, key: String, model: String, history: List<Me
             setRequestProperty("Authorization", "Bearer " + key)
         }
         val apiMessages = JSONArray()
-            .put(JSONObject().put("role", "system").put("content", "Si JARVIS, slovenský AI asistent. Používateľa oslovuj pane. Odpovedaj prirodzene, stručne a pravdivo. Máš prístup iba k funkciám, ktoré aplikácia výslovne implementuje; nikdy netvrď, že si vykonal akciu, ktorú aplikácia nepotvrdila. Pri návrhu projektov dávaj jasný plán a štruktúru, ktorú možno zobraziť v pracovnom priestore."))
+            .put(JSONObject().put("role", "system").put("content", "Si JARVIS, slovenský AI asistent. Používateľa oslovuj pane. Odpovedaj prirodzene, stručne a pravdivo. Máš prístup iba k funkciám, ktoré aplikácia výslovne implementuje; nikdy netvrď, že si vykonal akciu, ktorú aplikácia nepotvrdila. Pri návrhu projektov dávaj jasný plán a štruktúru, ktorú možno zobraziť v pracovnom priestore.\\nTrvalá pamäť používateľa (použi len keď relevantná):\\n" + memory))
         history.forEach { message ->
             apiMessages.put(JSONObject()
                 .put("role", if (message.jarvis) "assistant" else "user")
