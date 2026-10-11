@@ -167,9 +167,9 @@ button{background:#123c50;color:#4deBff;font-weight:bold;border-color:#28748a}
 <div id="map"></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const map=L.map('map',{zoomControl:true}).setView([48.1486,17.1077],6);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
-let routeLayers=[],markers=[];
+const map=L.map('map',{zoomControl:true}).setView([49.061,20.298],8);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors © CARTO'}).addTo(map);
+let routeLayers=[],markers=[];\nmap.on('click',e=>{status('Vybrané miesto: '+e.latlng.lat.toFixed(5)+', '+e.latlng.lng.toFixed(5)+' • zadaj tieto súradnice alebo vyhľadaj názov miesta.');});
 function status(s){document.getElementById('status').textContent=s}
 async function showPlace(){const q=document.getElementById('place').value.trim();if(!q){status('Zadaj názov miesta alebo adresu.');return}status('Vyhľadávam miesto…');try{const p=await geocode(q);map.setView([p[1],p[0]],16);markers.forEach(x=>map.removeLayer(x));markers=[L.marker([p[1],p[0]]).addTo(map).bindPopup(p[2]).openPopup()];status('Zobrazené: '+p[2])}catch(e){status('Miesto sa nepodarilo nájsť: '+e.message)}}
 async function geocode(q){const u='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='+encodeURIComponent(q);const r=await fetch(u,{headers:{'Accept-Language':'sk'}});if(!r.ok)throw Error('Vyhľadanie miesta zlyhalo');const a=await r.json();if(!a.length)throw Error('Miesto sa nenašlo: '+q);return [Number(a[0].lon),Number(a[0].lat),a[0].display_name]}
