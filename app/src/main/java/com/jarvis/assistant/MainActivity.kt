@@ -74,6 +74,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         if (status == TextToSpeech.SUCCESS) {
             val engine = tts ?: return
             engine.language = Locale("sk", "SK")
+            // Slightly slower and lower-pitched speech sounds clearer and less rushed on tablet speakers.
+            // Android only exposes the voices installed by the selected TTS engine; an exact Lukáš voice
+            // cannot be guaranteed unless that engine actually provides it.
+            engine.setSpeechRate(0.93f)
+            engine.setPitch(0.88f)
             // Prefer a locally installed Slovak male voice, if the Android TTS engine provides one.
             val maleSlovak = engine.voices
                 ?.filter { it.locale.language == "sk" }
@@ -127,7 +132,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
         }
     }
     fun handle(raw: String) {
-        val text = raw.trim().replace(Regex("(?i)^hej\\s+jarvis[,: ]*"), "").trim()
+        val text = raw.trim().replace(Regex("(?i)^(?:hej\\s+)?jarvis[,: ]*"), "").trim()
         if (text.isEmpty() || busy) return
         showChat = true
         input = ""
@@ -836,7 +841,7 @@ private class WakeWordLoop(
                             val normalized = spoken.lowercase(Locale.ROOT)
                                 .replace(Regex("[^\\p{L}\\p{N} ]"), " ")
                                 .replace(Regex("\\s+"), " ").trim()
-                            val wake = Regex("^(hej|hey) jarvis\\b[ ,:]*", RegexOption.IGNORE_CASE)
+                            val wake = Regex("^(?:(?:hej|hey) )?jarvis\\b[ ,:]*", RegexOption.IGNORE_CASE)
                             val wakeMatch = wake.find(normalized)
                             val remainder = if (wakeMatch != null) normalized.substring(wakeMatch.range.last + 1).trim() else ""
                             var delay = 180L
