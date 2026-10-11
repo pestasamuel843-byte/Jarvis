@@ -88,7 +88,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var listening by remember { mutableStateOf(false) }
     var showWorkspace by remember { mutableStateOf(false) }
-    var workspaceDescription by remember { mutableStateOf("Povedzte JARVISu, čo chcete navrhnúť. Návrh AI sa zobrazí tu a náčrt môžete kresliť prstom.") }
+    var workspaceDescription by remember { mutableStateOf(prefs.getString("workspace_description", "Povedzte JARVISu, čo chcete navrhnúť. Návrh AI sa zobrazí tu a náčrt môžete kresliť prstom.") ?: "") }
     val chat = remember { mutableStateListOf(Message(true, "Dobrý deň, pane. JARVIS je pripravený. Systémy sú online.")) }
     fun handle(raw: String) {
         val text = raw.trim().replace(Regex("(?i)^hej\\s+jarvis[,: ]*"), "").trim()
@@ -105,6 +105,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                     scope.launch {
                         val answer = withContext(Dispatchers.IO) { askAi(endpoint, key, model, chat.toList().takeLast(20)) }
                         workspaceDescription = answer
+                        prefs.edit().putString("workspace_description", answer).apply()
                         chat.add(Message(true, answer))
                         speak(answer)
                         busy = false
@@ -112,6 +113,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                 } else {
                     val answer = "Otváram pracovný priestor, pane. Nastavte AI kľúč, ak chcete návrh projektu generovať konverzáciou. Náčrt môžete kresliť prstom."
                     workspaceDescription = answer
+                    prefs.edit().putString("workspace_description", answer).apply()
                     chat.add(Message(true, answer)); speak(answer)
                 }
             }
