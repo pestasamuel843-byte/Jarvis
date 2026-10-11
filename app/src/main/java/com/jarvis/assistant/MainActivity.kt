@@ -86,6 +86,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
     var settings by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var listening by remember { mutableStateOf(false) }
+    var showWorkspace by remember { mutableStateOf(false) }
     val chat = remember { mutableStateListOf(Message(true, "Dobrý deň, pane. JARVIS je pripravený. Systémy sú online.")) }
 
     fun handle(raw: String) {
@@ -94,6 +95,11 @@ private fun JarvisScreen(speak: (String) -> Unit) {
         input = ""
         chat.add(Message(false, text))
         when {
+            text.contains("projekt", true) || text.contains("nakresli", true) || text.contains("pracovný priestor", true) -> {
+                showWorkspace = true
+                val answer = "Otváram pracovný priestor, pane. Môžete kresliť prstom a rozvíjať návrh."
+                chat.add(Message(true, answer)); speak(answer)
+            }
             text.contains("koľko je hodín", true) || text.contains("aký je čas", true) -> {
                 val answer = "Je " + SimpleDateFormat("H:mm", Locale("sk", "SK")).format(Date()) + "."
                 chat.add(Message(true, answer)); speak(answer)
@@ -141,6 +147,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                         Text("J.A.R.V.I.S.", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                         Text(if (busy) "SPRACÚVAM…" else "SYSTÉMY ONLINE • SLOVENČINA", color = Cyan, fontSize = 10.sp, letterSpacing = 1.sp)
                     }
+                    TextButton(onClick = { showWorkspace = !showWorkspace }) { Text("PROJEKT", color = Cyan, fontSize = 11.sp) }
                     TextButton(onClick = { settings = true }) { Text("⚙", color = Cyan, fontSize = 22.sp) }
                 }
                 Spacer(Modifier.height(16.dp))
@@ -152,6 +159,10 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                         Spacer(Modifier.height(8.dp))
                         Text(if (listening) "POČÚVAM…" else "ASISTENT PRIPRAVENÝ", color = Cyan, fontSize = 10.sp, letterSpacing = 2.sp)
                     }
+                }
+                if (showWorkspace) {
+                    ProjectWorkspace(title = "JARVIS • Návrh", onClose = { showWorkspace = false })
+                    Spacer(Modifier.height(10.dp))
                 }
                 Spacer(Modifier.height(14.dp))
                 Text("KONVERZÁCIA", color = Muted, fontSize = 11.sp, letterSpacing = 1.5.sp)
