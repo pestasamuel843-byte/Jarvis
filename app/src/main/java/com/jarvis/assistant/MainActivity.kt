@@ -90,16 +90,6 @@ private fun JarvisScreen(speak: (String) -> Unit) {
     var showWorkspace by remember { mutableStateOf(false) }
     var workspaceDescription by remember { mutableStateOf("Povedzte JARVISu, čo chcete navrhnúť. Návrh AI sa zobrazí tu a náčrt môžete kresliť prstom.") }
     val chat = remember { mutableStateListOf(Message(true, "Dobrý deň, pane. JARVIS je pripravený. Systémy sú online.")) }
-    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) {
-            listening = true
-            listen(context, { spoken -> listening = false; handle(spoken) }, { listening = false })
-        } else {
-            listening = false
-            Toast.makeText(context, "Bez povolenia mikrofónu hlasové zadávanie nefunguje.", Toast.LENGTH_LONG).show()
-        }
-    }
-
     fun handle(raw: String) {
         val text = raw.trim().replace(Regex("(?i)^hej\\s+jarvis[,: ]*"), "").trim()
         if (text.isEmpty() || busy) return
@@ -206,6 +196,16 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                     chat.add(Message(true, answer)); speak(answer); busy = false
                 }
             }
+        }
+    }
+
+    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            listening = true
+            listen(context, { spoken -> listening = false; handle(spoken) }, { listening = false })
+        } else {
+            listening = false
+            Toast.makeText(context, "Bez povolenia mikrofónu hlasové zadávanie nefunguje.", Toast.LENGTH_LONG).show()
         }
     }
 
