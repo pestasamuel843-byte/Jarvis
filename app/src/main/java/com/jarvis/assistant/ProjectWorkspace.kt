@@ -155,12 +155,15 @@ button{background:#123c50;color:#4deBff;font-weight:bold;border-color:#28748a}
 .status{color:#9dbac9;font-size:12px;padding:8px 2px;line-height:1.4}
 .leaflet-container{background:#07101a}
 </style></head><body>
-<div class="top"><div class="brand">J.A.R.V.I.S. / TACTICAL ROUTE DISPLAY</div>
-<input id="from" placeholder="Odkiaľ? (adresa alebo miesto)">
-<input id="to" placeholder="Kam? Napr. škola Komenského, mesto">
-<button onclick="route()">VYPOČÍTAŤ A PREMietnuť TRASU</button>
-<button onclick="locate()">POUŽIŤ MOJU POLOHU</button>
-<div id="status" class="status">Skutočné mapové dáta OpenStreetMap. Zadajte začiatok a cieľ; pri nejednoznačnom názve doplňte mesto.</div></div>
+<div class="top"><div class="brand">J.A.R.V.I.S. / HOLOGRAFICKÁ MAPA</div>
+<input id="place" placeholder="Vyhľadaj miesto, ulicu alebo budovu">
+<button onclick="showPlace()">ZOBRAZIŤ MIESTO NA MAPE</button>
+<button onclick="locate()">ZOBRAZIŤ MOJU POLOHU</button>
+<details><summary style="color:#4deBff;padding:9px;cursor:pointer">Voliteľne: vytvoriť trasu</summary>
+<input id="from" placeholder="Odkiaľ?">
+<input id="to" placeholder="Kam?">
+<button onclick="route()">VYKRESLIŤ TRASU</button></details>
+<div id="status" class="status">Posúvaj mapu a približuj ju prstami. Vyhľadaj ľubovoľné miesto, ulicu alebo budovu.</div></div>
 <div id="map"></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -168,9 +171,10 @@ const map=L.map('map',{zoomControl:true}).setView([48.1486,17.1077],6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
 let routeLayers=[],markers=[];
 function status(s){document.getElementById('status').textContent=s}
+async function showPlace(){const q=document.getElementById('place').value.trim();if(!q){status('Zadaj názov miesta alebo adresu.');return}status('Vyhľadávam miesto…');try{const p=await geocode(q);map.setView([p[1],p[0]],16);markers.forEach(x=>map.removeLayer(x));markers=[L.marker([p[1],p[0]]).addTo(map).bindPopup(p[2]).openPopup();status('Zobrazené: '+p[2])}catch(e){status('Miesto sa nepodarilo nájsť: '+e.message)}}
 async function geocode(q){const u='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='+encodeURIComponent(q);const r=await fetch(u,{headers:{'Accept-Language':'sk'}});if(!r.ok)throw Error('Vyhľadanie miesta zlyhalo');const a=await r.json();if(!a.length)throw Error('Miesto sa nenašlo: '+q);return [Number(a[0].lon),Number(a[0].lat),a[0].display_name]}
 async function route(){const a=document.getElementById('from').value.trim(),b=document.getElementById('to').value.trim();if(!a||!b){status('Vyplňte začiatok aj cieľ.');return}status('Vyhľadávam miesta a počítam trasu…');try{const [s,e]=await Promise.all([geocode(a),geocode(b)]);const u='https://router.project-osrm.org/route/v1/driving/'+s[0]+','+s[1]+';'+e[0]+','+e[1]+'?overview=full&geometries=geojson&alternatives=true&steps=true';const r=await fetch(u);if(!r.ok)throw Error('Služba trás momentálne neodpovedá');const d=await r.json();if(d.code!=='Ok'||!d.routes.length)throw Error('Trasu sa nepodarilo vypočítať');routeLayers.forEach(x=>map.removeLayer(x));markers.forEach(x=>map.removeLayer(x));routeLayers=[];markers=[];d.routes.forEach((rt,i)=>{const l=L.geoJSON(rt.geometry,{style:{color:i===0?'#4deBff':'#f4c95d',weight:i===0?6:4,opacity:i===0?0.95:0.65,dashArray:i===0?null:'8 8'}}).addTo(map);routeLayers.push(l)});markers.push(L.marker([s[1],s[0]]).addTo(map).bindPopup('Štart: '+s[2]));markers.push(L.marker([e[1],e[0]]).addTo(map).bindPopup('Cieľ: '+e[2]));map.fitBounds(routeLayers[0].getBounds(),{padding:[25,25]});const km=(d.routes[0].distance/1000).toFixed(1),mins=Math.round(d.routes[0].duration/60);status('TRASA VYKRESLENÁ • '+km+' km • približne '+mins+' min autom. Tyrkysová = odporúčaná trasa; žltá = alternatíva, ak je dostupná. Odhad OSRM, nie živá doprava. '+s[2]+' → '+e[2]);}catch(e){status('Nepodarilo sa: '+e.message+'. Skúste presnejšiu adresu alebo názov mesta.')}}
-function locate(){if(!navigator.geolocation){status('Poloha nie je dostupná v tomto zobrazení. Zadajte adresu ručne.');return}status('Zisťujem polohu…');navigator.geolocation.getCurrentPosition(async p=>{try{const r=await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat='+p.coords.latitude+'&lon='+p.coords.longitude);const d=await r.json();document.getElementById('from').value=d.display_name||p.coords.latitude+','+p.coords.longitude;map.setView([p.coords.latitude,p.coords.longitude],15);status('Začiatok nastavený podľa polohy zariadenia. Teraz zadajte cieľ.')}catch(e){status('Polohu sa nepodarilo preložiť na adresu. Zadajte ju ručne.')}},()=>status('Povolenie polohy nie je dostupné. Zadajte začiatok ručne.'),{enableHighAccuracy:false,timeout:10000})}
+function locate(){if(!navigator.geolocation){status('Poloha nie je dostupná v tomto zobrazení. Zadajte adresu ručne.');return}status('Zisťujem polohu…');navigator.geolocation.getCurrentPosition(async p=>{try{const r=await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat='+p.coords.latitude+'&lon='+p.coords.longitude);const d=await r.json();document.getElementById('place').value=d.display_name||p.coords.latitude+','+p.coords.longitude;map.setView([p.coords.latitude,p.coords.longitude],16);markers.forEach(x=>map.removeLayer(x));markers=[L.marker([p.coords.latitude,p.coords.longitude]).addTo(map).bindPopup('Vaša poloha').openPopup()];status('Mapa je vycentrovaná na vašu polohu.')}catch(e){status('Polohu sa nepodarilo preložiť na adresu. Zadajte ju ručne.')}},()=>status('Povolenie polohy nie je dostupné. Zadajte začiatok ručne.'),{enableHighAccuracy:false,timeout:10000})}
 </script></body></html>
     """.trimIndent()
     AndroidView(
