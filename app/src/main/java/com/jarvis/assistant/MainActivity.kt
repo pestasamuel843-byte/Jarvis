@@ -287,7 +287,21 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                     }
                 }
                 if (showWorkspace) {
-                    ProjectWorkspace(title = "JARVIS • Interaktívny návrh", description = workspaceDescription, onClose = { showWorkspace = false }, onRefine = { instruction ->\n                        if (key.isNotBlank() && !busy) {\n                            busy = true\n                            chat.add(Message(false, instruction))\n                            scope.launch {\n                                val answer = withContext(Dispatchers.IO) { askAi(endpoint, key, model, (chat.toList().takeLast(20) + Message(false, "Uprav aktívny návrh podľa tejto požiadavky: $instruction. Zachovaj užitočné časti a vysvetli konkrétne zmeny.")), prefs.getString("memories", "").orEmpty()) }\n                                workspaceDescription = answer\n                                prefs.edit().putString("workspace_description", answer).apply()\n                                chat.add(Message(true, answer)); speak(answer); busy = false\n                            }\n                        } else if (key.isBlank()) {\n                            val msg = "Pane, na úpravy návrhu potrebujem nastavený AI kľúč."\n                            chat.add(Message(true, msg)); speak(msg)\n                        }\n                    })
+                    ProjectWorkspace(title = "JARVIS • Interaktívny návrh", description = workspaceDescription, onClose = { showWorkspace = false }, onRefine = { instruction ->
+                        if (key.isNotBlank() && !busy) {
+                            busy = true
+                            chat.add(Message(false, instruction))
+                            scope.launch {
+                                val answer = withContext(Dispatchers.IO) { askAi(endpoint, key, model, (chat.toList().takeLast(20) + Message(false, "Uprav aktívny návrh podľa tejto požiadavky: $instruction. Zachovaj užitočné časti a vysvetli konkrétne zmeny.")), prefs.getString("memories", "").orEmpty()) }
+                                workspaceDescription = answer
+                                prefs.edit().putString("workspace_description", answer).apply()
+                                chat.add(Message(true, answer)); speak(answer); busy = false
+                            }
+                        } else if (key.isBlank()) {
+                            val msg = "Pane, na úpravy návrhu potrebujem nastavený AI kľúč."
+                            chat.add(Message(true, msg)); speak(msg)
+                        }
+                    })
                     Spacer(Modifier.height(10.dp))
                 }
                 Spacer(Modifier.height(14.dp))
