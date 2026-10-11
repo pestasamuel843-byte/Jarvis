@@ -8,7 +8,7 @@ Native Android prototype written in Kotlin and Jetpack Compose. It does not requ
 - Slovak Android speech recognition and text-to-speech.
 - Voice input can run a recognized command after you press the microphone.
 - Removes the prefix “Hej Jarvis” from recognized text; this is **not** an always-listening wake-word service.
-- Local commands: time, date, battery percentage, open YouTube, open Android Settings, open camera, Google search, notes, and Clock app timer.
+- Local commands: time, date, battery percentage, open YouTube, Android Settings, camera, Google search, create/list/delete notes, timer via the Clock app, Wi-Fi settings/status, maps/navigation, browser, calculator (if installed), and open ChatGPT in the browser.
 - AI conversation through a configurable OpenAI-compatible Chat Completions endpoint, with recent conversation context.
 - Project workspace: AI-generated project brief, draggable 3D wireframe cube, finger-drawn canvas, and locally saved sketch.
 - Interactive map workspace using OpenStreetMap/CARTO tiles, place search, zoom/pan, optional current location, and optional route drawing with distance/time estimates. Map requests can open the map workspace directly.
@@ -30,12 +30,12 @@ Open Settings inside JARVIS and provide an OpenAI-compatible Chat Completions en
 
 ## Current limitations — important
 
-This is still an early prototype, not the full autonomous assistant described in the original brief.
+This is still an early prototype, not the full autonomous assistant described in the original brief. The latest source includes additional local voice commands, but each feature still needs testing on the target tablet.
 
-- The phrase “Hej Jarvis” is not monitored continuously in the background. Press the microphone button to speak. Always-on wake-word detection needs a carefully permissioned foreground microphone service and device-specific testing.
+- The app currently cycles Android SpeechRecognizer while its main screen is open. This is not a reliable background/locked-screen wake-word service; recognition availability and offline behavior depend on the Android speech provider. It may consume battery.
 - The 3D view is still a draggable wireframe cube, not an AI-generated arbitrary 3D model. The drawing canvas is a freehand sketch pad.
 - The map is a browsable 2D map, not an AR/holographic 3D city model. Route estimates depend on public geocoding/routing services and do not include live traffic.
-- AI project responses are displayed as text; the app does not yet compile generated source code or turn arbitrary prompts into complete interactive diagrams or 3D scenes.
+- AI project responses are displayed as text; the app does not yet compile generated source code or turn arbitrary prompts into complete interactive diagrams or 3D scenes. The 3D preview remains a simple wireframe cube.
 - The app cannot freely control all other apps, send messages without confirmation, or bypass Android permissions/background restrictions.
 - The API key is stored in app preferences on the device. It is not included in source control, but a production release should use encrypted storage or a secure backend.
 - Build success does not substitute for installing and testing the app on the target tablet.
