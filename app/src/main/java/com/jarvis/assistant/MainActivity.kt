@@ -96,7 +96,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
         input = ""
         chat.add(Message(false, text))
         when {
-            text.contains("projekt", true) || text.contains("nakresli", true) || text.contains("pracovný priestor", true) -> {
+            text.contains("projekt", true) || text.contains("nakresli", true) || text.contains("pracovný priestor", true) || text.contains("navrhni", true) || text.contains("vizualiz", true) || text.contains("premietni", true) || text.contains("ukáž mi v 3d", true) || text.contains("model", true) || text.contains("cestu okolo", true) || text.contains("trasu", true) || text.contains("okolie školy", true) || text.contains("mozog", true) || text.contains("nemocnicu", true) || text.contains("auto", true) -> {
                 showWorkspace = true
                 if (key.isNotBlank()) {
                     val status = "Otváram pracovný priestor a pripravujem návrh, pane."
@@ -287,7 +287,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                     }
                 }
                 if (showWorkspace) {
-                    ProjectWorkspace(title = "JARVIS • Návrh", description = workspaceDescription, onClose = { showWorkspace = false })
+                    ProjectWorkspace(title = "JARVIS • Interaktívny návrh", description = workspaceDescription, onClose = { showWorkspace = false }, onRefine = { instruction ->\n                        if (key.isNotBlank() && !busy) {\n                            busy = true\n                            chat.add(Message(false, instruction))\n                            scope.launch {\n                                val answer = withContext(Dispatchers.IO) { askAi(endpoint, key, model, (chat.toList().takeLast(20) + Message(false, "Uprav aktívny návrh podľa tejto požiadavky: $instruction. Zachovaj užitočné časti a vysvetli konkrétne zmeny.")), prefs.getString("memories", "").orEmpty()) }\n                                workspaceDescription = answer\n                                prefs.edit().putString("workspace_description", answer).apply()\n                                chat.add(Message(true, answer)); speak(answer); busy = false\n                            }\n                        } else if (key.isBlank()) {\n                            val msg = "Pane, na úpravy návrhu potrebujem nastavený AI kľúč."\n                            chat.add(Message(true, msg)); speak(msg)\n                        }\n                    })
                     Spacer(Modifier.height(10.dp))
                 }
                 Spacer(Modifier.height(14.dp))
@@ -318,7 +318,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                     IconButton(onClick = {
                         if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                             listening = true
-                            listen(context, { spoken -> input = spoken; listening = false }, { listening = false })
+                            listen(context, { spoken -> listening = false; handle(spoken) }, { listening = false })
                         } else micPermission.launch(Manifest.permission.RECORD_AUDIO)
                     }) { Text("🎙", fontSize = 22.sp) }
                     Button(onClick = { handle(input) }, enabled = !busy, contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp)) { Text("➤", fontSize = 18.sp) }
@@ -386,7 +386,7 @@ private fun askAi(endpoint: String, key: String, model: String, history: List<Me
             setRequestProperty("Authorization", "Bearer " + key)
         }
         val apiMessages = JSONArray()
-            .put(JSONObject().put("role", "system").put("content", "Si JARVIS, slovenský AI asistent. Používateľa oslovuj pane. Odpovedaj prirodzene, stručne a pravdivo. Máš prístup iba k funkciám, ktoré aplikácia výslovne implementuje; nikdy netvrď, že si vykonal akciu, ktorú aplikácia nepotvrdila. Pri návrhu projektov dávaj jasný plán a štruktúru, ktorú možno zobraziť v pracovnom priestore.\\nTrvalá pamäť používateľa (použi len keď relevantná):\\n" + memory))
+            .put(JSONObject().put("role", "system").put("content", "Si JARVIS, slovenský AI asistent a proaktívny návrhový partner. Používateľa oslovuj pane. Odpovedaj prirodzene, vecne, stručne a pravdivo. Nečakaj iba na pokyny: pri návrhoch projektov sám identifikuj 2 až 4 konkrétne možnosti, vysvetli ich výhody a nevýhody, odporuč najlepšiu možnosť a navrhni ďalší krok. Formuluj praktické návrhy typu: „Toto môžeme umiestniť sem, pretože…“, „Môžeme zvoliť A alebo B…“. Pri vizualizácii rozdeľ odpoveď na: CIEĽ, NÁVRH, ALTERNATÍVY, ODPORÚČANIE, ĎALŠIE ÚPRAVY. Ak používateľ žiada trasu alebo reálne miesto, nikdy si nevymýšľaj skutočné ulice, vzdialenosti ani navigačné pokyny; najprv objasni mesto/adresu, ak nie je jednoznačná, a jasne rozlišuj medzi schematickým konceptom a overenými geografickými dátami. Aplikácia zatiaľ zobrazuje textový návrh a jednoduchý 3D drôtený model; netvrď, že už vie vykresliť ľubovoľné 3D objekty alebo overenú trasu, ak to nebolo skutočne vykonané. Máš prístup iba k funkciám, ktoré aplikácia výslovne implementuje; nikdy netvrď, že si vykonal akciu, ktorú aplikácia nepotvrdila.\\nTrvalá pamäť používateľa (použi len keď relevantná):\\n" + memory))
         history.forEach { message ->
             apiMessages.put(JSONObject()
                 .put("role", if (message.jarvis) "assistant" else "user")
