@@ -134,6 +134,35 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                 runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com"))) }
                     .onFailure { Toast.makeText(context, "YouTube sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
             }
+            text.startsWith("zahraj ", true) || text.startsWith("prehraj ", true) || text.startsWith("pusti hudbu", true) || text.startsWith("pusti pesničku", true) -> {
+                val query = text.substringAfter(' ').let { if (it.equals("hudbu", true)) "hudba" else it }
+                val answer = "Hľadám na YouTube: $query"
+                chat.add(Message(true, answer)); speak(answer)
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/results?search_query=" + URLEncoder.encode(query, "UTF-8")))) }
+                    .onFailure { Toast.makeText(context, "Vyhľadávanie hudby sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+            }
+            text.startsWith("napíš správu ", true) || text.startsWith("napíš sms ", true) || text.startsWith("vytvor správu ", true) -> {
+                val body = text.substringAfter(' ').substringAfter(' ').trim()
+                val answer = "Otváram novú SMS s pripraveným textom. Správu skontrolujte a odošlite sami, pane."
+                chat.add(Message(true, answer)); speak(answer)
+                runCatching {
+                    context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:"))
+                        .putExtra("sms_body", body))
+                }.onFailure { Toast.makeText(context, "SMS aplikáciu sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+            }
+            text.contains("wifi", true) || text.contains("wi-fi", true) || text.contains("internet", true) -> {
+                val connectivity = context.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+                val network = connectivity.activeNetwork
+                val capabilities = connectivity.getNetworkCapabilities(network)
+                val connected = capabilities?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+                val onWifi = capabilities?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) == true
+                val answer = when {
+                    !connected -> "Pane, zariadenie nemá potvrdené pripojenie na internet."
+                    onWifi -> "Pane, zariadenie je pripojené cez Wi-Fi."
+                    else -> "Pane, internet je dostupný cez inú sieť než Wi-Fi."
+                }
+                chat.add(Message(true, answer)); speak(answer)
+            }
             text.contains("otvor nastavenia", true) || text.contains("nastavenia zariadenia", true) -> {
                 val answer = "Otváram nastavenia zariadenia, pane."
                 chat.add(Message(true, answer)); speak(answer)
