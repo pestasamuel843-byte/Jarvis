@@ -1,6 +1,9 @@
 package com.jarvis.assistant
 
 import android.content.Context
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -36,6 +39,7 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
         }
     }
     var activeStroke by remember { mutableStateOf<List<Offset>>(emptyList()) }
+    var mapMode by remember { mutableStateOf(false) }
     Column(
         Modifier.fillMaxWidth().background(Color(0xFF0C1420), RoundedCornerShape(18.dp)).padding(12.dp)
     ) {
@@ -59,6 +63,13 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
             }
         }
         Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { mapMode = false }, colors = ButtonDefaults.buttonColors(containerColor = if (!mapMode) WorkCyan.copy(alpha = 0.18f) else Color(0xFF172638))) { Text("PROJEKT / 3D", color = WorkCyan) }
+            Button(onClick = { mapMode = true }, colors = ButtonDefaults.buttonColors(containerColor = if (mapMode) WorkCyan.copy(alpha = 0.18f) else Color(0xFF172638))) { Text("HOLOGRAFICKÁ MAPA", color = WorkCyan) }
+        }
+        if (mapMode) {
+            NavigationProjection()
+        } else {
         Text("ČO NAVRHUJEME ĎALEJ?", color = WorkCyan, style = MaterialTheme.typography.labelSmall)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             TextButton(onClick = { onRefine("Navrhni 3 odlišné alternatívy aktuálneho návrhu, porovnaj ich výhody a odporuč jednu.") }) { Text("Alternatívy", color = WorkCyan) }
@@ -112,7 +123,57 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
         }
         Spacer(Modifier.height(8.dp))
         Text("Náčrt sa ukladá lokálne v tablete.", color = Color(0xFF8195A8), style = MaterialTheme.typography.labelSmall)
+        }
     }
+}
+
+@Composable
+private fun NavigationProjection() {
+    val html = """
+<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#07101a;color:#e7faff;font:14px Arial,sans-serif}
+.top{padding:12px;background:linear-gradient(135deg,#102b40,#07101a);border:1px solid #21495d;border-radius:14px}
+.brand{color:#4deBff;font-size:11px;letter-spacing:2px;font-weight:bold;margin-bottom:8px}
+input,button{width:100%;padding:11px;margin:4px 0;border-radius:8px;border:1px solid #2b5368;background:#0b1a28;color:#fff;font-size:14px}
+button{background:#123c50;color:#4deBff;font-weight:bold;border-color:#28748a}
+#map{height:360px;margin-top:10px;border-radius:12px;border:1px solid #24556a;overflow:hidden}
+.status{color:#9dbac9;font-size:12px;padding:8px 2px;line-height:1.4}
+.leaflet-container{background:#07101a}
+</style></head><body>
+<div class="top"><div class="brand">J.A.R.V.I.S. / TACTICAL ROUTE DISPLAY</div>
+<input id="from" placeholder="Odkiaľ? (adresa alebo miesto)">
+<input id="to" placeholder="Kam? Napr. škola Komenského, mesto">
+<button onclick="route()">VYPOČÍTAŤ A PREMietnuť TRASU</button>
+<button onclick="locate()">POUŽIŤ MOJU POLOHU</button>
+<div id="status" class="status">Skutočné mapové dáta OpenStreetMap. Zadajte začiatok a cieľ; pri nejednoznačnom názve doplňte mesto.</div></div>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const map=L.map('map',{zoomControl:true}).setView([48.1486,17.1077],6);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
+let routeLayers=[],markers=[];
+function status(s){document.getElementById('status').textContent=s}
+async function geocode(q){const u='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='+encodeURIComponent(q);const r=await fetch(u,{headers:{'Accept-Language':'sk'}});if(!r.ok)throw Error('Vyhľadanie miesta zlyhalo');const a=await r.json();if(!a.length)throw Error('Miesto sa nenašlo: '+q);return [Number(a[0].lon),Number(a[0].lat),a[0].display_name]}
+async function route(){const a=document.getElementById('from').value.trim(),b=document.getElementById('to').value.trim();if(!a||!b){status('Vyplňte začiatok aj cieľ.');return}status('Vyhľadávam miesta a počítam trasu…');try{const [s,e]=await Promise.all([geocode(a),geocode(b)]);const u='https://router.project-osrm.org/route/v1/driving/'+s[0]+','+s[1]+';'+e[0]+','+e[1]+'?overview=full&geometries=geojson&alternatives=true&steps=true';const r=await fetch(u);if(!r.ok)throw Error('Služba trás momentálne neodpovedá');const d=await r.json();if(d.code!=='Ok'||!d.routes.length)throw Error('Trasu sa nepodarilo vypočítať');routeLayers.forEach(x=>map.removeLayer(x));markers.forEach(x=>map.removeLayer(x));routeLayers=[];markers=[];d.routes.forEach((rt,i)=>{const l=L.geoJSON(rt.geometry,{style:{color:i===0?'#4deBff':'#f4c95d',weight:i===0?6:4,opacity:i===0?0.95:0.65,dashArray:i===0?null:'8 8'}}).addTo(map);routeLayers.push(l)});markers.push(L.marker([s[1],s[0]]).addTo(map).bindPopup('Štart: '+s[2]));markers.push(L.marker([e[1],e[0]]).addTo(map).bindPopup('Cieľ: '+e[2]));map.fitBounds(routeLayers[0].getBounds(),{padding:[25,25]});const km=(d.routes[0].distance/1000).toFixed(1),mins=Math.round(d.routes[0].duration/60);status('TRASA VYKRESLENÁ • '+km+' km • približne '+mins+' min autom. Tyrkysová = odporúčaná trasa; žltá = alternatíva, ak je dostupná. Odhad OSRM, nie živá doprava. '+s[2]+' → '+e[2]);}catch(e){status('Nepodarilo sa: '+e.message+'. Skúste presnejšiu adresu alebo názov mesta.')}}
+function locate(){if(!navigator.geolocation){status('Poloha nie je dostupná v tomto zobrazení. Zadajte adresu ručne.');return}status('Zisťujem polohu…');navigator.geolocation.getCurrentPosition(async p=>{try{const r=await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat='+p.coords.latitude+'&lon='+p.coords.longitude);const d=await r.json();document.getElementById('from').value=d.display_name||p.coords.latitude+','+p.coords.longitude;map.setView([p.coords.latitude,p.coords.longitude],15);status('Začiatok nastavený podľa polohy zariadenia. Teraz zadajte cieľ.')}catch(e){status('Polohu sa nepodarilo preložiť na adresu. Zadajte ju ručne.')}},()=>status('Povolenie polohy nie je dostupné. Zadajte začiatok ručne.'),{enableHighAccuracy:false,timeout:10000})}
+</script></body></html>
+    """.trimIndent()
+    AndroidView(
+        modifier = Modifier.fillMaxWidth().height(510.dp),
+        factory = { ctx ->
+            WebView(ctx).apply {
+                webViewClient = WebViewClient()
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                settings.setGeolocationEnabled(true)
+                setBackgroundColor(android.graphics.Color.rgb(7, 16, 26))
+                loadDataWithBaseURL("https://jarvis.local/", html, "text/html", "UTF-8", null)
+            }
+        },
+        update = { }
+    )
 }
 
 @Composable
