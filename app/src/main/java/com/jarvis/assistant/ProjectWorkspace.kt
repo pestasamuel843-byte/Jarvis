@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 private val WorkCyan = Color(0xFF4DEBFF)
 
 @Composable
-fun ProjectWorkspace(title: String, onClose: () -> Unit) {
+fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit) {
     val strokes = remember { mutableStateListOf<List<Offset>>() }
     var activeStroke by remember { mutableStateOf<List<Offset>>(emptyList()) }
     Column(
@@ -32,6 +32,14 @@ fun ProjectWorkspace(title: String, onClose: () -> Unit) {
             TextButton(onClick = onClose) { Text("Zavrieť", color = WorkCyan) }
         }
         Spacer(Modifier.height(8.dp))
+        Surface(color = Color(0xFF111F2D), shape = RoundedCornerShape(12.dp)) {
+            Column(Modifier.fillMaxWidth().padding(10.dp)) {
+                Text("NÁVRH OD JARVIS", color = WorkCyan, style = MaterialTheme.typography.labelSmall)
+                Spacer(Modifier.height(4.dp))
+                Text(description, color = Color(0xFFE2EDF7), style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        Spacer(Modifier.height(10.dp))
         Text("Náčrtová plocha • kresli prstom", color = Color(0xFF9BAFC2), style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(8.dp))
         Canvas(
