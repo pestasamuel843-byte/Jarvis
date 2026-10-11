@@ -13,6 +13,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
+import kotlin.math.cos
+import kotlin.math.sin
 
 private val WorkCyan = Color(0xFF4DEBFF)
 
@@ -40,6 +42,10 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit) {
             }
         }
         Spacer(Modifier.height(10.dp))
+        Text("INTERAKTÍVNY 3D NÁHĽAD • otáčaj prstom", color = WorkCyan, style = MaterialTheme.typography.labelSmall)
+        Spacer(Modifier.height(6.dp))
+        WireframeCube()
+        Spacer(Modifier.height(12.dp))
         Text("Náčrtová plocha • kresli prstom", color = Color(0xFF9BAFC2), style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(8.dp))
         Canvas(
@@ -72,5 +78,54 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit) {
         }
         Spacer(Modifier.height(8.dp))
         Text("Náčrt sa zatiaľ ukladá iba počas otvorenia tejto obrazovky.", color = Color(0xFF8195A8), style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+@Composable
+private fun WireframeCube() {
+    var rotationY by remember { mutableFloatStateOf(0.55f) }
+    var rotationX by remember { mutableFloatStateOf(-0.35f) }
+    Canvas(
+        Modifier.fillMaxWidth().height(160.dp)
+            .background(Color(0xFF07101A), RoundedCornerShape(12.dp))
+            .pointerInput(Unit) {
+                detectDragGestures { change, drag ->
+                    change.consume()
+                    rotationY += drag.x * 0.012f
+                    rotationX = (rotationX + drag.y * 0.012f).coerceIn(-1.4f, 1.4f)
+                }
+            }
+    ) {
+        val vertices = listOf(
+            floatArrayOf(-1f, -1f, -1f), floatArrayOf(1f, -1f, -1f),
+            floatArrayOf(1f, 1f, -1f), floatArrayOf(-1f, 1f, -1f),
+            floatArrayOf(-1f, -1f, 1f), floatArrayOf(1f, -1f, 1f),
+            floatArrayOf(1f, 1f, 1f), floatArrayOf(-1f, 1f, 1f)
+        )
+        val projected = vertices.map { v ->
+            val x1 = v[0] * cos(rotationY) - v[2] * sin(rotationY)
+            val z1 = v[0] * sin(rotationY) + v[2] * cos(rotationY)
+            val y2 = v[1] * cos(rotationX) - z1 * sin(rotationX)
+            val z2 = v[1] * sin(rotationX) + z1 * cos(rotationX)
+            val perspective = 1.0f / (2.8f - z2 * 0.25f)
+            Offset(size.width / 2f + x1 * size.minDimension * 0.28f * perspective,
+                size.height / 2f + y2 * size.minDimension * 0.28f * perspective)
+        }
+        val edges = listOf(
+            0 to 1, 1 to 2, 2 to 3, 3 to 0,
+            4 to 5, 5 to 6, 6 to 7, 7 to 4,
+            0 to 4, 1 to 5, 2 to 6, 3 to 7
+        )
+        val gridColor = Color(0xFF183244)
+        var x = 0f
+        while (x < size.width) { drawLine(gridColor, Offset(x, 0f), Offset(x, size.height), 1f); x += 28.dp.toPx() }
+        var y = 0f
+        while (y < size.height) { drawLine(gridColor, Offset(0f, y), Offset(size.width, y), 1f); y += 28.dp.toPx() }
+        edges.forEach { (a, b) ->
+            drawLine(WorkCyan, projected[a], projected[b], strokeWidth = 2.dp.toPx())
+        }
+        projected.forEach { point ->
+            drawCircle(WorkCyan, radius = 3.dp.toPx(), center = point)
+        }
     }
 }
