@@ -122,6 +122,26 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                     chat.add(Message(true, answer)); speak(answer)
                 }
             }
+            Regex("(-?\\d+(?:[.,]\\d+)?)\\s*(\\+|plus|\\-|mínus|krat|krát|delené|/|\\*|×|x)\\s*(-?\\d+(?:[.,]\\d+)?)", RegexOption.IGNORE_CASE).find(text) != null -> {
+                val match = Regex("(-?\\d+(?:[.,]\\d+)?)\\s*(\\+|plus|\\-|mínus|krat|krát|delené|/|\\*|×|x)\\s*(-?\\d+(?:[.,]\\d+)?)", RegexOption.IGNORE_CASE).find(text)!!
+                val a = match.groupValues[1].replace(',', '.').toDoubleOrNull()
+                val op = match.groupValues[2].lowercase(Locale.ROOT)
+                val b = match.groupValues[3].replace(',', '.').toDoubleOrNull()
+                val result = if (a == null || b == null) null else when (op) {
+                    "+", "plus" -> a + b
+                    "-", "mínus" -> a - b
+                    "*", "x", "×", "krat", "krát" -> a * b
+                    "/", "delené" -> if (b == 0.0) null else a / b
+                    else -> null
+                }
+                val answer = when {
+                    a == null || b == null -> "Výraz sa mi nepodarilo vypočítať, pane."
+                    (op == "/" || op == "delené") && b == 0.0 -> "Nulou sa deliť nedá, pane."
+                    result == null -> "Výraz sa mi nepodarilo vypočítať, pane."
+                    else -> "$a $op $b = " + String.format(Locale("sk", "SK"), "%.4f", result).trimEnd('0').trimEnd(',')
+                }
+                chat.add(Message(true, answer)); speak(answer)
+            }
             text.contains("batéria", true) || text.contains("stav batérie", true) -> {
                 val battery = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
                 val percent = battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
@@ -208,6 +228,19 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                 runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://chatgpt.com"))) }
                     .onFailure { Toast.makeText(context, "ChatGPT sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
             }
+            text.startsWith("otvor aplikáciu ", true) || text.startsWith("spusti aplikáciu ", true) -> {
+                val requested = text.substringAfter("aplikáciu ", "").trim()
+                val launchIntent = context.packageManager.getLaunchIntentForPackage(requested)
+                if (launchIntent != null) {
+                    val answer = "Otváram aplikáciu $requested, pane."
+                    chat.add(Message(true, answer)); speak(answer)
+                    runCatching { context.startActivity(launchIntent) }
+                } else {
+                    val answer = "Neviem nájsť aplikáciu podľa presného názvu balíka. Otváram zoznam aplikácií v nastaveniach, pane."
+                    chat.add(Message(true, answer)); speak(answer)
+                    runCatching { context.startActivity(Intent(android.provider.Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS)) }
+                }
+            }
             text.contains("otvor youtube", true) || text.contains("spusti youtube", true) -> {
                 val answer = "Otváram YouTube, pane."
                 chat.add(Message(true, answer)); speak(answer)
@@ -263,6 +296,25 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                 chat.add(Message(true, answer)); speak(answer)
                 runCatching { context.startActivity(Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE)) }
                     .onFailure { Toast.makeText(context, "Fotoaparát sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+            }
+            text.contains("nastav budík", true) || text.contains("budík na", true) -> {
+                val timeMatch = Regex("(?:na\\s+)?(\\d{1,2})[:.]([0-5]\\d)").find(text)
+                if (timeMatch == null) {
+                    val answer = "Pane, povedzte čas vo formáte hodiny a minúty, napríklad: nastav budík na 7:30."
+                    chat.add(Message(true, answer)); speak(answer)
+                } else {
+                    val hour = timeMatch.groupValues[1].toInt().coerceIn(0, 23)
+                    val minute = timeMatch.groupValues[2].toInt().coerceIn(0, 59)
+                    val answer = "Otváram nastavenie budíka na %02d:%02d, pane.".format(Locale.ROOT, hour, minute)
+                    chat.add(Message(true, answer)); speak(answer)
+                    runCatching {
+                        context.startActivity(Intent(android.provider.AlarmClock.ACTION_SET_ALARM)
+                            .putExtra(android.provider.AlarmClock.EXTRA_HOUR, hour)
+                            .putExtra(android.provider.AlarmClock.EXTRA_MINUTES, minute)
+                            .putExtra(android.provider.AlarmClock.EXTRA_MESSAGE, "JARVIS")
+                            .putExtra(android.provider.AlarmClock.EXTRA_SKIP_UI, false))
+                    }.onFailure { Toast.makeText(context, "Aplikáciu budíka sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+                }
             }
             text.contains("stopky", true) || text.contains("časovač", true) || text.contains("timer", true) -> {
                 val match = Regex("(\\d+)\\s*(minút|minúty|minúta|min|sekúnd|sekundy|sekunda|sek)").find(text)
