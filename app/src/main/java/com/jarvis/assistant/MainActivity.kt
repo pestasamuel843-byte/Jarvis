@@ -516,67 +516,115 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                     TextButton(onClick = { settings = true }) { Text("⚙", color = Cyan, fontSize = 22.sp) }
                 }
                 if (!showWorkspace) {
-                    Spacer(Modifier.height(18.dp))
+                    Spacer(Modifier.height(8.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column {
-                            Text("OSOBNÝ AI SYSTÉM", color = Muted, fontSize = 10.sp, letterSpacing = 2.sp)
+                            Text("OSOBNÝ SYSTÉM • ONLINE", color = Cyan, fontSize = 10.sp, letterSpacing = 2.sp)
                             Text("Dobrý deň, pane.", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Light)
+                            Text(SimpleDateFormat("EEEE, d. MMMM", Locale("sk", "SK")).format(Date()).uppercase(Locale("sk", "SK")), color = Muted, fontSize = 10.sp)
                         }
                         Column(horizontalAlignment = Alignment.End) {
-                            Text("J.A.R.V.I.S.", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            Text(if (busy) "PROCESSING" else "ONLINE", color = if (busy) Color(0xFFFFC66D) else Color(0xFF69F0AE), fontSize = 10.sp, letterSpacing = 1.sp)
+                            Text(SimpleDateFormat("HH:mm", Locale("sk", "SK")).format(Date()), color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Light)
+                            Text(if (busy) "SPRACÚVAM" else "SYSTÉMY ONLINE", color = if (busy) Color(0xFFFFC66D) else Color(0xFF69F0AE), fontSize = 9.sp, letterSpacing = 1.sp)
                         }
                     }
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(12.dp))
+                    // Central holographic JARVIS core
                     Box(
-                        Modifier.fillMaxWidth().height(205.dp)
-                            .background(Brush.radialGradient(listOf(Color(0xFF153F56), Color(0xFF0B1828), Color(0xFF080D16))), RoundedCornerShape(24.dp)),
+                        Modifier.fillMaxWidth().height(220.dp)
+                            .background(Brush.radialGradient(listOf(Color(0xFF124A62), Color(0xFF0A1B2B), Color(0xFF060B13))), RoundedCornerShape(24.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                            Box(Modifier.size(126.dp).background(Color(0xFF0A1725), CircleShape), contentAlignment = Alignment.Center) {
-                                Box(Modifier.size(108.dp).background(Cyan.copy(alpha = .08f), CircleShape), contentAlignment = Alignment.Center) {
-                                    Box(Modifier.size(84.dp).background(Cyan.copy(alpha = .12f), CircleShape), contentAlignment = Alignment.Center) {
-                                        Text("J", color = Cyan, fontSize = 56.sp, fontWeight = FontWeight.Light)
+                        Box(Modifier.size(184.dp).background(Cyan.copy(alpha = .035f), CircleShape), contentAlignment = Alignment.Center) {
+                            Box(Modifier.size(158.dp).background(Color.Transparent, CircleShape).padding(5.dp)) {
+                                Box(Modifier.fillMaxSize().background(Cyan.copy(alpha = .08f), CircleShape), contentAlignment = Alignment.Center) {
+                                    Box(Modifier.size(120.dp).background(Color(0xFF081421), CircleShape), contentAlignment = Alignment.Center) {
+                                        Box(Modifier.size(104.dp).background(Cyan.copy(alpha = .11f), CircleShape), contentAlignment = Alignment.Center) {
+                                            Text("J", color = Cyan, fontSize = 72.sp, fontWeight = FontWeight.ExtraLight)
+                                        }
                                     }
                                 }
                             }
-                            Spacer(Modifier.height(12.dp))
-                            Text(if (busy) "SPRACÚVAM POŽIADAVKU" else if (listening) "HLASOVÝ SYSTÉM AKTÍVNY" else "ČAKÁM NA POKYN", color = Cyan, fontSize = 10.sp, letterSpacing = 2.sp)
-                            Spacer(Modifier.height(5.dp))
-                            Text(if (wakeMode) "POHOTOVOSTNÝ REŽIM • SLOVENČINA" else "HLASOVÉ OVLÁDANIE VYPNUTÉ", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
+                        }
+                        Column(Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(if (busy) "ANALYZUJEM POŽIADAVKU" else if (listening) "JARVIS • PRIPRAVENÝ POČÚVAŤ" else "HLASOVÝ SYSTÉM POZASTAVENÝ", color = Cyan, fontSize = 10.sp, letterSpacing = 1.5.sp)
+                            Text("„Hej Jarvis…“", color = Muted, fontSize = 11.sp)
                         }
                     }
-                    Spacer(Modifier.height(14.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Column(Modifier.weight(1f).background(Panel, RoundedCornerShape(16.dp)).padding(13.dp)) {
-                            Text("01 / HLAS", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
-                            Text(if (wakeMode) "Aktívny" else "Vypnutý", color = if (wakeMode) Cyan else Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                            Text("Hey Jarvis", color = Muted, fontSize = 10.sp)
+                    Spacer(Modifier.height(12.dp))
+                    // Dashboard tiles: weather is a live lookup, never a fabricated temperature.
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                        Column(Modifier.weight(1f).background(Panel, RoundedCornerShape(15.dp)).padding(12.dp)) {
+                            Text("☀  POČASIE VONKU", color = Cyan, fontSize = 9.sp, letterSpacing = 1.sp)
+                            Text("Zistiť teplotu", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                            Text("Aktuálne podmienky", color = Muted, fontSize = 10.sp)
+                            TextButton(onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=po%C4%8Dasie+teraz+Ko%C5%A1ice"))) } }) { Text("POČASIE ↗", color = Cyan, fontSize = 10.sp) }
                         }
-                        Column(Modifier.weight(1f).background(Panel, RoundedCornerShape(16.dp)).padding(13.dp)) {
-                            Text("02 / AI", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
-                            Text(if (key.isNotBlank()) "Pripojená" else "Nenastavená", color = if (key.isNotBlank()) Cyan else Color(0xFFFFC66D), fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                            Text(model, color = Muted, fontSize = 10.sp, maxLines = 1)
+                        Column(Modifier.weight(1f).background(Panel, RoundedCornerShape(15.dp)).padding(12.dp)) {
+                            Text("◉  MAPA", color = Cyan, fontSize = 9.sp, letterSpacing = 1.sp)
+                            Text("Holografická", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                            Text("Miesta a trasy", color = Muted, fontSize = 10.sp)
+                            TextButton(onClick = { showWorkspace = true; lastWorkspaceRequest = "mapa" }) { Text("OTVORIŤ MAPU ↗", color = Cyan, fontSize = 10.sp) }
                         }
                     }
-                    Spacer(Modifier.height(14.dp))
-                    Text("RÝCHLE AKCIE", color = Muted, fontSize = 10.sp, letterSpacing = 2.sp)
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(9.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                        Column(Modifier.weight(1f).background(Panel, RoundedCornerShape(15.dp)).padding(12.dp)) {
+                            Text("▣  MOJE ÚLOHY", color = Cyan, fontSize = 9.sp, letterSpacing = 1.sp)
+                            Text("Plán a pripomienky", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text("Povedz „pripomeň mi…“", color = Muted, fontSize = 10.sp)
+                            TextButton(onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALENDAR)) }.onFailure { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://calendar.google.com"))) } }) { Text("OTVORIŤ ÚLOHY ↗", color = Cyan, fontSize = 10.sp) }
+                        }
+                        Column(Modifier.weight(1f).background(Panel, RoundedCornerShape(15.dp)).padding(12.dp)) {
+                            Text("⌁  ZARIADENIE", color = Cyan, fontSize = 9.sp, letterSpacing = 1.sp)
+                            val battery = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+                            val percent = battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+                            Text(if (percent >= 0) "$percent% batéria" else "Stav batérie", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                            Text(if (wakeMode) "Mikrofón • aktívny" else "Mikrofón • vypnutý", color = Muted, fontSize = 10.sp)
+                            TextButton(onClick = { runCatching { context.startActivity(Intent(android.provider.Settings.ACTION_DISPLAY_SETTINGS)) } }) { Text("SVETLO / DISPLEJ ↗", color = Cyan, fontSize = 10.sp) }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = {
-                            if (wakeMode) { wakeMode = false; listening = false }
-                            else if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) { wakeMode = true; listening = true }
-                            else micPermission.launch(Manifest.permission.RECORD_AUDIO)
-                        }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 5.dp, vertical = 10.dp)) {
-                            Text(if (wakeMode) "Vypnúť hlas" else "Zapnúť hlas", fontSize = 10.sp)
+                        Button(onClick = { if (wakeMode) { wakeMode = false; listening = false } else if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) { wakeMode = true; listening = true } else micPermission.launch(Manifest.permission.RECORD_AUDIO) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(vertical = 10.dp)) {
+                            Text(if (wakeMode) "VYPNÚŤ HLAS" else "ZAPNÚŤ HLAS", fontSize = 10.sp)
                         }
-                        Button(onClick = { showWorkspace = true }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 5.dp, vertical = 10.dp)) {
-                            Text("Pracovný priestor", fontSize = 10.sp)
-                        }
+                        Button(onClick = { showWorkspace = true }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(vertical = 10.dp)) { Text("TVORIŤ / 3D", fontSize = 10.sp) }
                     }
-                    Spacer(Modifier.height(5.dp))
+                    Spacer(Modifier.height(12.dp))
+                    Text("KONVERZÁCIA", color = Muted, fontSize = 10.sp, letterSpacing = 2.sp)
+                    Spacer(Modifier.height(6.dp))
+                    LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(chat) { message ->
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = if (message.jarvis) Arrangement.Start else Arrangement.End) {
+                                Column(Modifier.fillMaxWidth(.88f).background(if (message.jarvis) Panel else Color(0xFF123346), RoundedCornerShape(14.dp)).padding(11.dp)) {
+                                    Text(if (message.jarvis) "JARVIS" else "PANE", color = if (message.jarvis) Cyan else Color(0xFFB9D8FF), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    Spacer(Modifier.height(3.dp))
+                                    Text(message.text, color = Color.White, fontSize = 14.sp)
+                                }
+                            }
+                        }
+                        if (busy) item { Text("JARVIS pripravuje odpoveď…", color = Muted, fontSize = 12.sp) }
+                    }
                 }
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = input, onValueChange = { input = it }, modifier = Modifier.weight(1f),
+                        placeholder = { Text("Čo si želáte, pane?", color = Muted) }, singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                        keyboardActions = KeyboardActions(onSend = { handle(input) }),
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Cyan, unfocusedBorderColor = Color(0xFF2C455A), focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                    )
+                    IconButton(onClick = {
+                        if (wakeMode) { wakeMode = false; listening = false }
+                        else if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) { wakeMode = true; listening = true }
+                        else micPermission.launch(Manifest.permission.RECORD_AUDIO)
+                    }) { Text(if (wakeMode) "🎙" else "🎤", fontSize = 22.sp) }
+                    Button(onClick = { handle(input) }, enabled = !busy, contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp)) { Text("➤", fontSize = 18.sp) }
+                }
+                Text(if (wakeMode) "JARVIS počúva. Povedzte „Hej Jarvis“." else "Hlasové prebudenie je vypnuté. Stlačte mikrofón na zapnutie.", color = Muted, fontSize = 10.sp)
                 if (showWorkspace) {
                     ProjectWorkspace(title = "JARVIS • Interaktívny návrh", description = workspaceDescription, onClose = { showWorkspace = false }, initialMapMode = lastWorkspaceRequest.contains("premiet", true) || lastWorkspaceRequest.contains("cestu okolo", true) || lastWorkspaceRequest.contains("trasu", true) || lastWorkspaceRequest.contains("mapu", true) || lastWorkspaceRequest.contains("okolie školy", true), onRefine = { instruction ->
                         if (key.isNotBlank() && !busy) {
