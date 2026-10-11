@@ -1052,7 +1052,7 @@ Pri návrhoch projektov identifikuj praktické možnosti, odporuč najlepšiu a 
 Máš prístup iba k funkciám, ktoré aplikácia výslovne implementuje; nikdy netvrď, že si vykonal akciu, ktorú aplikácia nepotvrdila.
 Trvalá pamäť používateľa (použi len keď relevantná):
 $memory
-\${if (webContext.isNotBlank()) "\nWEBOVÉ VÝSLEDKY (môžu byť neúplné; používaj ich kriticky):\n$webContext" else ""}
+${if (webContext.isNotBlank()) "\nWEBOVÉ VÝSLEDKY (môžu byť neúplné; používaj ich kriticky):\n$webContext" else ""}
 """.trimIndent()
         connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
@@ -1087,9 +1087,9 @@ $memory
             }.getOrDefault("")
             when (code) {
                 401 -> "Pane, AI odmietla API kľúč (401). Skontrolujte, či je kľúč správny a aktívny."
-                402, 429 -> "Pane, AI odmietla požiadavku (HTTP $code). Skontrolujte kredit, limit alebo kvótu účtu. \${detail.take(220)}"
-                404 -> "Pane, endpoint alebo model neexistuje (404). Skontrolujte API endpoint a presný názov modelu. \${detail.take(220)}"
-                else -> "Pane, AI služba vrátila chybu HTTP $code. \${detail.take(260)}"
+                402, 429 -> "Pane, AI odmietla požiadavku (HTTP $code). Skontrolujte kredit, limit alebo kvótu účtu. ${detail.take(220)}"
+                404 -> "Pane, endpoint alebo model neexistuje (404). Skontrolujte API endpoint a presný názov modelu. ${detail.take(220)}"
+                else -> "Pane, AI služba vrátila chybu HTTP $code. ${detail.take(260)}"
             }
         } else {
             val json = JSONObject(response)
@@ -1109,7 +1109,7 @@ $memory
         if (message.contains("Unable to resolve host", true) || message.contains("UnknownHost", true))
             "Pane, zariadenie sa nevie pripojiť na internet. Skontrolujte Wi-Fi alebo mobilné dáta."
         else
-            "Pane, spojenie s AI zlyhalo: \${message.take(180).ifBlank { "neznáma chyba" }}. Skontrolujte internet, endpoint a nastavenia modelu."
+            "Pane, spojenie s AI zlyhalo: ${message.take(180).ifBlank { "neznáma chyba" }}. Skontrolujte internet, endpoint a nastavenia modelu."
     } finally {
         connection?.disconnect()
     }
