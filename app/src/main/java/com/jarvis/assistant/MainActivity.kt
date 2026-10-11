@@ -74,19 +74,22 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         if (status == TextToSpeech.SUCCESS) {
             val engine = tts ?: return
             engine.language = Locale("sk", "SK")
-            // Slightly slower and lower-pitched speech sounds clearer and less rushed on tablet speakers.
-            // Android only exposes the voices installed by the selected TTS engine; an exact Lukáš voice
-            // cannot be guaranteed unless that engine actually provides it.
-            engine.setSpeechRate(0.93f)
-            engine.setPitch(0.88f)
-            // Prefer a locally installed Slovak male voice, if the Android TTS engine provides one.
+            engine.setSpeechRate(0.96f)
+            engine.setPitch(1.0f)
+            // Select only an explicitly identified Slovak male voice. Never pretend that pitch-shifting
+            // a female voice makes it male; Android can use only voices installed by its TTS provider.
             val maleSlovak = engine.voices
                 ?.filter { it.locale.language == "sk" }
                 ?.firstOrNull {
                     val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
-                    name.contains("lukas") || name.contains("lukáš") || name.contains("male") || name.contains("masculine")
+                    name.contains("lukas") || name.contains("lukáš") ||
+                        name.contains("male") || name.contains("masculine") || name.contains("muž")
                 }
-            if (maleSlovak != null) engine.voice = maleSlovak
+            if (maleSlovak != null) {
+                engine.voice = maleSlovak
+            } else {
+                android.util.Log.w("JARVIS-TTS", "No explicitly identified Slovak male voice installed; using Android default Slovak voice.")
+            }
         }
     }
     private fun speak(text: String) {
@@ -684,30 +687,59 @@ private fun JarvisDashboard(
                 Text(if (aiReady) "AI PRIPOJENÁ" else "LOKÁLNY REŽIM", color = Muted, fontSize = 9.sp)
             }
         }
-        Box(Modifier.fillMaxWidth().height(220.dp).background(Brush.radialGradient(listOf(Color(0xFF174D68), Color(0xFF0B1B2B), Color(0xFF070B12))), RoundedCornerShape(24.dp)), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.fillMaxWidth().height(280.dp)
+                .background(Brush.radialGradient(listOf(Color(0xFF174D68), Color(0xFF0B1B2B), Color(0xFF04070C))), RoundedCornerShape(24.dp))
+        ) {
             Canvas(Modifier.fillMaxSize()) {
                 val cx = size.width / 2f
                 val cy = size.height / 2f
-                for (i in 1..5) drawCircle(Cyan.copy(alpha = 0.09f), radius = i * 36.dp.toPx(), center = Offset(cx, cy), style = Stroke(width = 1.dp.toPx()))
+                val scale = minOf(size.width, size.height)
+                // Technical targeting rings and radial divisions inspired by the film's holographic UI.
+                for (i in 1..6) drawCircle(Cyan.copy(alpha = if (i % 2 == 0) 0.13f else 0.07f), radius = i * scale / 13f, center = Offset(cx, cy), style = Stroke(width = if (i == 3) 1.8.dp.toPx() else 0.8.dp.toPx()))
+                for (i in 0..23) {
+                    val a = Math.PI * 2.0 * i / 24.0
+                    val r1 = scale * 0.31f
+                    val r2 = scale * if (i % 3 == 0) 0.38f else 0.35f
+                    drawLine(Cyan.copy(alpha = if (i % 3 == 0) 0.75f else 0.22f), Offset(cx + kotlin.math.cos(a).toFloat() * r1, cy + kotlin.math.sin(a).toFloat() * r1), Offset(cx + kotlin.math.cos(a).toFloat() * r2, cy + kotlin.math.sin(a).toFloat() * r2), 1.dp.toPx())
+                }
                 drawLine(Cyan.copy(alpha = 0.12f), Offset(cx, 0f), Offset(cx, size.height), 1.dp.toPx())
                 drawLine(Cyan.copy(alpha = 0.12f), Offset(0f, cy), Offset(size.width, cy), 1.dp.toPx())
+                drawCircle(Cyan.copy(alpha = 0.18f), radius = 3.dp.toPx(), center = Offset(cx, cy))
+                // Small target markers around the central core.
+                listOf(Offset(size.width * .16f, size.height * .38f), Offset(size.width * .83f, size.height * .42f), Offset(size.width * .22f, size.height * .72f), Offset(size.width * .78f, size.height * .72f)).forEach {
+                    drawCircle(Cyan.copy(alpha = .55f), radius = 3.dp.toPx(), center = it)
+                    drawCircle(Cyan.copy(alpha = .2f), radius = 10.dp.toPx(), center = it, style = Stroke(width = 1.dp.toPx()))
+                }
             }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(Modifier.size(112.dp).background(Cyan.copy(alpha = .08f), CircleShape), contentAlignment = Alignment.Center) {
-                    Box(Modifier.size(88.dp).background(Cyan.copy(alpha = .13f), CircleShape), contentAlignment = Alignment.Center) {
-                        Box(Modifier.size(68.dp).background(Brush.radialGradient(listOf(Color(0xFF1E657C), Color(0xFF081723))), CircleShape), contentAlignment = Alignment.Center) {
-                            Text("J", color = Cyan, fontSize = 52.sp, fontWeight = FontWeight.Light)
+            Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.size(100.dp).background(Cyan.copy(alpha = .05f), CircleShape), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(80.dp).background(Cyan.copy(alpha = .09f), CircleShape), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(62.dp).background(Brush.radialGradient(listOf(Color(0xFF2B91A8), Color(0xFF081723))), CircleShape), contentAlignment = Alignment.Center) {
+                            Text("J", color = Cyan, fontSize = 48.sp, fontWeight = FontWeight.Light)
                         }
                     }
                 }
                 Spacer(Modifier.height(8.dp))
-                Text("J.A.R.V.I.S.", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold, letterSpacing = 4.sp)
-                Text(if (busy) "ANALYZUJEM POŽIADAVKU" else if (wakeMode) "POČÚVAM • HEJ JARVIS" else "PRIPRAVENÝ NA POKYN", color = Cyan, fontSize = 9.sp, letterSpacing = 1.5.sp)
+                Text("J.A.R.V.I.S.", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = 5.sp)
+                Text(if (busy) "ANALYZUJEM POŽIADAVKU" else if (wakeMode) "◉ AKTÍVNE POČÚVANIE" else "PRIPRAVENÝ NA POKYN", color = Cyan, fontSize = 9.sp, letterSpacing = 1.5.sp)
             }
-            Text("MK–01", Modifier.align(Alignment.TopStart).padding(14.dp), color = Muted, fontSize = 9.sp)
-            Text("CORE ACTIVE", Modifier.align(Alignment.TopEnd).padding(14.dp), color = Cyan, fontSize = 9.sp)
-            Text("VOICE / SK", Modifier.align(Alignment.BottomStart).padding(14.dp), color = Muted, fontSize = 9.sp)
-            Text(if (aiReady) "AI • READY" else "AI • SETUP", Modifier.align(Alignment.BottomEnd).padding(14.dp), color = Muted, fontSize = 9.sp)
+            Column(Modifier.align(Alignment.TopStart).padding(14.dp)) {
+                Text("STARK INTERFACE", color = Cyan, fontSize = 9.sp, letterSpacing = 1.5.sp)
+                Text("CORE MK–01", color = Muted, fontSize = 8.sp)
+            }
+            Column(Modifier.align(Alignment.TopEnd).padding(14.dp), horizontalAlignment = Alignment.End) {
+                Text(if (aiReady) "AI LINK • ACTIVE" else "AI LINK • STANDBY", color = if (aiReady) Color(0xFF69F0AE) else Color(0xFFFFC66D), fontSize = 8.sp)
+                Text("VOICE / SK-SK", color = Muted, fontSize = 8.sp)
+            }
+            Column(Modifier.align(Alignment.BottomStart).padding(14.dp)) {
+                Text("SYSTEM MONITOR", color = Muted, fontSize = 8.sp)
+                Text(if (wakeMode) "MICROPHONE • LISTENING" else "MICROPHONE • OFF", color = if (wakeMode) Cyan else Muted, fontSize = 8.sp)
+            }
+            Column(Modifier.align(Alignment.BottomEnd).padding(14.dp), horizontalAlignment = Alignment.End) {
+                Text("INTERFACE 02.6", color = Muted, fontSize = 8.sp)
+                Text("HOLOGRAPHIC HUD", color = Cyan, fontSize = 8.sp)
+            }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Column(Modifier.weight(1f).background(Panel, RoundedCornerShape(18.dp)).padding(12.dp)) {
@@ -824,14 +856,19 @@ private class WakeWordLoop(
                         override fun onEvent(eventType: Int, params: Bundle?) {}
 
                         override fun onError(error: Int) {
-                            // Silence/no-match is normal in wake-word mode. Back off to avoid rapid
-                            // microphone reconnect loops and repeated privacy-indicator flashing.
+                            // Android recognition services can leave a reused recognizer in a stuck
+                            // state after ERROR_CLIENT / ERROR_RECOGNIZER_BUSY. Dispose of it and
+                            // create a fresh instance on the next retry instead of looping on a dead mic.
                             val delay = when (error) {
                                 SpeechRecognizer.ERROR_NO_MATCH,
-                                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 1800L
-                                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> 1200L
-                                else -> 1000L
+                                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 900L
+                                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> 1800L
+                                SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> 5000L
+                                else -> 1400L
                             }
+                            runCatching { recognizer?.cancel() }
+                            runCatching { recognizer?.destroy() }
+                            recognizer = null
                             scheduleRestart(delay)
                         }
 
@@ -844,7 +881,7 @@ private class WakeWordLoop(
                             val wake = Regex("^(?:(?:hej|hey) )?jarvis\\b[ ,:]*", RegexOption.IGNORE_CASE)
                             val wakeMatch = wake.find(normalized)
                             val remainder = if (wakeMatch != null) normalized.substring(wakeMatch.range.last + 1).trim() else ""
-                            var delay = 180L
+                            var delay = 850L
                             if (wakeMatch != null) {
                                 armed = true
                                 if (remainder.isNotBlank()) {
@@ -899,6 +936,7 @@ private class WakeWordLoop(
             speech.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, "sk-SK")
+                putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
                 putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 5000L)
