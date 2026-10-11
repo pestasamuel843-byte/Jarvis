@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.BatteryManager
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -108,6 +109,23 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                 showWorkspace = true
                 val answer = "Otváram pracovný priestor, pane. Môžete kresliť prstom a rozvíjať návrh."
                 chat.add(Message(true, answer)); speak(answer)
+            }
+            text.contains("batéria", true) || text.contains("stav batérie", true) -> {
+                val battery = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+                val percent = battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+                val answer = if (percent >= 0) "Batéria má $percent percent, pane." else "Stav batérie sa nepodarilo zistiť."
+                chat.add(Message(true, answer)); speak(answer)
+            }
+            text.contains("ukáž poznámky", true) || text.contains("moje poznámky", true) || text == "poznámky" -> {
+                val notes = prefs.getString("notes", "").orEmpty()
+                val answer = if (notes.isBlank()) "Zatiaľ nemáte uložené žiadne poznámky, pane." else "Vaše poznámky:\n" + notes
+                chat.add(Message(true, answer)); speak(if (notes.isBlank()) answer else "Zobrazil som vaše poznámky, pane.")
+            }
+            text.contains("otvor youtube", true) || text.contains("spusti youtube", true) -> {
+                val answer = "Otváram YouTube, pane."
+                chat.add(Message(true, answer)); speak(answer)
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com"))) }
+                    .onFailure { Toast.makeText(context, "YouTube sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
             }
             text.contains("koľko je hodín", true) || text.contains("aký je čas", true) -> {
                 val answer = "Je " + SimpleDateFormat("H:mm", Locale("sk", "SK")).format(Date()) + "."
