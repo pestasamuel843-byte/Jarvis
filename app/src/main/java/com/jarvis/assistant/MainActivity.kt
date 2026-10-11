@@ -63,7 +63,18 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         setContent { JarvisScreen(::speak) }
     }
     override fun onInit(status: Int) {
-        if (status == TextToSpeech.SUCCESS) tts?.language = Locale("sk", "SK")
+        if (status == TextToSpeech.SUCCESS) {
+            val engine = tts ?: return
+            engine.language = Locale("sk", "SK")
+            // Prefer a locally installed Slovak male voice, if the Android TTS engine provides one.
+            val maleSlovak = engine.voices
+                ?.filter { it.locale.language == "sk" }
+                ?.firstOrNull {
+                    val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
+                    name.contains("lukas") || name.contains("lukáš") || name.contains("male") || name.contains("masculine")
+                }
+            if (maleSlovak != null) engine.voice = maleSlovak
+        }
     }
     private fun speak(text: String) {
         tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis")
@@ -609,81 +620,99 @@ private class WakeWordLoop(
     private var recognizer: SpeechRecognizer? = null
     private var stopped = false
     private var armed = false
+    private var restartQueued = false
 
     fun start() {
         stopped = false
-        listenOnce()
+        if (!SpeechRecognizer.isRecognitionAvailable(appContext)) {
+            handler.postDelayed({ start() }, 2500)
+            return
+        }
+        runCatching {
+            // Reuse one recognizer instead of destroying/recreating it after every phrase.
+            if (recognizer == null) {
+                recognizer = SpeechRecognizer.createSpeechRecognizer(appContext).also { speech ->
+                    speech.setRecognitionListener(object : RecognitionListener {
+                        override fun onReadyForSpeech(params: Bundle?) {}
+                        override fun onBeginningOfSpeech() {}
+                        override fun onRmsChanged(rmsdB: Float) {}
+                        override fun onBufferReceived(buffer: ByteArray?) {}
+                        override fun onEndOfSpeech() {}
+                        override fun onPartialResults(partialResults: Bundle?) {}
+                        override fun onEvent(eventType: Int, params: Bundle?) {}
+
+                        override fun onError(error: Int) {
+                            scheduleRestart(if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) 700L else 300L)
+                        }
+
+                        override fun onResults(results: Bundle?) {
+                            val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                                ?.firstOrNull().orEmpty()
+                            val normalized = spoken.lowercase(Locale.ROOT)
+                                .replace(Regex("[^\\p{L}\\p{N} ]"), " ")
+                                .replace(Regex("\\s+"), " ").trim()
+                            val wake = Regex("^(hej|hey) jarvis\\b[ ,:]*", RegexOption.IGNORE_CASE)
+                            val wakeMatch = wake.find(normalized)
+                            val remainder = if (wakeMatch != null) normalized.substring(wakeMatch.range.last + 1).trim() else ""
+                            var delay = 180L
+                            if (wakeMatch != null) {
+                                armed = true
+                                if (remainder.isNotBlank()) {
+                                    armed = false
+                                    onCommand(remainder)
+                                    delay = 1000L
+                                } else {
+                                    onWake()
+                                    delay = 1000L
+                                }
+                            } else if (armed && normalized.isNotBlank()) {
+                                armed = false
+                                onCommand(spoken.trim())
+                                delay = 1000L
+                            }
+                            scheduleRestart(delay)
+                        }
+                    })
+                }
+            }
+            listenOnce()
+        }.onFailure {
+            scheduleRestart(1000L)
+        }
     }
 
     fun stop() {
         stopped = true
+        restartQueued = false
         handler.removeCallbacksAndMessages(null)
-        recognizer?.cancel()
-        recognizer?.destroy()
+        runCatching { recognizer?.cancel() }
+        runCatching { recognizer?.destroy() }
         recognizer = null
+    }
+
+    private fun scheduleRestart(delay: Long) {
+        if (stopped || restartQueued) return
+        restartQueued = true
+        handler.postDelayed({
+            restartQueued = false
+            listenOnce()
+        }, delay)
     }
 
     private fun listenOnce() {
         if (stopped) return
-        if (!SpeechRecognizer.isRecognitionAvailable(appContext)) {
-            handler.postDelayed({ listenOnce() }, 2500)
+        val speech = recognizer ?: run {
+            start()
             return
         }
         runCatching {
-            recognizer?.destroy()
-            val speech = SpeechRecognizer.createSpeechRecognizer(appContext)
-            recognizer = speech
-            speech.setRecognitionListener(object : RecognitionListener {
-                override fun onReadyForSpeech(params: Bundle?) {}
-                override fun onBeginningOfSpeech() {}
-                override fun onRmsChanged(rmsdB: Float) {}
-                override fun onBufferReceived(buffer: ByteArray?) {}
-                override fun onEndOfSpeech() {}
-                override fun onPartialResults(partialResults: Bundle?) {}
-                override fun onEvent(eventType: Int, params: Bundle?) {}
-                override fun onError(error: Int) {
-                    recognizer?.destroy()
-                    recognizer = null
-                    if (!stopped) handler.postDelayed({ listenOnce() }, 700)
-                }
-                override fun onResults(results: Bundle?) {
-                    val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
-                    val normalized = spoken.lowercase(Locale.ROOT).replace(Regex("[^\\p{L}\\p{N} ]"), " ").replace(Regex("\\s+"), " ").trim()
-                    val wake = Regex("^(hej|hey) jarvis\\b[ ,:]*", RegexOption.IGNORE_CASE)
-                    val wakeMatch = wake.find(normalized)
-                    val remainder = if (wakeMatch != null) normalized.substring(wakeMatch.range.last + 1).trim() else ""
-                    var delay = 350L
-                    if (wakeMatch != null) {
-                        armed = true
-                        if (remainder.isNotBlank()) {
-                            armed = false
-                            onCommand(remainder)
-                            delay = 1800L
-                        } else {
-                            onWake()
-                            delay = 1400L
-                        }
-                    } else if (armed && normalized.isNotBlank()) {
-                        armed = false
-                        onCommand(spoken.trim())
-                        delay = 1800L
-                    }
-                    recognizer?.destroy()
-                    recognizer = null
-                    if (!stopped) handler.postDelayed({ listenOnce() }, delay)
-                }
-            })
             speech.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, "sk-SK")
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
             })
-        }.onFailure {
-            recognizer?.destroy()
-            recognizer = null
-            if (!stopped) handler.postDelayed({ listenOnce() }, 1200)
-        }
+        }.onFailure { scheduleRestart(700L) }
     }
 }
 
