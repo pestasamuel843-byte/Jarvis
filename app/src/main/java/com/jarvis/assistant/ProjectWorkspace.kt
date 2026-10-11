@@ -3,6 +3,12 @@ package com.jarvis.assistant
 import android.content.Context
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.webkit.WebChromeClient
+import android.webkit.GeolocationPermissions
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -24,7 +30,7 @@ import kotlin.math.sin
 private val WorkCyan = Color(0xFF4DEBFF)
 
 @Composable
-fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, onRefine: (String) -> Unit) {
+fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, onRefine: (String) -> Unit, initialMapMode: Boolean = false) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("jarvis_workspace", Context.MODE_PRIVATE) }
     val strokes = remember {
@@ -39,7 +45,7 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
         }
     }
     var activeStroke by remember { mutableStateOf<List<Offset>>(emptyList()) }
-    var mapMode by remember { mutableStateOf(false) }
+    var mapMode by remember { mutableStateOf(initialMapMode) }
     Column(
         Modifier.fillMaxWidth().background(Color(0xFF0C1420), RoundedCornerShape(18.dp)).padding(12.dp)
     ) {
@@ -129,6 +135,13 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
 
 @Composable
 private fun NavigationProjection() {
+    val context = LocalContext.current
+    var pendingGeoCallback by remember { mutableStateOf<GeolocationPermissions.Callback?>(null) }
+    var pendingGeoOrigin by remember { mutableStateOf("") }
+    val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        pendingGeoCallback?.invoke(pendingGeoOrigin, granted, false)
+        pendingGeoCallback = null
+    }
     val html = """
 <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -165,6 +178,17 @@ function locate(){if(!navigator.geolocation){status('Poloha nie je dostupná v t
         factory = { ctx ->
             WebView(ctx).apply {
                 webViewClient = WebViewClient()
+                webChromeClient = object : WebChromeClient() {
+                    override fun onGeolocationPermissionsShowPrompt(origin: String, callback: GeolocationPermissions.Callback) {
+                        val hasLocation = context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                            context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                        if (hasLocation) callback.invoke(origin, true, false) else {
+                            pendingGeoOrigin = origin
+                            pendingGeoCallback = callback
+                            locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                        }
+                    }
+                }
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.setGeolocationEnabled(true)
