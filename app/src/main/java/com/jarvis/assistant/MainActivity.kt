@@ -88,6 +88,15 @@ private fun JarvisScreen(speak: (String) -> Unit) {
     var listening by remember { mutableStateOf(false) }
     var showWorkspace by remember { mutableStateOf(false) }
     val chat = remember { mutableStateListOf(Message(true, "Dobrý deň, pane. JARVIS je pripravený. Systémy sú online.")) }
+    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            listening = true
+            listen(context, { spoken -> input = spoken; listening = false }, { listening = false })
+        } else {
+            listening = false
+            Toast.makeText(context, "Bez povolenia mikrofónu hlasové zadávanie nefunguje.", Toast.LENGTH_LONG).show()
+        }
+    }
 
     fun handle(raw: String) {
         val text = raw.trim()
@@ -193,7 +202,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                         if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                             listening = true
                             listen(context, { spoken -> input = spoken; listening = false }, { listening = false })
-                        } else Toast.makeText(context, "Povoľte mikrofón v oprávneniach aplikácie.", Toast.LENGTH_LONG).show()
+                        } else micPermission.launch(Manifest.permission.RECORD_AUDIO)
                     }) { Text("🎙", fontSize = 22.sp) }
                     Button(onClick = { handle(input) }, enabled = !busy, contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp)) { Text("➤", fontSize = 18.sp) }
                 }
