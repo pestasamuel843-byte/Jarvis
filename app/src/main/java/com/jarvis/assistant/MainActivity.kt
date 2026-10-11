@@ -93,7 +93,19 @@ private fun JarvisScreen(speak: (String) -> Unit) {
     var showWorkspace by remember { mutableStateOf(false) }
     var lastWorkspaceRequest by remember { mutableStateOf("") }
     var workspaceDescription by remember { mutableStateOf(prefs.getString("workspace_description", "Povedzte JARVISu, čo chcete navrhnúť. Návrh AI sa zobrazí tu a náčrt môžete kresliť prstom.") ?: "") }
-    val chat = remember { mutableStateListOf(Message(true, "Dobrý deň, pane. JARVIS je pripravený. Systémy sú online.")) }
+    val chat = remember {
+        mutableStateListOf<Message>().apply {
+            val saved = runCatching { JSONArray(prefs.getString("chat_history", "[]").orEmpty()) }.getOrNull()
+            if (saved != null) {
+                for (i in 0 until saved.length()) {
+                    val item = saved.optJSONObject(i) ?: continue
+                    val savedText = item.optString("text").trim()
+                    if (savedText.isNotBlank()) add(Message(item.optBoolean("jarvis", true), savedText))
+                }
+            }
+            if (isEmpty()) add(Message(true, "Dobrý deň, pane. JARVIS je pripravený. Systémy sú online."))
+        }
+    }
     fun handle(raw: String) {
         val text = raw.trim().replace(Regex("(?i)^hej\\s+jarvis[,: ]*"), "").trim()
         if (text.isEmpty() || busy) return
@@ -230,15 +242,23 @@ private fun JarvisScreen(speak: (String) -> Unit) {
             }
             text.startsWith("otvor aplikáciu ", true) || text.startsWith("spusti aplikáciu ", true) -> {
                 val requested = text.substringAfter("aplikáciu ", "").trim()
-                val launchIntent = context.packageManager.getLaunchIntentForPackage(requested)
+                val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+                val matches = context.packageManager.queryIntentActivities(launcher, 0)
+                val match = matches.firstOrNull {
+                    it.loadLabel(context.packageManager).toString().contains(requested, ignoreCase = true)
+                }
+                val launchIntent = match?.let {
+                    context.packageManager.getLaunchIntentForPackage(it.activityInfo.packageName)
+                }
                 if (launchIntent != null) {
-                    val answer = "Otváram aplikáciu $requested, pane."
+                    val appName = match.loadLabel(context.packageManager).toString()
+                    val answer = "Otváram aplikáciu $appName, pane."
                     chat.add(Message(true, answer)); speak(answer)
                     runCatching { context.startActivity(launchIntent) }
+                        .onFailure { Toast.makeText(context, "Aplikáciu sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
                 } else {
-                    val answer = "Neviem nájsť aplikáciu podľa presného názvu balíka. Otváram zoznam aplikácií v nastaveniach, pane."
+                    val answer = "Aplikáciu s názvom $requested sa mi nepodarilo nájsť, pane."
                     chat.add(Message(true, answer)); speak(answer)
-                    runCatching { context.startActivity(Intent(android.provider.Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS)) }
                 }
             }
             text.contains("otvor youtube", true) || text.contains("spusti youtube", true) -> {
@@ -369,6 +389,14 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                 }
             }
         }
+    }
+
+    LaunchedEffect(chat.size) {
+        val saved = JSONArray()
+        chat.takeLast(60).forEach { message ->
+            saved.put(JSONObject().put("jarvis", message.jarvis).put("text", message.text))
+        }
+        prefs.edit().putString("chat_history", saved.toString()).apply()
     }
 
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
