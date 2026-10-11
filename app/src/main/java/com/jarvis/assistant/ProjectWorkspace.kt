@@ -151,7 +151,7 @@ private fun NavigationProjection() {
 .brand{color:#4deBff;font-size:11px;letter-spacing:2px;font-weight:bold;margin-bottom:8px}
 input,button{width:100%;padding:11px;margin:4px 0;border-radius:8px;border:1px solid #2b5368;background:#0b1a28;color:#fff;font-size:14px}
 button{background:#123c50;color:#4deBff;font-weight:bold;border-color:#28748a}
-#map{height:360px;margin-top:10px;border-radius:12px;border:1px solid #24556a;overflow:hidden}
+#map{height:260px;margin-top:10px;border-radius:12px;border:1px solid #24556a;overflow:hidden}
 .status{color:#9dbac9;font-size:12px;padding:8px 2px;line-height:1.4}
 .leaflet-container{background:#07101a}
 </style></head><body>
@@ -178,7 +178,7 @@ function locate(){if(!navigator.geolocation){status('Poloha nie je dostupná v t
 </script></body></html>
     """.trimIndent()
     AndroidView(
-        modifier = Modifier.fillMaxWidth().height(510.dp),
+        modifier = Modifier.fillMaxWidth().height(430.dp),
         factory = { ctx ->
             WebView(ctx).apply {
                 webViewClient = WebViewClient()
