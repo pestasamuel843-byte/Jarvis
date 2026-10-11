@@ -154,6 +154,29 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                 }
                 chat.add(Message(true, answer)); speak(answer)
             }
+            text.contains("vypni počúvanie", true) || text.contains("prestaň počúvať", true) || text.contains("vypni mikrofón", true) -> {
+                wakeMode = false
+                listening = false
+                val answer = "Hlasové počúvanie vypnuté, pane."
+                chat.add(Message(true, answer)); speak(answer)
+            }
+            text.contains("zapni počúvanie", true) || text.contains("zapni mikrofón", true) -> {
+                if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                    wakeMode = true
+                    listening = true
+                    val answer = "Hlasové počúvanie zapnuté. Povedzte Hey Jarvis, pane."
+                    chat.add(Message(true, answer)); speak(answer)
+                } else {
+                    val answer = "Najprv povoľte mikrofón v systéme Android, pane."
+                    chat.add(Message(true, answer)); speak(answer)
+                    micPermission.launch(Manifest.permission.RECORD_AUDIO)
+                }
+            }
+            text.contains("vymaž históriu", true) || text.contains("vymaž konverzáciu", true) -> {
+                chat.clear()
+                val answer = "Históriu konverzácie som vymazal, pane."
+                chat.add(Message(true, answer)); speak(answer)
+            }
             text.contains("batéria", true) || text.contains("stav batérie", true) -> {
                 val battery = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
                 val percent = battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
@@ -273,6 +296,30 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                 chat.add(Message(true, answer)); speak(answer)
                 runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/results?search_query=" + URLEncoder.encode(query, "UTF-8")))) }
                     .onFailure { Toast.makeText(context, "Vyhľadávanie hudby sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+            }
+            text.startsWith("zavolaj ", true) || text.startsWith("vytoč ", true) -> {
+                val number = text.substringAfter(' ').trim().replace(" ", "")
+                if (number.isBlank()) {
+                    val answer = "Povedzte telefónne číslo, pane."
+                    chat.add(Message(true, answer)); speak(answer)
+                } else {
+                    val answer = "Otváram vytáčanie čísla $number. Hovor potvrďte v telefóne, pane."
+                    chat.add(Message(true, answer)); speak(answer)
+                    runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(number)))) }
+                        .onFailure { Toast.makeText(context, "Vytáčanie sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+                }
+            }
+            text.startsWith("pripomeň mi ", true) || text.startsWith("pripomeň ", true) || text.startsWith("vytvor udalosť ", true) -> {
+                val title = text.substringAfter(' ').substringAfter(' ').trim().ifBlank { "Pripomienka od JARVIS" }
+                val answer = "Otváram kalendár na vytvorenie pripomienky: $title. Skontrolujte dátum a uložte ju, pane."
+                chat.add(Message(true, answer)); speak(answer)
+                runCatching {
+                    context.startActivity(Intent(Intent.ACTION_INSERT).setData(android.provider.CalendarContract.Events.CONTENT_URI)
+                        .putExtra(android.provider.CalendarContract.Events.TITLE, title))
+                }.onFailure {
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://calendar.google.com"))) }
+                        .onFailure { Toast.makeText(context, "Kalendár sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+                }
             }
             text.startsWith("napíš správu ", true) || text.startsWith("napíš sms ", true) || text.startsWith("vytvor správu ", true) -> {
                 val body = text.substringAfter(' ').substringAfter(' ').trim()
