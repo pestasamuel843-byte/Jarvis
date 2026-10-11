@@ -7,6 +7,8 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.os.BatteryManager
+import android.os.Handler
+import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -87,6 +89,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
     var settings by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var listening by remember { mutableStateOf(false) }
+    var wakeMode by remember { mutableStateOf(false) }
     var showWorkspace by remember { mutableStateOf(false) }
     var lastWorkspaceRequest by remember { mutableStateOf("") }
     var workspaceDescription by remember { mutableStateOf(prefs.getString("workspace_description", "Povedzte JARVISu, čo chcete navrhnúť. Návrh AI sa zobrazí tu a náčrt môžete kresliť prstom.") ?: "") }
@@ -255,11 +258,45 @@ private fun JarvisScreen(speak: (String) -> Unit) {
 
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
+            wakeMode = true
             listening = true
-            listen(context, { spoken -> listening = false; handle(spoken) }, { listening = false })
         } else {
+            wakeMode = false
             listening = false
-            Toast.makeText(context, "Bez povolenia mikrofónu hlasové zadávanie nefunguje.", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Bez povolenia mikrofónu hlasové ovládanie nefunguje.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            wakeMode = true
+            listening = true
+        } else {
+            micPermission.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    DisposableEffect(wakeMode) {
+        if (!wakeMode) {
+            listening = false
+            onDispose { }
+        } else {
+            listening = true
+            val wakeLoop = WakeWordLoop(
+                context = context,
+                onCommand = { spoken ->
+                    listening = false
+                    handle(spoken)
+                },
+                onWake = {
+                    speak("Počúvam, pane.")
+                }
+            )
+            wakeLoop.start()
+            onDispose {
+                wakeLoop.stop()
+                listening = false
+            }
         }
     }
 
@@ -336,14 +373,17 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                         colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Cyan, unfocusedBorderColor = Color(0xFF2C455A), focusedTextColor = Color.White, unfocusedTextColor = Color.White)
                     )
                     IconButton(onClick = {
-                        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                        if (wakeMode) {
+                            wakeMode = false
+                            listening = false
+                        } else if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                            wakeMode = true
                             listening = true
-                            listen(context, { spoken -> listening = false; handle(spoken) }, { listening = false })
                         } else micPermission.launch(Manifest.permission.RECORD_AUDIO)
-                    }) { Text("🎙", fontSize = 22.sp) }
+                    }) { Text(if (wakeMode) "🎙" else "🎤", fontSize = 22.sp) }
                     Button(onClick = { handle(input) }, enabled = !busy, contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp)) { Text("➤", fontSize = 18.sp) }
                 }
-                Text("Hlasové zadávanie spustíte stlačením mikrofónu.", color = Muted, fontSize = 10.sp)
+                Text(if (wakeMode) "JARVIS počúva. Povedzte „Hey Jarvis“." else "Hlasové prebudenie je vypnuté. Stlačte mikrofón na zapnutie.", color = Muted, fontSize = 10.sp)
             }
         }
         if (settings) {
@@ -369,32 +409,92 @@ private fun JarvisScreen(speak: (String) -> Unit) {
     }
 }
 
-private fun listen(context: Context, onResult: (String) -> Unit, onDone: () -> Unit) {
-    if (!SpeechRecognizer.isRecognitionAvailable(context)) {
-        Toast.makeText(context, "Rozpoznávanie reči nie je dostupné.", Toast.LENGTH_SHORT).show()
-        onDone()
-        return
+private class WakeWordLoop(
+    context: Context,
+    private val onCommand: (String) -> Unit,
+    private val onWake: () -> Unit
+) {
+    private val appContext = context.applicationContext
+    private val handler = Handler(Looper.getMainLooper())
+    private var recognizer: SpeechRecognizer? = null
+    private var stopped = false
+    private var armed = false
+
+    fun start() {
+        stopped = false
+        listenOnce()
     }
-    val recognizer = SpeechRecognizer.createSpeechRecognizer(context)
-    recognizer.setRecognitionListener(object : RecognitionListener {
-        override fun onReadyForSpeech(params: Bundle?) {}
-        override fun onBeginningOfSpeech() {}
-        override fun onRmsChanged(rmsdB: Float) {}
-        override fun onBufferReceived(buffer: ByteArray?) {}
-        override fun onEndOfSpeech() {}
-        override fun onError(error: Int) { recognizer.destroy(); onDone(); Toast.makeText(context, "Nerozpoznal som reč. Skúste znova.", Toast.LENGTH_SHORT).show() }
-        override fun onResults(results: Bundle?) {
-            results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.let(onResult)
-            recognizer.destroy(); onDone()
+
+    fun stop() {
+        stopped = true
+        handler.removeCallbacksAndMessages(null)
+        recognizer?.cancel()
+        recognizer?.destroy()
+        recognizer = null
+    }
+
+    private fun listenOnce() {
+        if (stopped) return
+        if (!SpeechRecognizer.isRecognitionAvailable(appContext)) {
+            handler.postDelayed({ listenOnce() }, 2500)
+            return
         }
-        override fun onPartialResults(partialResults: Bundle?) {}
-        override fun onEvent(eventType: Int, params: Bundle?) {}
-    })
-    recognizer.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-        putExtra(RecognizerIntent.EXTRA_LANGUAGE, "sk-SK")
-        putExtra(RecognizerIntent.EXTRA_PROMPT, "Hovor, pane…")
-    })
+        runCatching {
+            recognizer?.destroy()
+            val speech = SpeechRecognizer.createSpeechRecognizer(appContext)
+            recognizer = speech
+            speech.setRecognitionListener(object : RecognitionListener {
+                override fun onReadyForSpeech(params: Bundle?) {}
+                override fun onBeginningOfSpeech() {}
+                override fun onRmsChanged(rmsdB: Float) {}
+                override fun onBufferReceived(buffer: ByteArray?) {}
+                override fun onEndOfSpeech() {}
+                override fun onPartialResults(partialResults: Bundle?) {}
+                override fun onEvent(eventType: Int, params: Bundle?) {}
+                override fun onError(error: Int) {
+                    recognizer?.destroy()
+                    recognizer = null
+                    if (!stopped) handler.postDelayed({ listenOnce() }, 700)
+                }
+                override fun onResults(results: Bundle?) {
+                    val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
+                    val normalized = spoken.lowercase(Locale.ROOT).replace(Regex("[^\\p{L}\\p{N} ]"), " ").replace(Regex("\\s+"), " ").trim()
+                    val wake = Regex("^(hej|hey) jarvis\\b[ ,:]*", RegexOption.IGNORE_CASE)
+                    val wakeMatch = wake.find(normalized)
+                    val remainder = if (wakeMatch != null) normalized.substring(wakeMatch.range.last + 1).trim() else ""
+                    var delay = 350L
+                    if (wakeMatch != null) {
+                        armed = true
+                        if (remainder.isNotBlank()) {
+                            armed = false
+                            onCommand(remainder)
+                            delay = 1800L
+                        } else {
+                            onWake()
+                            delay = 1400L
+                        }
+                    } else if (armed && normalized.isNotBlank()) {
+                        armed = false
+                        onCommand(spoken.trim())
+                        delay = 1800L
+                    }
+                    recognizer?.destroy()
+                    recognizer = null
+                    if (!stopped) handler.postDelayed({ listenOnce() }, delay)
+                }
+            })
+            speech.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "sk-SK")
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+            })
+        }.onFailure {
+            recognizer?.destroy()
+            recognizer = null
+            if (!stopped) handler.postDelayed({ listenOnce() }, 1200)
+        }
+    }
 }
 
 private fun askAi(endpoint: String, key: String, model: String, history: List<Message>, memory: String): String {
