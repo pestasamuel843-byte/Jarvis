@@ -169,7 +169,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                 } else {
                     val answer = "Najprv povoľte mikrofón v systéme Android, pane."
                     chat.add(Message(true, answer)); speak(answer)
-                    micPermission.launch(Manifest.permission.RECORD_AUDIO)
+                    Toast.makeText(context, "Povoľte mikrofón a potom stlačte tlačidlo mikrofónu, pane.", Toast.LENGTH_LONG).show()
                 }
             }
             text.contains("vymaž históriu", true) || text.contains("vymaž konverzáciu", true) -> {
