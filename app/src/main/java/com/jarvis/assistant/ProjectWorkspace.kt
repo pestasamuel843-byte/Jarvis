@@ -1,5 +1,6 @@
 package com.jarvis.assistant
 
+import android.content.Context
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -8,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -20,7 +22,19 @@ private val WorkCyan = Color(0xFF4DEBFF)
 
 @Composable
 fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit) {
-    val strokes = remember { mutableStateListOf<List<Offset>>() }
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("jarvis_workspace", Context.MODE_PRIVATE) }
+    val strokes = remember {
+        mutableStateListOf<List<Offset>>().apply {
+            prefs.getString("strokes", "").orEmpty().split(";").filter { it.isNotBlank() }.forEach { encoded ->
+                val points = encoded.split("|").mapNotNull { pair ->
+                    val xy = pair.split(",")
+                    if (xy.size == 2) runCatching { Offset(xy[0].toFloat(), xy[1].toFloat()) }.getOrNull() else null
+                }
+                if (points.isNotEmpty()) add(points)
+            }
+        }
+    }
     var activeStroke by remember { mutableStateOf<List<Offset>>(emptyList()) }
     Column(
         Modifier.fillMaxWidth().background(Color(0xFF0C1420), RoundedCornerShape(18.dp)).padding(12.dp)
@@ -30,7 +44,10 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit) {
                 Text("PRACOVNÝ PRIESTOR", color = WorkCyan, style = MaterialTheme.typography.labelSmall)
                 Text(title.ifBlank { "Nový projekt" }, color = Color.White, style = MaterialTheme.typography.titleMedium)
             }
-            TextButton(onClick = { strokes.clear(); activeStroke = emptyList() }) { Text("Vymazať", color = WorkCyan) }
+            TextButton(onClick = {
+                strokes.clear(); activeStroke = emptyList()
+                prefs.edit().remove("strokes").apply()
+            }) { Text("Vymazať", color = WorkCyan) }
             TextButton(onClick = onClose) { Text("Zavrieť", color = WorkCyan) }
         }
         Spacer(Modifier.height(8.dp))
@@ -55,7 +72,14 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit) {
                     detectDragGestures(
                         onDragStart = { activeStroke = listOf(it) },
                         onDrag = { change, _ -> activeStroke = activeStroke + change.position },
-                        onDragEnd = { if (activeStroke.isNotEmpty()) strokes.add(activeStroke); activeStroke = emptyList() },
+                        onDragEnd = {
+                            if (activeStroke.isNotEmpty()) strokes.add(activeStroke)
+                            activeStroke = emptyList()
+                            val saved = strokes.joinToString(";") { stroke ->
+                                stroke.joinToString("|") { point -> point.x.toString() + "," + point.y.toString() }
+                            }
+                            prefs.edit().putString("strokes", saved).apply()
+                        },
                         onDragCancel = { activeStroke = emptyList() }
                     )
                 }
@@ -77,7 +101,7 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit) {
             }
         }
         Spacer(Modifier.height(8.dp))
-        Text("Náčrt sa zatiaľ ukladá iba počas otvorenia tejto obrazovky.", color = Color(0xFF8195A8), style = MaterialTheme.typography.labelSmall)
+        Text("Náčrt sa ukladá lokálne v tablete.", color = Color(0xFF8195A8), style = MaterialTheme.typography.labelSmall)
     }
 }
 
