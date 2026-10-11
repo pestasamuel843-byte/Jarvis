@@ -21,7 +21,7 @@ import kotlin.math.sin
 private val WorkCyan = Color(0xFF4DEBFF)
 
 @Composable
-fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit) {
+fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, onRefine: (String) -> Unit) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("jarvis_workspace", Context.MODE_PRIVATE) }
     val strokes = remember {
@@ -57,6 +57,16 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit) {
                 Spacer(Modifier.height(4.dp))
                 Text(description, color = Color(0xFFE2EDF7), style = MaterialTheme.typography.bodySmall)
             }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text("ČO NAVRHUJEME ĎALEJ?", color = WorkCyan, style = MaterialTheme.typography.labelSmall)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            TextButton(onClick = { onRefine("Navrhni 3 odlišné alternatívy aktuálneho návrhu, porovnaj ich výhody a odporuč jednu.") }) { Text("Alternatívy", color = WorkCyan) }
+            TextButton(onClick = { onRefine("Vylepši aktuálny návrh a uveď konkrétne zmeny a dôvody.") }) { Text("Vylepšiť", color = WorkCyan) }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            TextButton(onClick = { onRefine("Zjednoduš aktuálny návrh, zníž zložitosť a zachovaj najdôležitejšie funkcie.") }) { Text("Zjednodušiť", color = WorkCyan) }
+            TextButton(onClick = { onRefine("Navrhni futuristickejšiu verziu aktuálneho návrhu s tmavým sci-fi vzhľadom a tyrkysovými prvkami.") }) { Text("Futuristický štýl", color = WorkCyan) }
         }
         Spacer(Modifier.height(10.dp))
         Text("INTERAKTÍVNY 3D NÁHĽAD • otáčaj prstom", color = WorkCyan, style = MaterialTheme.typography.labelSmall)
