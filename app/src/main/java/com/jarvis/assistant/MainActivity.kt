@@ -154,6 +154,60 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                 val answer = if (notes.isBlank()) "Zatiaľ nemáte uložené žiadne poznámky, pane." else "Vaše poznámky:\n" + notes
                 chat.add(Message(true, answer)); speak(if (notes.isBlank()) answer else "Zobrazil som vaše poznámky, pane.")
             }
+            text == "vymaž poznámky" || text == "vymaž všetky poznámky" || text == "zmaž poznámky" -> {
+                prefs.edit().remove("notes").apply()
+                val answer = "Všetky lokálne poznámky som vymazal, pane."
+                chat.add(Message(true, answer)); speak(answer)
+            }
+            text.startsWith("vymaž poslednú poznámku", true) || text.startsWith("zmaž poslednú poznámku", true) -> {
+                val remaining = prefs.getString("notes", "").orEmpty().lines().filter { it.isNotBlank() }.dropLast(1)
+                prefs.edit().putString("notes", remaining.joinToString("\\n")).apply()
+                val answer = if (remaining.isEmpty()) "Zoznam poznámok je teraz prázdny, pane." else "Poslednú poznámku som odstránil, pane."
+                chat.add(Message(true, answer)); speak(answer)
+            }
+            text.startsWith("naviguj na ", true) || text.startsWith("navigácia na ", true) || text.startsWith("trasa na ", true) -> {
+                val destination = text.substringAfter(" na ", "").trim()
+                if (destination.isBlank()) {
+                    val answer = "Povedzte cieľ, napríklad: naviguj na Poprad, pane."
+                    chat.add(Message(true, answer)); speak(answer)
+                } else {
+                    val answer = "Otváram navigáciu do: $destination, pane."
+                    chat.add(Message(true, answer)); speak(answer)
+                    runCatching {
+                        val uri = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=" + URLEncoder.encode(destination, "UTF-8"))
+                        context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                    }.onFailure { Toast.makeText(context, "Navigáciu sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+                }
+            }
+            text.contains("otvor mapy", true) || text.contains("otvor google maps", true) || text == "mapy" -> {
+                val answer = "Otváram mapy, pane."
+                chat.add(Message(true, answer)); speak(answer)
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://maps.google.com"))) }
+                    .onFailure { Toast.makeText(context, "Mapy sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+            }
+            text.contains("otvor kalkulačku", true) || text.contains("spusti kalkulačku", true) -> {
+                val answer = "Pokúšam sa otvoriť kalkulačku, pane."
+                chat.add(Message(true, answer)); speak(answer)
+                runCatching {
+                    val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALCULATOR)
+                    context.startActivity(intent)
+                }.onFailure {
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=kalkula%C4%8Dka"))) }
+                        .onFailure { Toast.makeText(context, "Kalkulačku sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+                }
+            }
+            text.contains("otvor prehliadač", true) || text.contains("otvor internet", true) -> {
+                val answer = "Otváram webový prehliadač, pane."
+                chat.add(Message(true, answer)); speak(answer)
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com"))) }
+                    .onFailure { Toast.makeText(context, "Prehliadač sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+            }
+            text.contains("otvor chatgpt", true) || text.contains("spusti chatgpt", true) -> {
+                val answer = "Otváram ChatGPT, pane."
+                chat.add(Message(true, answer)); speak(answer)
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://chatgpt.com"))) }
+                    .onFailure { Toast.makeText(context, "ChatGPT sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+            }
             text.contains("otvor youtube", true) || text.contains("spusti youtube", true) -> {
                 val answer = "Otváram YouTube, pane."
                 chat.add(Message(true, answer)); speak(answer)
