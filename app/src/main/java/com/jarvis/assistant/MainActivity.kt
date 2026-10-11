@@ -176,6 +176,15 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                         .putExtra("sms_body", body))
                 }.onFailure { Toast.makeText(context, "SMS aplikáciu sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
             }
+            text.contains("pripoj sa na wifi", true) || text.contains("pripoj na wifi", true) || text.contains("otvor wifi", true) || text.contains("nastav wifi", true) || text.contains("zapni wifi", true) || text.contains("wi-fi nastavenia", true) -> {
+                val answer = "Otváram nastavenia Wi-Fi, pane. Vyberte svoju sieť a pripojte sa."
+                chat.add(Message(true, answer)); speak(answer)
+                runCatching {
+                    context.startActivity(Intent(android.provider.Settings.ACTION_WIFI_SETTINGS))
+                }.onFailure {
+                    runCatching { context.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) }
+                }
+            }
             text.contains("wifi", true) || text.contains("wi-fi", true) || text.contains("internet", true) -> {
                 val connectivity = context.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
                 val network = connectivity.activeNetwork
@@ -183,8 +192,8 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                 val connected = capabilities?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
                 val onWifi = capabilities?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) == true
                 val answer = when {
-                    !connected -> "Pane, zariadenie nemá potvrdené pripojenie na internet."
-                    onWifi -> "Pane, zariadenie je pripojené cez Wi-Fi."
+                    !connected -> "Pane, internet nie je dostupný. Ak sa chcete pripojiť, povedzte: Hey Jarvis, pripoj sa na Wi-Fi."
+                    onWifi -> "Pane, ste pripojený cez Wi-Fi."
                     else -> "Pane, internet je dostupný cez inú sieť než Wi-Fi."
                 }
                 chat.add(Message(true, answer)); speak(answer)
@@ -243,7 +252,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                 chat.add(Message(true, answer)); speak(answer)
             }
             key.isBlank() -> {
-                val answer = "Pane, čas, dátum, vyhľadávanie a poznámky fungujú. Pre AI konverzáciu nastavte API kľúč v nastaveniach."
+                val answer = "Pane, som v offline režime. Fungujú lokálne príkazy ako čas, dátum, batéria, časovač, poznámky a nastavenia Wi-Fi. Na otvorené otázky a zložité úlohy potrebujem internet a nakonfigurovanú AI, alebo samostatný lokálny AI model."
                 chat.add(Message(true, answer)); speak(answer)
             }
             else -> {
