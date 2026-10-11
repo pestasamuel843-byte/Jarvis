@@ -486,7 +486,6 @@ private fun JarvisScreen(speak: (String) -> Unit) {
             val wakeLoop = WakeWordLoop(
                 context = context,
                 onCommand = { spoken ->
-                    listening = false
                     handle(spoken)
                 },
                 onWake = {
@@ -692,7 +691,15 @@ private class WakeWordLoop(
                         override fun onEvent(eventType: Int, params: Bundle?) {}
 
                         override fun onError(error: Int) {
-                            scheduleRestart(if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) 700L else 300L)
+                            // Silence/no-match is normal in wake-word mode. Back off to avoid rapid
+                            // microphone reconnect loops and repeated privacy-indicator flashing.
+                            val delay = when (error) {
+                                SpeechRecognizer.ERROR_NO_MATCH,
+                                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 1800L
+                                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> 1200L
+                                else -> 1000L
+                            }
+                            scheduleRestart(delay)
                         }
 
                         override fun onResults(results: Bundle?) {
@@ -761,6 +768,8 @@ private class WakeWordLoop(
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, "sk-SK")
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 5000L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 3000L)
             })
         }.onFailure { scheduleRestart(700L) }
     }
