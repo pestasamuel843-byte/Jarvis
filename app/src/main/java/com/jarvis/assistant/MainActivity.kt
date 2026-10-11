@@ -88,6 +88,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var listening by remember { mutableStateOf(false) }
     var showWorkspace by remember { mutableStateOf(false) }
+    var lastWorkspaceRequest by remember { mutableStateOf("") }
     var workspaceDescription by remember { mutableStateOf(prefs.getString("workspace_description", "Povedzte JARVISu, čo chcete navrhnúť. Návrh AI sa zobrazí tu a náčrt môžete kresliť prstom.") ?: "") }
     val chat = remember { mutableStateListOf(Message(true, "Dobrý deň, pane. JARVIS je pripravený. Systémy sú online.")) }
     fun handle(raw: String) {
@@ -98,6 +99,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
         when {
             text.contains("projekt", true) || text.contains("nakresli", true) || text.contains("pracovný priestor", true) || text.contains("navrhni", true) || text.contains("vizualiz", true) || text.contains("premietni", true) || text.contains("ukáž mi v 3d", true) || text.contains("model", true) || text.contains("cestu okolo", true) || text.contains("trasu", true) || text.contains("okolie školy", true) || text.contains("mozog", true) || text.contains("nemocnicu", true) || text.contains("auto", true) -> {
                 showWorkspace = true
+                lastWorkspaceRequest = text
                 if (key.isNotBlank()) {
                     val status = "Otváram pracovný priestor a pripravujem návrh, pane."
                     chat.add(Message(true, status)); speak(status)
@@ -287,7 +289,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                     }
                 }
                 if (showWorkspace) {
-                    ProjectWorkspace(title = "JARVIS • Interaktívny návrh", description = workspaceDescription, onClose = { showWorkspace = false }, initialMapMode = text.contains("premiet", true) || text.contains("cestu okolo", true) || text.contains("trasu", true) || text.contains("okolie školy", true), onRefine = { instruction ->
+                    ProjectWorkspace(title = "JARVIS • Interaktívny návrh", description = workspaceDescription, onClose = { showWorkspace = false }, initialMapMode = lastWorkspaceRequest.contains("premiet", true) || lastWorkspaceRequest.contains("cestu okolo", true) || lastWorkspaceRequest.contains("trasu", true) || lastWorkspaceRequest.contains("mapu", true) || lastWorkspaceRequest.contains("okolie školy", true), onRefine = { instruction ->
                         if (key.isNotBlank() && !busy) {
                             busy = true
                             chat.add(Message(false, instruction))
