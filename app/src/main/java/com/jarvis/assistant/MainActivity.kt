@@ -92,7 +92,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
             listening = true
-            listen(context, { spoken -> input = spoken; listening = false }, { listening = false })
+            listen(context, { spoken -> listening = false; handle(spoken) }, { listening = false })
         } else {
             listening = false
             Toast.makeText(context, "Bez povolenia mikrofónu hlasové zadávanie nefunguje.", Toast.LENGTH_LONG).show()
@@ -100,7 +100,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
     }
 
     fun handle(raw: String) {
-        val text = raw.trim()
+        val text = raw.trim().replace(Regex("(?i)^hej\\s+jarvis[,: ]*"), "").trim()
         if (text.isEmpty() || busy) return
         input = ""
         chat.add(Message(false, text))
@@ -126,6 +126,38 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                 chat.add(Message(true, answer)); speak(answer)
                 runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com"))) }
                     .onFailure { Toast.makeText(context, "YouTube sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+            }
+            text.contains("otvor nastavenia", true) || text.contains("nastavenia zariadenia", true) -> {
+                val answer = "Otváram nastavenia zariadenia, pane."
+                chat.add(Message(true, answer)); speak(answer)
+                runCatching { context.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) }
+                    .onFailure { Toast.makeText(context, "Nastavenia sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+            }
+            text.contains("otvor fotoaparát", true) || text.contains("spusti fotoaparát", true) || text.contains("otvor kameru", true) -> {
+                val answer = "Otváram fotoaparát, pane."
+                chat.add(Message(true, answer)); speak(answer)
+                runCatching { context.startActivity(Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE)) }
+                    .onFailure { Toast.makeText(context, "Fotoaparát sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+            }
+            text.contains("stopky", true) || text.contains("časovač", true) || text.contains("timer", true) -> {
+                val match = Regex("(\\d+)\\s*(minút|minúty|minúta|min|sekúnd|sekundy|sekunda|sek)").find(text)
+                if (match == null) {
+                    val answer = "Pane, povedzte aj dĺžku, napríklad: spusti časovač na 5 minút."
+                    chat.add(Message(true, answer)); speak(answer)
+                } else {
+                    val amount = match.groupValues[1].toIntOrNull() ?: 1
+                    val unit = match.groupValues[2].lowercase(Locale.ROOT)
+                    val seconds = if (unit.startsWith("sek")) amount else amount * 60
+                    val unitName = if (unit.startsWith("sek")) "sekúnd" else "minút"
+                    val answer = "Nastavujem časovač na $amount $unitName, pane."
+                    chat.add(Message(true, answer)); speak(answer)
+                    runCatching {
+                        context.startActivity(Intent(android.provider.AlarmClock.ACTION_SET_TIMER)
+                            .putExtra(android.provider.AlarmClock.EXTRA_LENGTH, seconds.coerceIn(1, 86400))
+                            .putExtra(android.provider.AlarmClock.EXTRA_MESSAGE, "JARVIS")
+                            .putExtra(android.provider.AlarmClock.EXTRA_SKIP_UI, false))
+                    }.onFailure { Toast.makeText(context, "Časovač sa nepodarilo nastaviť.", Toast.LENGTH_SHORT).show() }
+                }
             }
             text.contains("koľko je hodín", true) || text.contains("aký je čas", true) -> {
                 val answer = "Je " + SimpleDateFormat("H:mm", Locale("sk", "SK")).format(Date()) + "."
@@ -155,7 +187,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
             else -> {
                 busy = true
                 scope.launch {
-                    val answer = withContext(Dispatchers.IO) { askAi(endpoint, key, model, text) }
+                    val answer = withContext(Dispatchers.IO) { askAi(endpoint, key, model, chat.toList().takeLast(20)) }
                     chat.add(Message(true, answer)); speak(answer); busy = false
                 }
             }
@@ -278,19 +310,25 @@ private fun listen(context: Context, onResult: (String) -> Unit, onDone: () -> U
     })
 }
 
-private fun askAi(endpoint: String, key: String, model: String, prompt: String): String {
+private fun askAi(endpoint: String, key: String, model: String, history: List<Message>): String {
     var connection: HttpURLConnection? = null
     return try {
         connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"; connectTimeout = 15000; readTimeout = 30000; doOutput = true
+            requestMethod = "POST"; connectTimeout = 15000; readTimeout = 45000; doOutput = true
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("Authorization", "Bearer " + key)
         }
+        val apiMessages = JSONArray()
+            .put(JSONObject().put("role", "system").put("content", "Si JARVIS, slovenský AI asistent. Používateľa oslovuj pane. Odpovedaj prirodzene, stručne a pravdivo. Máš prístup iba k funkciám, ktoré aplikácia výslovne implementuje; nikdy netvrď, že si vykonal akciu, ktorú aplikácia nepotvrdila. Pri návrhu projektov dávaj jasný plán a štruktúru, ktorú možno zobraziť v pracovnom priestore."))
+        history.forEach { message ->
+            apiMessages.put(JSONObject()
+                .put("role", if (message.jarvis) "assistant" else "user")
+                .put("content", message.text))
+        }
         val body = JSONObject().apply {
             put("model", model)
-            put("messages", JSONArray()
-                .put(JSONObject().put("role", "system").put("content", "Si JARVIS, slovenský AI asistent. Používateľa oslovuj pane. Odpovedaj stručne, prirodzene, bezpečne a pravdivo."))
-                .put(JSONObject().put("role", "user").put("content", prompt)))
+            put("messages", apiMessages)
+            put("temperature", 0.6)
         }.toString()
         connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
         val code = connection.responseCode
