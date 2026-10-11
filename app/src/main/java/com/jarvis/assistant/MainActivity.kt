@@ -278,6 +278,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                     TextButton(onClick = { showWorkspace = !showWorkspace }) { Text("PROJEKT", color = Cyan, fontSize = 11.sp) }
                     TextButton(onClick = { settings = true }) { Text("⚙", color = Cyan, fontSize = 22.sp) }
                 }
+                if (!showWorkspace) {
                 Spacer(Modifier.height(16.dp))
                 Box(Modifier.fillMaxWidth().height(122.dp).background(Brush.radialGradient(listOf(Color(0xFF16465A), Color(0xFF102030), Panel)), RoundedCornerShape(22.dp)), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -306,6 +307,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                     })
                     Spacer(Modifier.height(10.dp))
                 }
+                if (!showWorkspace) {
                 Spacer(Modifier.height(14.dp))
                 Text("KONVERZÁCIA", color = Muted, fontSize = 11.sp, letterSpacing = 1.5.sp)
                 Spacer(Modifier.height(8.dp))
@@ -320,6 +322,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                         }
                     }
                     if (busy) item { Text("JARVIS pripravuje odpoveď…", color = Muted, fontSize = 12.sp) }
+                }
                 }
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
