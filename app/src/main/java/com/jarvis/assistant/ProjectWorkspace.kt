@@ -88,7 +88,7 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
         Spacer(Modifier.height(10.dp))
         Text("INTERAKTÍVNY 3D NÁHĽAD • otáčaj prstom", color = WorkCyan, style = MaterialTheme.typography.labelSmall)
         Spacer(Modifier.height(6.dp))
-        WireframeCube()
+        WireframeScene()
         Spacer(Modifier.height(12.dp))
         Text("Náčrtová plocha • kresli prstom", color = Color(0xFF9BAFC2), style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(8.dp))
@@ -205,50 +205,115 @@ function locate(){if(!navigator.geolocation){status('Poloha nie je dostupná v t
 }
 
 @Composable
-private fun WireframeCube() {
+private fun WireframeScene() {
+    var model by remember { mutableStateOf("KOCKA") }
     var rotationY by remember { mutableFloatStateOf(0.55f) }
     var rotationX by remember { mutableFloatStateOf(-0.35f) }
-    Canvas(
-        Modifier.fillMaxWidth().height(160.dp)
-            .background(Color(0xFF07101A), RoundedCornerShape(12.dp))
-            .pointerInput(Unit) {
-                detectDragGestures { change, drag ->
-                    change.consume()
-                    rotationY += drag.x * 0.012f
-                    rotationX = (rotationX + drag.y * 0.012f).coerceIn(-1.4f, 1.4f)
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            listOf("KOCKA", "PYRAMÍDA", "DOM", "GUĽA").forEach { shape ->
+                TextButton(
+                    onClick = { model = shape },
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp)
+                ) {
+                    Text(shape, color = if (model == shape) Color.White else WorkCyan, style = MaterialTheme.typography.labelSmall)
                 }
             }
-    ) {
-        val vertices = listOf(
-            floatArrayOf(-1f, -1f, -1f), floatArrayOf(1f, -1f, -1f),
-            floatArrayOf(1f, 1f, -1f), floatArrayOf(-1f, 1f, -1f),
-            floatArrayOf(-1f, -1f, 1f), floatArrayOf(1f, -1f, 1f),
-            floatArrayOf(1f, 1f, 1f), floatArrayOf(-1f, 1f, 1f)
-        )
-        val projected = vertices.map { v ->
-            val x1 = v[0] * cos(rotationY) - v[2] * sin(rotationY)
-            val z1 = v[0] * sin(rotationY) + v[2] * cos(rotationY)
-            val y2 = v[1] * cos(rotationX) - z1 * sin(rotationX)
-            val z2 = v[1] * sin(rotationX) + z1 * cos(rotationX)
-            val perspective = 1.0f / (2.8f - z2 * 0.25f)
-            Offset(size.width / 2f + x1 * size.minDimension * 0.28f * perspective,
-                size.height / 2f + y2 * size.minDimension * 0.28f * perspective)
         }
-        val edges = listOf(
-            0 to 1, 1 to 2, 2 to 3, 3 to 0,
-            4 to 5, 5 to 6, 6 to 7, 7 to 4,
-            0 to 4, 1 to 5, 2 to 6, 3 to 7
-        )
-        val gridColor = Color(0xFF183244)
-        var x = 0f
-        while (x < size.width) { drawLine(gridColor, Offset(x, 0f), Offset(x, size.height), 1f); x += 28.dp.toPx() }
-        var y = 0f
-        while (y < size.height) { drawLine(gridColor, Offset(0f, y), Offset(size.width, y), 1f); y += 28.dp.toPx() }
-        edges.forEach { (a, b) ->
-            drawLine(WorkCyan, projected[a], projected[b], strokeWidth = 2.dp.toPx())
-        }
-        projected.forEach { point ->
-            drawCircle(WorkCyan, radius = 3.dp.toPx(), center = point)
+        Canvas(
+            Modifier.fillMaxWidth().height(170.dp)
+                .background(Color(0xFF07101A), RoundedCornerShape(12.dp))
+                .pointerInput(Unit) {
+                    detectDragGestures { change, drag ->
+                        change.consume()
+                        rotationY += drag.x * 0.012f
+                        rotationX = (rotationX + drag.y * 0.012f).coerceIn(-1.4f, 1.4f)
+                    }
+                }
+        ) {
+            val vertices: List<FloatArray>
+            val edges: List<Pair<Int, Int>>
+            when (model) {
+                "PYRAMÍDA" -> {
+                    vertices = listOf(
+                        floatArrayOf(-1f, -1f, -1f), floatArrayOf(1f, -1f, -1f),
+                        floatArrayOf(1f, -1f, 1f), floatArrayOf(-1f, -1f, 1f),
+                        floatArrayOf(0f, 1f, 0f)
+                    )
+                    edges = listOf(0 to 1, 1 to 2, 2 to 3, 3 to 0, 0 to 4, 1 to 4, 2 to 4, 3 to 4)
+                }
+                "DOM" -> {
+                    vertices = listOf(
+                        floatArrayOf(-1f, -1f, -0.8f), floatArrayOf(1f, -1f, -0.8f),
+                        floatArrayOf(1f, 0.25f, -0.8f), floatArrayOf(-1f, 0.25f, -0.8f),
+                        floatArrayOf(-1f, -1f, 0.8f), floatArrayOf(1f, -1f, 0.8f),
+                        floatArrayOf(1f, 0.25f, 0.8f), floatArrayOf(-1f, 0.25f, 0.8f),
+                        floatArrayOf(-1f, 0.25f, -0.8f), floatArrayOf(0f, 1f, -0.8f),
+                        floatArrayOf(1f, 0.25f, -0.8f), floatArrayOf(-1f, 0.25f, 0.8f),
+                        floatArrayOf(0f, 1f, 0.8f), floatArrayOf(1f, 0.25f, 0.8f)
+                    )
+                    edges = listOf(
+                        0 to 1, 1 to 2, 2 to 3, 3 to 0, 4 to 5, 5 to 6, 6 to 7, 7 to 4,
+                        0 to 4, 1 to 5, 2 to 6, 3 to 7,
+                        8 to 9, 9 to 10, 10 to 2, 11 to 12, 12 to 13, 13 to 6, 9 to 12
+                    )
+                }
+                "GUĽA" -> {
+                    val points = mutableListOf<FloatArray>()
+                    val lines = mutableListOf<Pair<Int, Int>>()
+                    val segments = 18
+                    for (ring in 0..5) {
+                        val latitude = (-Math.PI / 2.0 + Math.PI * ring / 5.0).toFloat()
+                        val radius = kotlin.math.cos(latitude)
+                        val y = kotlin.math.sin(latitude)
+                        val offset = points.size
+                        for (i in 0 until segments) {
+                            val angle = (2.0 * Math.PI * i / segments).toFloat()
+                            points.add(floatArrayOf(radius * kotlin.math.cos(angle), y, radius * kotlin.math.sin(angle)))
+                            lines.add(offset + i to offset + (i + 1) % segments)
+                            if (ring > 0) lines.add(offset + i to (offset - segments + i))
+                        }
+                    }
+                    vertices = points
+                    edges = lines
+                }
+                else -> {
+                    vertices = listOf(
+                        floatArrayOf(-1f, -1f, -1f), floatArrayOf(1f, -1f, -1f),
+                        floatArrayOf(1f, 1f, -1f), floatArrayOf(-1f, 1f, -1f),
+                        floatArrayOf(-1f, -1f, 1f), floatArrayOf(1f, -1f, 1f),
+                        floatArrayOf(1f, 1f, 1f), floatArrayOf(-1f, 1f, 1f)
+                    )
+                    edges = listOf(
+                        0 to 1, 1 to 2, 2 to 3, 3 to 0,
+                        4 to 5, 5 to 6, 6 to 7, 7 to 4,
+                        0 to 4, 1 to 5, 2 to 6, 3 to 7
+                    )
+                }
+            }
+            val projected = vertices.map { v ->
+                val x1 = v[0] * cos(rotationY) - v[2] * sin(rotationY)
+                val z1 = v[0] * sin(rotationY) + v[2] * cos(rotationY)
+                val y2 = v[1] * cos(rotationX) - z1 * sin(rotationX)
+                val z2 = v[1] * sin(rotationX) + z1 * cos(rotationX)
+                val perspective = 1.0f / (2.8f - z2 * 0.25f)
+                Offset(
+                    size.width / 2f + x1 * size.minDimension * 0.30f * perspective,
+                    size.height / 2f + y2 * size.minDimension * 0.30f * perspective
+                )
+            }
+            val gridColor = Color(0xFF183244)
+            var x = 0f
+            while (x < size.width) { drawLine(gridColor, Offset(x, 0f), Offset(x, size.height), 1f); x += 28.dp.toPx() }
+            var y = 0f
+            while (y < size.height) { drawLine(gridColor, Offset(0f, y), Offset(size.width, y), 1f); y += 28.dp.toPx() }
+            edges.forEach { (a, b) ->
+                if (a in projected.indices && b in projected.indices) {
+                    drawLine(WorkCyan, projected[a], projected[b], strokeWidth = 2.dp.toPx())
+                }
+            }
+            projected.forEach { point -> drawCircle(WorkCyan, radius = 2.dp.toPx(), center = point) }
         }
     }
 }
