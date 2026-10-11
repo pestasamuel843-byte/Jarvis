@@ -11,6 +11,7 @@ Native Android prototype written in Kotlin and Jetpack Compose. It does not requ
 - Local commands: time, date, battery percentage, open YouTube, open Android Settings, open camera, Google search, notes, and Clock app timer.
 - AI conversation through a configurable OpenAI-compatible Chat Completions endpoint, with recent conversation context.
 - Project workspace: AI-generated project brief, draggable 3D wireframe cube, finger-drawn canvas, and locally saved sketch.
+- Interactive map workspace using OpenStreetMap/CARTO tiles, place search, zoom/pan, optional current location, and optional route drawing with distance/time estimates. Map requests can open the map workspace directly.
 - API endpoint, model, and key settings; the key is not committed to the repository.
 - GitHub Actions builds a debug APK and uploads it as a workflow artifact.
 
@@ -21,7 +22,7 @@ Native Android prototype written in Kotlin and Jetpack Compose. It does not requ
 3. Download the `JARVIS-debug-APK` artifact and extract the ZIP.
 4. Install `app-debug.apk` on the Android tablet. Android may ask to allow installation from the browser or file manager.
 
-The APK is available only after the workflow succeeds. A green run is required before installation.
+The APK is available only after the workflow succeeds. A green run is required before installation. The latest successful build is linked from the repository's Actions page; download the `JARVIS-debug-APK` artifact and extract the ZIP.
 
 ## AI setup
 
@@ -32,7 +33,8 @@ Open Settings inside JARVIS and provide an OpenAI-compatible Chat Completions en
 This is still an early prototype, not the full autonomous assistant described in the original brief.
 
 - The phrase “Hej Jarvis” is not monitored continuously in the background. Press the microphone button to speak. Always-on wake-word detection needs a carefully permissioned foreground microphone service and device-specific testing.
-- The 3D view is a draggable wireframe cube, not an AI-generated arbitrary 3D model. The drawing canvas is a freehand sketch pad.
+- The 3D view is still a draggable wireframe cube, not an AI-generated arbitrary 3D model. The drawing canvas is a freehand sketch pad.
+- The map is a browsable 2D map, not an AR/holographic 3D city model. Route estimates depend on public geocoding/routing services and do not include live traffic.
 - AI project responses are displayed as text; the app does not yet compile generated source code or turn arbitrary prompts into complete interactive diagrams or 3D scenes.
 - The app cannot freely control all other apps, send messages without confirmation, or bypass Android permissions/background restrictions.
 - The API key is stored in app preferences on the device. It is not included in source control, but a production release should use encrypted storage or a secure backend.
