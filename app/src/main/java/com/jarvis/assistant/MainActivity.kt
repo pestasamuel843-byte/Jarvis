@@ -244,7 +244,7 @@ private fun JarvisScreen(speak: (String) -> Unit) {
             else -> {
                 busy = true
                 scope.launch {
-                    val answer = withContext(Dispatchers.IO) { askAi(endpoint, key, model, chat.toList().takeLast(20)) }
+                    val answer = withContext(Dispatchers.IO) { askAi(endpoint, key, model, chat.toList().takeLast(20), prefs.getString("memories", "").orEmpty()) }
                     chat.add(Message(true, answer)); speak(answer); busy = false
                 }
             }
