@@ -517,16 +517,66 @@ private fun JarvisScreen(speak: (String) -> Unit) {
                     TextButton(onClick = { settings = true }) { Text("⚙", color = Cyan, fontSize = 22.sp) }
                 }
                 if (!showWorkspace) {
-                Spacer(Modifier.height(16.dp))
-                Box(Modifier.fillMaxWidth().height(122.dp).background(Brush.radialGradient(listOf(Color(0xFF16465A), Color(0xFF102030), Panel)), RoundedCornerShape(22.dp)), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(Modifier.size(58.dp).background(Cyan.copy(alpha = .12f), CircleShape), contentAlignment = Alignment.Center) {
-                            Text("✦", color = Cyan, fontSize = 32.sp)
+                    Spacer(Modifier.height(18.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column {
+                            Text("OSOBNÝ AI SYSTÉM", color = Muted, fontSize = 10.sp, letterSpacing = 2.sp)
+                            Text("Dobrý deň, pane.", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Light)
                         }
-                        Spacer(Modifier.height(8.dp))
-                        Text(if (listening) "POČÚVAM…" else "ASISTENT PRIPRAVENÝ", color = Cyan, fontSize = 10.sp, letterSpacing = 2.sp)
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("J.A.R.V.I.S.", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(if (busy) "PROCESSING" else "ONLINE", color = if (busy) Color(0xFFFFC66D) else Color(0xFF69F0AE), fontSize = 10.sp, letterSpacing = 1.sp)
+                        }
                     }
-                }
+                    Spacer(Modifier.height(16.dp))
+                    Box(
+                        Modifier.fillMaxWidth().height(205.dp)
+                            .background(Brush.radialGradient(listOf(Color(0xFF153F56), Color(0xFF0B1828), Color(0xFF080D16))), RoundedCornerShape(24.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                            Box(Modifier.size(126.dp).background(Color(0xFF0A1725), CircleShape), contentAlignment = Alignment.Center) {
+                                Box(Modifier.size(108.dp).background(Cyan.copy(alpha = .08f), CircleShape), contentAlignment = Alignment.Center) {
+                                    Box(Modifier.size(84.dp).background(Cyan.copy(alpha = .12f), CircleShape), contentAlignment = Alignment.Center) {
+                                        Text("J", color = Cyan, fontSize = 56.sp, fontWeight = FontWeight.Light)
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(12.dp))
+                            Text(if (busy) "SPRACÚVAM POŽIADAVKU" else if (listening) "HLASOVÝ SYSTÉM AKTÍVNY" else "ČAKÁM NA POKYN", color = Cyan, fontSize = 10.sp, letterSpacing = 2.sp)
+                            Spacer(Modifier.height(5.dp))
+                            Text(if (wakeMode) "POHOTOVOSTNÝ REŽIM • SLOVENČINA" else "HLASOVÉ OVLÁDANIE VYPNUTÉ", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
+                        }
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Column(Modifier.weight(1f).background(Panel, RoundedCornerShape(16.dp)).padding(13.dp)) {
+                            Text("01 / HLAS", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
+                            Text(if (wakeMode) "Aktívny" else "Vypnutý", color = if (wakeMode) Cyan else Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                            Text("Hey Jarvis", color = Muted, fontSize = 10.sp)
+                        }
+                        Column(Modifier.weight(1f).background(Panel, RoundedCornerShape(16.dp)).padding(13.dp)) {
+                            Text("02 / AI", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
+                            Text(if (key.isNotBlank()) "Pripojená" else "Nenastavená", color = if (key.isNotBlank()) Cyan else Color(0xFFFFC66D), fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                            Text(model, color = Muted, fontSize = 10.sp, maxLines = 1)
+                        }
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Text("RÝCHLE AKCIE", color = Muted, fontSize = 10.sp, letterSpacing = 2.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = {
+                            if (wakeMode) { wakeMode = false; listening = false }
+                            else if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) { wakeMode = true; listening = true }
+                            else micPermission.launch(Manifest.permission.RECORD_AUDIO)
+                        }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 5.dp, vertical = 10.dp)) {
+                            Text(if (wakeMode) "Vypnúť hlas" else "Zapnúť hlas", fontSize = 10.sp)
+                        }
+                        Button(onClick = { showWorkspace = true }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 5.dp, vertical = 10.dp)) {
+                            Text("Pracovný priestor", fontSize = 10.sp)
+                        }
+                    }
+                    Spacer(Modifier.height(5.dp))
                 }
                 if (showWorkspace) {
                     ProjectWorkspace(title = "JARVIS • Interaktívny návrh", description = workspaceDescription, onClose = { showWorkspace = false }, initialMapMode = lastWorkspaceRequest.contains("premiet", true) || lastWorkspaceRequest.contains("cestu okolo", true) || lastWorkspaceRequest.contains("trasu", true) || lastWorkspaceRequest.contains("mapu", true) || lastWorkspaceRequest.contains("okolie školy", true), onRefine = { instruction ->
