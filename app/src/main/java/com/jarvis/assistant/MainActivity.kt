@@ -123,8 +123,8 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     val prefs = remember { context.getSharedPreferences("jarvis", Context.MODE_PRIVATE) }
     val scope = rememberCoroutineScope()
     var input by remember { mutableStateOf("") }
-    var endpoint by remember { mutableStateOf(prefs.getString("endpoint", "https://api.openai.com/v1/chat/completions") ?: "") }
-    var model by remember { mutableStateOf(prefs.getString("model", "gpt-4o-mini") ?: "") }
+    var endpoint by remember { mutableStateOf(prefs.getString("endpoint", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions")?.let { if (it == "https://api.openai.com/v1/chat/completions") "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions" else it } ?: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions") }
+    var model by remember { mutableStateOf(prefs.getString("model", "gemini-3.8-flash")?.let { if (it == "gpt-4o-mini" && endpoint.contains("generativelanguage.googleapis.com")) "gemini-3.8-flash" else it } ?: "gemini-3.8-flash") }
     var key by remember { mutableStateOf(prefs.getString("key", "") ?: "") }
     var settings by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
