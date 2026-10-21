@@ -509,13 +509,10 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
         }
     }
 
+    // Do not start the microphone at app launch. The user explicitly enables it with the mic button.
     LaunchedEffect(Unit) {
-        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-            wakeMode = true
-            listening = true
-        } else {
-            micPermission.launch(Manifest.permission.RECORD_AUDIO)
-        }
+        wakeMode = false
+        listening = false
     }
 
     val activityLifecycle = (context as? ComponentActivity)?.lifecycle
@@ -542,6 +539,9 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             val wakeLoop = WakeWordLoop(
                 context = context,
                 onCommand = { spoken ->
+                    // One spoken command per mic activation; stop listening before JARVIS replies.
+                    wakeMode = false
+                    listening = false
                     handle(spoken)
                 },
                 onWake = {
@@ -648,7 +648,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     }) { Text(if (wakeMode) "🎙" else "🎤", fontSize = 22.sp) }
                     Button(onClick = { handle(input) }, enabled = !busy, contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp)) { Text("➤", fontSize = 18.sp) }
                 }
-                Text(if (wakeMode) "JARVIS počúva. Povedzte „Hey Jarvis“." else "Hlasové prebudenie je vypnuté. Stlačte mikrofón na zapnutie.", color = Muted, fontSize = 10.sp)
+                Text(if (wakeMode) "MIKROFÓN AKTÍVNY • povedzte príkaz." else "MIKROFÓN VYPNUTÝ • stlačte 🎤, povedzte príkaz a JARVIS ho vypne.", color = Muted, fontSize = 10.sp)
                 }
             }
         }
@@ -767,7 +767,7 @@ private fun JarvisDashboard(
                 Text("CORE MK–01", color = Muted, fontSize = 8.sp)
             }
             Column(Modifier.align(Alignment.TopEnd).padding(14.dp), horizontalAlignment = Alignment.End) {
-                Text(if (aiReady) "AI LINK • ACTIVE" else "AI LINK • STANDBY", color = if (aiReady) Color(0xFF69F0AE) else Color(0xFFFFC66D), fontSize = 8.sp)
+                Text(if (aiReady) "AI LINK • CONFIGURED" else "AI LINK • STANDBY", color = if (aiReady) Color(0xFF69F0AE) else Color(0xFFFFC66D), fontSize = 8.sp)
                 Text("VOICE / SK-SK", color = Muted, fontSize = 8.sp)
             }
             Column(Modifier.align(Alignment.BottomStart).padding(14.dp)) {
