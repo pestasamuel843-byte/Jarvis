@@ -87,19 +87,17 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 override fun onError(utteranceId: String?) { speechOutputActive = false }
                 override fun onError(utteranceId: String?, errorCode: Int) { speechOutputActive = false }
             })
-            // Select only an explicitly identified Slovak male voice. Never pretend that pitch-shifting
-            // a female voice makes it male; Android can use only voices installed by its TTS provider.
-            val maleSlovak = engine.voices
-                ?.filter { it.locale.language == "sk" }
-                ?.firstOrNull {
-                    val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
-                    name.contains("lukas") || name.contains("lukáš") ||
-                        name.contains("male") || name.contains("masculine") || name.contains("muž")
-                }
-            if (maleSlovak != null) {
-                engine.voice = maleSlovak
+            // Prefer an explicitly identified Slovak female voice when the installed Android TTS provider offers one.
+            // Voice availability depends on the tablet's installed speech engine and language packs.
+            val slovakVoices = engine.voices?.filter { it.locale.language == "sk" }.orEmpty()
+            val femaleSlovak = slovakVoices.firstOrNull {
+                val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
+                name.contains("female") || name.contains("feminine") || name.contains("woman") || name.contains("žena") || name.contains("zena")
+            }
+            if (femaleSlovak != null) {
+                engine.voice = femaleSlovak
             } else {
-                android.util.Log.w("JARVIS-TTS", "No explicitly identified Slovak male voice installed; using Android default Slovak voice.")
+                android.util.Log.w("JARVIS-TTS", "No explicitly identified Slovak female voice installed; using Android default Slovak voice. Check Android Text-to-speech settings for more voices.")
             }
         }
     }
