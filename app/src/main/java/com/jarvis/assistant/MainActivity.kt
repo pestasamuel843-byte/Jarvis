@@ -376,6 +376,12 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                         .putExtra("sms_body", body))
                 }.onFailure { Toast.makeText(context, "SMS aplikáciu sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
             }
+            text.contains("bezpečnostná kontrola", true) || text.contains("bezpečnosť tabletu", true) || text.contains("ochráň tablet", true) || text.contains("ochrana tabletu", true) || text.contains("bezpečnostný režim", true) -> {
+                val answer = "Spúšťam bezpečnostnú kontrolu, pane. Otvorím systémové nastavenia zabezpečenia. Skontrolujte Google Play Protect, aktualizácie Androidu a prístup aplikácií k Prístupnosti, správcovi zariadenia a inštalovaniu neznámych aplikácií. Dôležité: JARVIS zatiaľ nedokáže sám zablokovať inú aplikáciu ani garantovať zastavenie útoku. Neinštalujte podozrivý softvér na osobný tablet.";
+                chat.add(Message(true, answer)); speak(answer)
+                runCatching { context.startActivity(Intent(android.provider.Settings.ACTION_SECURITY_SETTINGS)) }
+                    .onFailure { runCatching { context.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) } }
+            }
             text.contains("pripoj sa na wifi", true) || text.contains("pripoj na wifi", true) || text.contains("otvor wifi", true) || text.contains("nastav wifi", true) || text.contains("zapni wifi", true) || text.contains("wi-fi nastavenia", true) -> {
                 val answer = "Otváram nastavenia Wi-Fi, pane. Vyberte svoju sieť a pripojte sa."
                 chat.add(Message(true, answer)); speak(answer)
