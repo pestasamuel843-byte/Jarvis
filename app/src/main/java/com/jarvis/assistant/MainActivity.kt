@@ -802,7 +802,7 @@ private fun JarvisDashboard(
                     drawCircle(Cyan, 3.dp.toPx(), Offset(size.width * .55f, size.height * .57f))
                 }
                 Spacer(Modifier.height(5.dp))
-                Text("HOLOGRAFICKÝ NÁHĽAD • SCHÉMA", color = Muted, fontSize = 8.sp)
+                Text("RADAROVÝ PREHĽAD • ŽIVÉ VYHĽADÁVANIE CEZ AI", color = Muted, fontSize = 8.sp)
                 TextButton(onClick = onWorkspace, contentPadding = PaddingValues(0.dp)) { Text("Otvoriť mapu ↗", color = Cyan, fontSize = 11.sp) }
             }
             Column(Modifier.weight(1f).background(Panel, RoundedCornerShape(18.dp)).padding(12.dp)) {
@@ -922,19 +922,21 @@ private class WakeWordLoop(
                             val remainder = if (wakeMatch != null) normalized.substring(wakeMatch.range.last + 1).trim() else ""
                             var delay = 850L
                             if (wakeMatch != null) {
-                                armed = true
                                 if (remainder.isNotBlank()) {
                                     armed = false
                                     onCommand(remainder)
                                     delay = 1000L
                                 } else {
+                                    armed = true
                                     onWake()
                                     delay = 1000L
                                 }
-                            } else if (armed && normalized.isNotBlank()) {
+                            } else if (normalized.isNotBlank()) {
+                                // Button-enabled listening accepts the next spoken phrase directly.
+                                // No wake word is required after the user has explicitly enabled the mic.
                                 armed = false
                                 onCommand(spoken.trim())
-                                delay = 1000L
+                                delay = 1200L
                             }
                             scheduleRestart(delay)
                         }
@@ -1049,7 +1051,7 @@ private fun askAi(endpoint: String, key: String, model: String, history: List<Me
             return "Pane, AI ešte nie je nakonfigurovaná. V Nastaveniach zadajte API endpoint, podporovaný model a API kľúč."
         }
         val lastUserQuery = history.lastOrNull { !it.jarvis }?.text.orEmpty()
-        val webContext = if (shouldSearchWeb(lastUserQuery)) searchWeb(lastUserQuery) else ""
+        val webContext = if (lastUserQuery.isNotBlank()) searchWeb(lastUserQuery) else ""
         val systemPrompt = """
 Si JARVIS, pokročilý slovenský AI asistent. Používateľa oslovuj „pane“. Odpovedaj po slovensky, prirodzene, presne a priamo.
 Zvládaj zložité otázky, matematiku, vysvetľovanie, plánovanie, analýzu, programovanie a ladenie kódu. Pri programovaní poskytuj kompletné, použiteľné riešenia, uveď názvy súborov, potrebné závislosti a presné kroky spustenia. Ak používateľ žiada kód, napíš skutočný kód, nie iba opis. Nevyhlasuj, že si kód spustil alebo zmenil súbory, pokiaľ to aplikácia naozaj nevykonala.
