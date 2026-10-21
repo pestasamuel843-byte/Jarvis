@@ -464,10 +464,22 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 chat.add(Message(true, answer)); speak(answer)
             }
             text.startsWith("hľadaj ", true) || text.startsWith("vyhľadaj ", true) -> {
-                val query = text.substringAfter(' ')
-                val answer = "Otváram vyhľadávanie: " + query
+                val query = text.substringAfter(' ').trim()
+                val answer = "Pane, hľadám na internete: $query"
                 chat.add(Message(true, answer)); speak(answer)
-                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=" + URLEncoder.encode(query, "UTF-8")))) }
+                busy = true
+                scope.launch {
+                    val results = withContext(Dispatchers.IO) { searchWeb(query) }
+                    val resultText = if (results.isNotBlank()) {
+                        "Výsledky vyhľadávania pre „$query“:\n\n$results"
+                    } else {
+                        "Pane, priamy výpis výsledkov sa nepodarilo načítať. Otváram vyhľadávanie v prehliadači."
+                    }
+                    chat.add(Message(true, resultText))
+                    if (results.isNotBlank()) speak("Našiel som výsledky. Zobrazujem ich v konverzácii.")
+                    else runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=" + URLEncoder.encode(query, "UTF-8")))) }
+                    busy = false
+                }
             }
             text.startsWith("poznámka ", true) || text.startsWith("zapíš ", true) -> {
                 val note = text.substringAfter(' ')
@@ -577,7 +589,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                         wakeMode = wakeMode,
                         busy = busy,
-                        aiReady = key.isNotBlank(),
+                        aiReady = endpoint.isNotBlank() && key.isNotBlank() && model.isNotBlank(),
                         model = model,
                         onToggleVoice = {
                             if (wakeMode) { wakeMode = false; listening = false }
@@ -716,7 +728,7 @@ private fun JarvisDashboard(
     Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("OSOBNÝ SYSTÉM • ONLINE", color = Cyan, fontSize = 10.sp, letterSpacing = 2.sp)
+                Text("OSOBNÝ SYSTÉM • JARVIS", color = Cyan, fontSize = 10.sp, letterSpacing = 2.sp)
                 Text("Dobrý deň, pane.", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Light)
                 Text(SimpleDateFormat("EEEE • d. MMMM", Locale("sk", "SK")).format(Date()).uppercase(Locale("sk", "SK")), color = Muted, fontSize = 10.sp, letterSpacing = 1.sp)
             }
