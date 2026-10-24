@@ -155,10 +155,15 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     var showWorkspace by remember { mutableStateOf(false) }
     var showChat by remember { mutableStateOf(false) }
     var showIntro by remember { mutableStateOf(true) }
+    var showCheckIn by remember { mutableStateOf(false) }
+    var gradeSubject by remember { mutableStateOf("") }
+    var gradeValue by remember { mutableStateOf("") }
+    var moodValue by remember { mutableFloatStateOf(3f) }
+    var moodNote by remember { mutableStateOf("") }
     LaunchedEffect(Unit) {
-        // Welcome first, then logo, then dashboard.
         kotlinx.coroutines.delay(4700)
         showIntro = false
+        showCheckIn = true
     }
     var lastWorkspaceRequest by remember { mutableStateOf("") }
     var workspaceDescription by remember { mutableStateOf(prefs.getString("workspace_description", "Povedzte JARVISu, čo chcete navrhnúť. Návrh AI sa zobrazí tu a náčrt môžete kresliť prstom.") ?: "") }
@@ -691,6 +696,39 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             if (showIntro) {
                 JarvisIntro(onSkip = { showIntro = false })
             }
+        }
+        if (showCheckIn && !showIntro) {
+            AlertDialog(
+                onDismissRequest = { showCheckIn = false },
+                title = { Text("Denný prehľad JARVIS") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Dostali ste dnes nové známky? A ako ste sa dnes mali? Údaje sa ukladajú iba v tomto zariadení.", color = Muted, fontSize = 13.sp)
+                        OutlinedTextField(value = gradeSubject, onValueChange = { gradeSubject = it }, label = { Text("Predmet (napr. Matematika)") }, singleLine = true)
+                        OutlinedTextField(value = gradeValue, onValueChange = { gradeValue = it.filter { c -> c.isDigit() }.take(1) }, label = { Text("Známka 1–5 (voliteľné)") }, singleLine = true)
+                        Text("Ako ste sa dnes mali? 1 = ťažký deň, 5 = veľmi dobrý deň", color = Muted, fontSize = 12.sp)
+                        Slider(value = moodValue, onValueChange = { moodValue = it }, valueRange = 1f..5f, steps = 3)
+                        Text("Hodnotenie dňa: " + moodValue.toInt() + "/5", color = Cyan)
+                        OutlinedTextField(value = moodNote, onValueChange = { moodNote = it }, label = { Text("Poznámka (voliteľné)") }, minLines = 1, maxLines = 2)
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                        val entries = prefs.getString("progress_data", "").orEmpty().lines().filter { it.isNotBlank() }.toMutableList()
+                        if (gradeSubject.isNotBlank() && gradeValue.toIntOrNull() in 1..5) {
+                            entries.add(date + " | ZNÁMKA | " + gradeSubject.trim() + " | " + gradeValue.toInt())
+                        }
+                        entries.add(date + " | DEŇ | " + moodValue.toInt() + "/5 | " + moodNote.trim().take(220))
+                        prefs.edit().putString("progress_data", entries.takeLast(120).joinToString("\n")).apply()
+                        showCheckIn = false
+                        val msg = "Denný prehľad uložený, pane. Pri analýze použijem iba skutočne zaznamenané údaje."
+                        chat.add(Message(true, msg))
+                        speak(msg)
+                    }) { Text("Uložiť") }
+                },
+                dismissButton = { TextButton(onClick = { showCheckIn = false }) { Text("Preskočiť dnes") } }
+            )
         }
         if (settings) {
             AlertDialog(
