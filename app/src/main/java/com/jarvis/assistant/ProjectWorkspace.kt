@@ -156,20 +156,20 @@ button{background:#123c50;color:#4deBff;font-weight:bold;border-color:#28748a}
 .leaflet-container{background:#07101a}
 </style></head><body>
 <div class="top"><div class="brand">J.A.R.V.I.S. / HOLOGRAFICKÁ MAPA</div>
-<input id="place" placeholder="Vyhľadaj miesto, ulicu alebo budovu">
+<input id="place" value="Komenského 17, Svit, Slovensko" placeholder="Vyhľadaj miesto, ulicu alebo budovu">
 <button onclick="showPlace()">ZOBRAZIŤ MIESTO NA MAPE</button>
 <button onclick="locate()">ZOBRAZIŤ MOJU POLOHU</button>
 <details><summary style="color:#4deBff;padding:9px;cursor:pointer">Voliteľne: vytvoriť trasu</summary>
 <input id="from" placeholder="Odkiaľ?">
 <input id="to" placeholder="Kam?">
 <button onclick="route()">VYKRESLIŤ TRASU</button></details>
-<div id="status" class="status">Posúvaj mapu a približuj ju prstami. Vyhľadaj ľubovoľné miesto, ulicu alebo budovu.</div></div>
+<div id="status" class="status">Posúvaj mapu a približuj ju prstami. Mapa je nastavená na Komenského 17, Svit. Presnú adresu overí vyhľadávanie podľa dostupných mapových údajov.</div></div>
 <div id="map"></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const map=L.map('map',{zoomControl:true}).setView([49.061,20.298],8);
+const map=L.map('map',{zoomControl:true}).setView([49.0608,20.2067],16);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors © CARTO'}).addTo(map);
-let routeLayers=[],markers=[];\nmap.on('click',e=>{status('Vybrané miesto: '+e.latlng.lat.toFixed(5)+', '+e.latlng.lng.toFixed(5)+' • zadaj tieto súradnice alebo vyhľadaj názov miesta.');});
+let routeLayers=[],markers=[];\nconst homeMarker=L.marker([49.0608,20.2067]).addTo(map).bindPopup('Komenského 17, Svit — orientačný bod').openPopup();\nmap.on('click',e=>{status('Vybrané miesto: '+e.latlng.lat.toFixed(5)+', '+e.latlng.lng.toFixed(5)+' • zadaj tieto súradnice alebo vyhľadaj názov miesta.');});
 function status(s){document.getElementById('status').textContent=s}
 async function showPlace(){const q=document.getElementById('place').value.trim();if(!q){status('Zadaj názov miesta alebo adresu.');return}status('Vyhľadávam miesto…');try{const p=await geocode(q);map.setView([p[1],p[0]],16);markers.forEach(x=>map.removeLayer(x));markers=[L.marker([p[1],p[0]]).addTo(map).bindPopup(p[2]).openPopup()];status('Zobrazené: '+p[2])}catch(e){status('Miesto sa nepodarilo nájsť: '+e.message)}}
 async function geocode(q){const u='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='+encodeURIComponent(q);const r=await fetch(u,{headers:{'Accept-Language':'sk'}});if(!r.ok)throw Error('Vyhľadanie miesta zlyhalo');const a=await r.json();if(!a.length)throw Error('Miesto sa nenašlo: '+q);return [Number(a[0].lon),Number(a[0].lat),a[0].display_name]}
