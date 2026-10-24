@@ -136,6 +136,8 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     var key by remember { mutableStateOf(prefs.getString("key", "") ?: "") }
     var settings by remember { mutableStateOf(false) }
     var showAdvancedSettings by remember { mutableStateOf(false) }
+    var apiTestResult by remember { mutableStateOf("") }
+    var apiTesting by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var listening by remember { mutableStateOf(false) }
     var wakeMode by remember { mutableStateOf(false) }
@@ -680,6 +682,33 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                         Text("API kľúč sa ukladá v zariadení. Nevkladajte ho do GitHubu.", color = Muted, fontSize = 12.sp)
                         Text("Predvolená služba: Cloudflare Workers AI • model Llama 3.1 8B", color = Cyan, fontSize = 12.sp)
                         OutlinedTextField(key, { key = it }, label = { Text("Cloudflare API token") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
+                        Button(
+                            onClick = {
+                                if (key.isBlank()) {
+                                    apiTestResult = "Najprv zadajte API token."
+                                } else {
+                                    apiTesting = true
+                                    apiTestResult = "Testujem spojenie s AI…"
+                                    scope.launch {
+                                        val result = withContext(Dispatchers.IO) {
+                                            askAi(endpoint.trim(), key.trim(), model.trim(),
+                                                listOf(Message(false, "Odpovedz presne: JARVIS ONLINE")),
+                                                prefs.getString("memories", "").orEmpty())
+                                        }
+                                        apiTestResult = if (result.contains("JARVIS ONLINE", true) && !result.contains("zlyhalo", true) && !result.contains("odmietla", true) && !result.contains("neexistuje", true)) {
+                                            "Spojenie funguje. Odpoveď: ${result.take(180)}"
+                                        } else {
+                                            "Test sa nepodaril: ${result.take(240)}"
+                                        }
+                                        apiTesting = false
+                                    }
+                                }
+                            },
+                            enabled = !apiTesting
+                        ) { Text(if (apiTesting) "TESTUJEM…" else "OTESTOVAŤ AI") }
+                        if (apiTestResult.isNotBlank()) {
+                            Text(apiTestResult, color = if (apiTestResult.startsWith("Spojenie funguje")) Cyan else Muted, fontSize = 12.sp)
+                        }
                         TextButton(onClick = { showAdvancedSettings = !showAdvancedSettings }) {
                             Text(if (showAdvancedSettings) "Skryť pokročilé nastavenia" else "Pokročilé nastavenia", color = Muted)
                         }
