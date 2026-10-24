@@ -189,7 +189,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
         }
     }
     fun handle(raw: String) {
-        val text = raw.trim().replace(Regex("(?i)^(?:hej\\s+)?jarvis[,: ]*"), "").trim()
+        val text = raw.trim().replace(Regex("(?i)^(?:(?:hej|hey)\\s+)?jarvis[,: ]*"), "").trim()
         if (text.isEmpty() || busy) return
         showChat = true
         input = ""
@@ -608,9 +608,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             val wakeLoop = WakeWordLoop(
                 context = context,
                 onCommand = { spoken ->
-                    // One spoken command per mic activation; stop listening before JARVIS replies.
-                    wakeMode = false
-                    listening = false
+                    // Keep the voice session active; WakeWordLoop pauses during speech/processing.
                     handle(spoken)
                 },
                 onWake = {
