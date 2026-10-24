@@ -148,8 +148,8 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     val prefs = remember { context.getSharedPreferences("jarvis", Context.MODE_PRIVATE) }
     val scope = rememberCoroutineScope()
     var input by remember { mutableStateOf("") }
-    var endpoint by remember { mutableStateOf(prefs.getString("endpoint", "https://api.cloudflare.com/client/v4/accounts/09f7e11cc7eaf76d61294654d547bd8a/ai/v1/chat/completions")?.let { if (it == "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions" || it == "https://api.openai.com/v1/chat/completions") "https://api.cloudflare.com/client/v4/accounts/09f7e11cc7eaf76d61294654d547bd8a/ai/v1/chat/completions" else it } ?: "https://api.cloudflare.com/client/v4/accounts/09f7e11cc7eaf76d61294654d547bd8a/ai/v1/chat/completions") }
-    var model by remember { mutableStateOf(prefs.getString("model", "@cf/meta/llama-3.1-8b-instruct")?.let { if ((it.startsWith("gemini-") || it == "gpt-4o-mini") && endpoint.contains("api.cloudflare.com/client/v4/accounts/")) "@cf/meta/llama-3.1-8b-instruct" else it } ?: "@cf/meta/llama-3.1-8b-instruct") }
+    var endpoint by remember { mutableStateOf(prefs.getString("endpoint", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions")?.let { if (it.contains("api.cloudflare.com/client/v4/accounts/09f7e11cc7eaf76d61294654d547bd8a") || it == "https://api.openai.com/v1/chat/completions") "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions" else it } ?: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions") }
+    var model by remember { mutableStateOf(prefs.getString("model", "gemini-2.5-flash")?.let { if (it == "@cf/meta/llama-3.1-8b-instruct" && endpoint.contains("generativelanguage.googleapis.com")) "gemini-2.5-flash" else it } ?: "gemini-2.5-flash") }
     var key by remember { mutableStateOf(prefs.getString("key", "") ?: "") }
     var settings by remember { mutableStateOf(false) }
     var showAdvancedSettings by remember { mutableStateOf(false) }
@@ -817,8 +817,8 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("API kľúč sa ukladá v zariadení. Nevkladajte ho do GitHubu.", color = Muted, fontSize = 12.sp)
-                        Text("Predvolená služba: Cloudflare Workers AI • model Llama 3.1 8B", color = Cyan, fontSize = 12.sp)
-                        OutlinedTextField(key, { key = it }, label = { Text("Cloudflare API token") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
+                        Text("Predvolená služba: Google Gemini API • model Gemini 2.5 Flash", color = Cyan, fontSize = 12.sp)
+                        OutlinedTextField(key, { key = it }, label = { Text("Google Gemini API kľúč") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
                         Button(
                             onClick = {
                                 if (key.isBlank()) {
