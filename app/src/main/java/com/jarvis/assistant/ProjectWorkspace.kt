@@ -48,6 +48,8 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
     var activeStroke by remember { mutableStateOf<List<Offset>>(emptyList()) }
     val redoStrokes = remember { mutableStateListOf<List<Offset>>() }
     var mapMode by remember { mutableStateOf(initialMapMode) }
+    var sceneModel by remember { mutableStateOf("AUTO") }
+    var sceneCommand by remember { mutableStateOf("") }
     Column(
         Modifier.fillMaxWidth().background(Color(0xFF050A11), RoundedCornerShape(20.dp)).padding(12.dp)
     ) {
@@ -105,7 +107,41 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
         Spacer(Modifier.height(10.dp))
         Text("VIEWPORT 01  /  INTERAKTÍVNA GEOMETRIA  /  POTIAHNI PRE OTOČENIE", color = WorkCyan, style = MaterialTheme.typography.labelSmall, letterSpacing = 0.7.sp)
         Spacer(Modifier.height(6.dp))
-        WireframeScene()
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = sceneCommand,
+                onValueChange = { sceneCommand = it },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Povedz, čo mám zmeniť…", color = Color(0xFF7894A8)) },
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    focusedBorderColor = WorkCyan,
+                    unfocusedBorderColor = Color(0xFF294454),
+                    cursorColor = WorkCyan
+                )
+            )
+            Button(onClick = {
+                val command = sceneCommand.trim()
+                if (command.isNotBlank()) {
+                    val q = command.lowercase()
+                    sceneModel = when {
+                        listOf("auto", "auto", "vozid", "športiak", "sportiak", "spoiler", "koles").any { q.contains(it) } -> "AUTO"
+                        listOf("izb", "posteľ", "postel", "nábytok", "nabytok", "okno", "dvere").any { q.contains(it) } -> "IZBA"
+                        listOf("ulic", "cest", "chodník", "chodnik", "križovat", "krizovat", "budov").any { q.contains(it) } -> "ULICA"
+                        listOf("dom", "strech", "komín", "komin").any { q.contains(it) } -> "DOM"
+                        listOf("guľ", "gul", "lopta", "planéta", "planeta").any { q.contains(it) } -> "GUĽA"
+                        q.contains("pyram") -> "PYRAMÍDA"
+                        q.contains("kock") || q.contains("kocka") -> "KOCKA"
+                        else -> sceneModel
+                    }
+                    onRefine("Uprav aktívny projekt podľa tejto požiadavky: $command. Zachovaj existujúci kontext a opíš konkrétne zmeny. Ak požiadavka vyžaduje zmenu geometrie, uveď presné prvky, rozmery a umiestnenie.")
+                    sceneCommand = ""
+                }
+            }, enabled = sceneCommand.isNotBlank()) { Text("UPRAVIŤ") }
+        }
+        WireframeScene(model = sceneModel, onModelChange = { sceneModel = it })
         Spacer(Modifier.height(12.dp))
         Text("SKETCH LAYER  /  2D NÁČRT • KRESLI PRSTOM", color = Color(0xFF9BAFC2), style = MaterialTheme.typography.labelSmall, letterSpacing = 0.7.sp)
         Spacer(Modifier.height(8.dp))
@@ -225,15 +261,14 @@ function locate(){if(!navigator.geolocation){status('Poloha nie je dostupná v t
 }
 
 @Composable
-private fun WireframeScene() {
-    var model by remember { mutableStateOf("KOCKA") }
+private fun WireframeScene(model: String, onModelChange: (String) -> Unit) {
     var rotationY by remember { mutableFloatStateOf(0.55f) }
     var rotationX by remember { mutableFloatStateOf(-0.35f) }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             listOf("KOCKA", "PYRAMÍDA", "DOM", "AUTO", "IZBA", "ULICA", "GUĽA").forEach { shape ->
                 TextButton(
-                    onClick = { model = shape },
+                    onClick = { onModelChange(shape) },
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp)
                 ) {
