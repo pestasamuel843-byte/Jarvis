@@ -213,7 +213,7 @@ private fun WireframeScene() {
     var rotationX by remember { mutableFloatStateOf(-0.35f) }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            listOf("KOCKA", "PYRAMÍDA", "DOM", "GUĽA").forEach { shape ->
+            listOf("KOCKA", "PYRAMÍDA", "DOM", "AUTO", "IZBA", "ULICA", "GUĽA").forEach { shape ->
                 TextButton(
                     onClick = { model = shape },
                     modifier = Modifier.weight(1f),
