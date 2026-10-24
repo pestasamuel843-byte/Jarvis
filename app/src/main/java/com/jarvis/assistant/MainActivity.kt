@@ -672,6 +672,10 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("API kľúč sa ukladá v zariadení. Nevkladajte ho do GitHubu.", color = Muted, fontSize = 12.sp)
+                        TextButton(onClick = {
+                            endpoint = "https://api.cloudflare.com/client/v4/accounts/09f7e11cc7eaf76d61294654d547bd8a/ai/v1/chat/completions"
+                            model = "@cf/meta/llama-3.1-8b-instruct"
+                        }) { Text("Nastaviť Cloudflare AI") }
                         OutlinedTextField(endpoint, { endpoint = it }, label = { Text("API endpoint") }, singleLine = true)
                         OutlinedTextField(model, { model = it }, label = { Text("Model") }, singleLine = true)
                         OutlinedTextField(key, { key = it }, label = { Text("API kľúč") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
