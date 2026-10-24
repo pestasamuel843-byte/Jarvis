@@ -742,7 +742,7 @@ private fun JarvisDashboard(
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(if (busy) "SPRACÚVAM" else "SYSTÉMY ONLINE", color = if (busy) Color(0xFFFFC66D) else Color(0xFF69F0AE), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                Text(if (aiReady) "AI PRIPOJENÁ" else "LOKÁLNY REŽIM", color = Muted, fontSize = 9.sp)
+                Text(if (aiReady) "AI NASTAVENÁ" else "LOKÁLNY REŽIM", color = Muted, fontSize = 9.sp)
             }
         }
         Box(
@@ -750,19 +750,7 @@ private fun JarvisDashboard(
                 .background(Brush.radialGradient(listOf(Color(0xFF174D68), Color(0xFF0B1B2B), Color(0xFF04070C))), RoundedCornerShape(24.dp))
                 .clip(RoundedCornerShape(24.dp))
         ) {
-            AndroidView(
-                factory = { viewContext ->
-                    WebView(viewContext).apply {
-                        settings.javaScriptEnabled = true
-                        settings.domStorageEnabled = true
-                        settings.loadWithOverviewMode = true
-                        settings.useWideViewPort = true
-                        webViewClient = WebViewClient()
-                        loadUrl("https://www.google.com/maps/@49.0605,20.2050,15z/data=!3m1!1e3")
-                    }
-                },
-                modifier = Modifier.fillMaxSize()
-            )
+            // Keep the HUD self-contained: no live webpage underneath the overlay.
             Box(Modifier.fillMaxSize().background(Color(0x99050B12), RoundedCornerShape(24.dp)))
             Canvas(Modifier.fillMaxSize()) {
                 val cx = size.width / 2f
@@ -802,7 +790,7 @@ private fun JarvisDashboard(
                 Text("CORE MK–01", color = Muted, fontSize = 8.sp)
             }
             Column(Modifier.align(Alignment.TopEnd).padding(14.dp), horizontalAlignment = Alignment.End) {
-                Text(if (aiReady) "AI LINK • CONFIGURED" else "AI LINK • STANDBY", color = if (aiReady) Color(0xFF69F0AE) else Color(0xFFFFC66D), fontSize = 8.sp)
+                Text(if (aiReady) "AI LINK • TOKEN NASTAVENÝ" else "AI LINK • STANDBY", color = if (aiReady) Color(0xFF69F0AE) else Color(0xFFFFC66D), fontSize = 8.sp)
                 Text("VOICE / SK-SK", color = Muted, fontSize = 8.sp)
             }
             Column(Modifier.align(Alignment.BottomStart).padding(14.dp)) {
@@ -1105,6 +1093,8 @@ ${if (webContext.isNotBlank()) "\nWEBOVÉ VÝSLEDKY (môžu byť neúplné; pou�
             setRequestProperty("Content-Type", "application/json; charset=utf-8")
             setRequestProperty("Authorization", "Bearer $key")
             setRequestProperty("Accept", "application/json")
+            // Cloudflare AI Gateway compatibility for Workers AI model requests.
+            setRequestProperty("cf-aig-gateway-id", "default")
         }
         val apiMessages = JSONArray()
             .put(JSONObject().put("role", "system").put("content", systemPrompt))
