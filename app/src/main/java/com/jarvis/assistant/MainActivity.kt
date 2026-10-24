@@ -954,7 +954,7 @@ private fun JarvisDashboard(
             }
         }
         Box(
-            Modifier.fillMaxWidth().height(245.dp)
+            Modifier.fillMaxWidth().height(290.dp)
                 .background(Brush.radialGradient(listOf(Color(0xFF174D68), Color(0xFF0B1B2B), Color(0xFF04070C))), RoundedCornerShape(24.dp))
                 .clip(RoundedCornerShape(24.dp))
         ) {
