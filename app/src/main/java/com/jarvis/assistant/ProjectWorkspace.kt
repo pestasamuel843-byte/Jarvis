@@ -47,12 +47,13 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
     var activeStroke by remember { mutableStateOf<List<Offset>>(emptyList()) }
     var mapMode by remember { mutableStateOf(initialMapMode) }
     Column(
-        Modifier.fillMaxWidth().background(Color(0xFF0C1420), RoundedCornerShape(18.dp)).padding(12.dp)
+        Modifier.fillMaxWidth().background(Color(0xFF050A11), RoundedCornerShape(20.dp)).padding(12.dp)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column(Modifier.weight(1f)) {
-                Text("PRACOVNÝ PRIESTOR", color = WorkCyan, style = MaterialTheme.typography.labelSmall)
-                Text(title.ifBlank { "Nový projekt" }, color = Color.White, style = MaterialTheme.typography.titleMedium)
+                Text("J.A.R.V.I.S.  /  DESIGN SYSTEM  /  LIVE WORKSPACE", color = Color(0xFF4DEBFF), style = MaterialTheme.typography.labelSmall, letterSpacing = 1.6.sp)
+                Text(title.ifBlank { "NOVÝ PROJEKT" }.uppercase(), color = Color.White, style = MaterialTheme.typography.titleLarge, letterSpacing = 1.1.sp)
+                Text("SCÉNA AKTÍVNA  •  UPRAVITEĽNÝ NÁHĽAD", color = Color(0xFF7894A8), style = MaterialTheme.typography.labelSmall)
             }
             TextButton(onClick = {
                 strokes.clear(); activeStroke = emptyList()
@@ -61,17 +62,17 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
             TextButton(onClick = onClose) { Text("Zavrieť", color = WorkCyan) }
         }
         Spacer(Modifier.height(8.dp))
-        Surface(color = Color(0xFF111F2D), shape = RoundedCornerShape(12.dp)) {
+        Surface(color = Color(0xFF0A1521), shape = RoundedCornerShape(12.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1D4053))) {
             Column(Modifier.fillMaxWidth().padding(10.dp)) {
-                Text("NÁVRH OD JARVIS", color = WorkCyan, style = MaterialTheme.typography.labelSmall)
+                Text("SYSTEM ANALYSIS  /  NÁVRH OD JARVIS", color = WorkCyan, style = MaterialTheme.typography.labelSmall, letterSpacing = 1.2.sp)
                 Spacer(Modifier.height(4.dp))
                 Text(description, color = Color(0xFFE2EDF7), style = MaterialTheme.typography.bodySmall)
             }
         }
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { mapMode = false }, colors = ButtonDefaults.buttonColors(containerColor = if (!mapMode) WorkCyan.copy(alpha = 0.18f) else Color(0xFF172638))) { Text("PROJEKT / 3D", color = WorkCyan) }
-            Button(onClick = { mapMode = true }, colors = ButtonDefaults.buttonColors(containerColor = if (mapMode) WorkCyan.copy(alpha = 0.18f) else Color(0xFF172638))) { Text("HOLOGRAFICKÁ MAPA", color = WorkCyan) }
+            Button(onClick = { mapMode = false }, colors = ButtonDefaults.buttonColors(containerColor = if (!mapMode) Color(0xFF12394B) else Color(0xFF0A1521)), border = androidx.compose.foundation.BorderStroke(1.dp, if (!mapMode) WorkCyan.copy(alpha = 0.7f) else Color(0xFF20394B)), shape = RoundedCornerShape(8.dp)) { Text("◈  3D SCÉNA", color = WorkCyan, letterSpacing = 1.sp) }
+            Button(onClick = { mapMode = true }, colors = ButtonDefaults.buttonColors(containerColor = if (mapMode) Color(0xFF12394B) else Color(0xFF0A1521)), border = androidx.compose.foundation.BorderStroke(1.dp, if (mapMode) WorkCyan.copy(alpha = 0.7f) else Color(0xFF20394B)), shape = RoundedCornerShape(8.dp)) { Text("⌖  GEO PRIESTOR", color = WorkCyan, letterSpacing = 1.sp) }
         }
         if (mapMode) {
             NavigationProjection()
@@ -86,14 +87,14 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
             TextButton(onClick = { onRefine("Navrhni futuristickejšiu verziu aktuálneho návrhu s tmavým sci-fi vzhľadom a tyrkysovými prvkami.") }) { Text("Futuristický štýl", color = WorkCyan) }
         }
         Spacer(Modifier.height(10.dp))
-        Text("INTERAKTÍVNY 3D NÁHĽAD • otáčaj prstom", color = WorkCyan, style = MaterialTheme.typography.labelSmall)
+        Text("VIEWPORT 01  /  INTERAKTÍVNA GEOMETRIA  /  POTIAHNI PRE OTOČENIE", color = WorkCyan, style = MaterialTheme.typography.labelSmall, letterSpacing = 0.7.sp)
         Spacer(Modifier.height(6.dp))
         WireframeScene()
         Spacer(Modifier.height(12.dp))
-        Text("Náčrtová plocha • kresli prstom", color = Color(0xFF9BAFC2), style = MaterialTheme.typography.bodySmall)
+        Text("SKETCH LAYER  /  2D NÁČRT • KRESLI PRSTOM", color = Color(0xFF9BAFC2), style = MaterialTheme.typography.labelSmall, letterSpacing = 0.7.sp)
         Spacer(Modifier.height(8.dp))
         Canvas(
-            Modifier.fillMaxWidth().height(190.dp)
+            Modifier.fillMaxWidth().height(230.dp)
                 .background(Color(0xFF07101A), RoundedCornerShape(12.dp))
                 .pointerInput(Unit) {
                     detectDragGestures(
@@ -111,7 +112,7 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
                     )
                 }
         ) {
-            val gridColor = Color(0xFF183244)
+            val gridColor = Color(0xFF102A3A)
             val step = 24.dp.toPx()
             var x = 0f
             while (x < size.width) { drawLine(gridColor, Offset(x, 0f), Offset(x, size.height), 1f); x += step }
@@ -128,7 +129,7 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
             }
         }
         Spacer(Modifier.height(8.dp))
-        Text("Náčrt sa ukladá lokálne v tablete.", color = Color(0xFF8195A8), style = MaterialTheme.typography.labelSmall)
+        Text("LOCAL PROJECT CACHE  •  NÁČRT SA UKLADÁ V TABLETE", color = Color(0xFF8195A8), style = MaterialTheme.typography.labelSmall, letterSpacing = 0.5.sp)
         }
     }
 }
@@ -217,12 +218,12 @@ private fun WireframeScene() {
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp)
                 ) {
-                    Text(shape, color = if (model == shape) Color.White else WorkCyan, style = MaterialTheme.typography.labelSmall)
+                    Text(shape, color = if (model == shape) Color.White else WorkCyan, style = MaterialTheme.typography.labelSmall, letterSpacing = 0.8.sp)
                 }
             }
         }
         Canvas(
-            Modifier.fillMaxWidth().height(170.dp)
+            Modifier.fillMaxWidth().height(280.dp)
                 .background(Color(0xFF07101A), RoundedCornerShape(12.dp))
                 .pointerInput(Unit) {
                     detectDragGestures { change, drag ->
@@ -310,10 +311,13 @@ private fun WireframeScene() {
             while (y < size.height) { drawLine(gridColor, Offset(0f, y), Offset(size.width, y), 1f); y += 28.dp.toPx() }
             edges.forEach { (a, b) ->
                 if (a in projected.indices && b in projected.indices) {
-                    drawLine(WorkCyan, projected[a], projected[b], strokeWidth = 2.dp.toPx())
+                    drawLine(Color(0xFF12394A), projected[a] + Offset(1.5.dp.toPx(), 2.dp.toPx()), projected[b] + Offset(1.5.dp.toPx(), 2.dp.toPx()), strokeWidth = 4.dp.toPx())
+                    drawLine(WorkCyan.copy(alpha = 0.88f), projected[a], projected[b], strokeWidth = 1.35.dp.toPx())
                 }
             }
-            projected.forEach { point -> drawCircle(WorkCyan, radius = 2.dp.toPx(), center = point) }
+            projected.forEach { point -> drawCircle(WorkCyan.copy(alpha = 0.85f), radius = 1.6.dp.toPx(), center = point) }
+            drawLine(WorkCyan.copy(alpha = 0.15f), Offset(size.width * 0.5f, 0f), Offset(size.width * 0.5f, size.height), 1.dp.toPx())
+            drawLine(WorkCyan.copy(alpha = 0.15f), Offset(0f, size.height * 0.5f), Offset(size.width, size.height * 0.5f), 1.dp.toPx())
         }
     }
 }
