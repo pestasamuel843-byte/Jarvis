@@ -46,6 +46,7 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
         }
     }
     var activeStroke by remember { mutableStateOf<List<Offset>>(emptyList()) }
+    val redoStrokes = remember { mutableStateListOf<List<Offset>>() }
     var mapMode by remember { mutableStateOf(initialMapMode) }
     Column(
         Modifier.fillMaxWidth().background(Color(0xFF050A11), RoundedCornerShape(20.dp)).padding(12.dp)
@@ -57,7 +58,21 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
                 Text("SCÉNA AKTÍVNA  •  UPRAVITEĽNÝ NÁHĽAD", color = Color(0xFF7894A8), style = MaterialTheme.typography.labelSmall)
             }
             TextButton(onClick = {
-                strokes.clear(); activeStroke = emptyList()
+                if (strokes.isNotEmpty()) {
+                    redoStrokes.add(strokes.removeAt(strokes.lastIndex))
+                    val saved = strokes.joinToString(";") { stroke -> stroke.joinToString("|") { point -> "${point.x},${point.y}" } }
+                    prefs.edit().putString("strokes", saved).apply()
+                }
+            }, enabled = strokes.isNotEmpty()) { Text("Späť", color = WorkCyan) }
+            TextButton(onClick = {
+                if (redoStrokes.isNotEmpty()) {
+                    strokes.add(redoStrokes.removeAt(redoStrokes.lastIndex))
+                    val saved = strokes.joinToString(";") { stroke -> stroke.joinToString("|") { point -> "${point.x},${point.y}" } }
+                    prefs.edit().putString("strokes", saved).apply()
+                }
+            }, enabled = redoStrokes.isNotEmpty()) { Text("Znova", color = WorkCyan) }
+            TextButton(onClick = {
+                strokes.clear(); redoStrokes.clear(); activeStroke = emptyList()
                 prefs.edit().remove("strokes").apply()
             }) { Text("Vymazať", color = WorkCyan) }
             TextButton(onClick = onClose) { Text("Zavrieť", color = WorkCyan) }
@@ -102,7 +117,10 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
                         onDragStart = { activeStroke = listOf(it) },
                         onDrag = { change, _ -> activeStroke = activeStroke + change.position },
                         onDragEnd = {
-                            if (activeStroke.isNotEmpty()) strokes.add(activeStroke)
+                            if (activeStroke.isNotEmpty()) {
+                                strokes.add(activeStroke)
+                                redoStrokes.clear()
+                            }
                             activeStroke = emptyList()
                             val saved = strokes.joinToString(";") { stroke ->
                                 stroke.joinToString("|") { point -> point.x.toString() + "," + point.y.toString() }
