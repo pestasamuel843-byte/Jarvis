@@ -26,7 +26,7 @@ The APK is available only after the workflow succeeds. A green run is required b
 
 ## AI setup
 
-Open Settings inside JARVIS and provide an OpenAI-compatible Chat Completions endpoint, a model supported by that endpoint, and an API key. API usage may cost money. Do not commit API keys or secrets to GitHub.
+Open Settings inside JARVIS and paste a valid Cloudflare API token with Workers AI permissions into the **Cloudflare API token** field, then save. The default account endpoint and `@cf/meta/llama-3.1-8b-instruct` model are preconfigured, so ordinary setup requires only the token. If the token is rejected, verify its permissions and that Workers AI is enabled for the account. API usage may be subject to account limits or charges. Never commit tokens to GitHub or send them in chat. Advanced settings are available if you deliberately use a different OpenAI-compatible provider.
 
 ## Current limitations — important
 
