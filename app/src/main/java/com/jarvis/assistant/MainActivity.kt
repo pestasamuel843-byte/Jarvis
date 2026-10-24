@@ -212,7 +212,8 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     chat.add(Message(true, status)); speak(status)
                     busy = true
                     scope.launch {
-                        val answer = withContext(Dispatchers.IO) { askAi(endpoint, key, model, chat.toList().takeLast(20), prefs.getString("memories", "").orEmpty()) }
+                        val progressContext = prefs.getString("memories", "").orEmpty() + "\nUložené osobné záznamy (používaj iba ak relevantné, nevymýšľaj údaje):\n" + prefs.getString("progress_data", "").orEmpty()
+                        val answer = withContext(Dispatchers.IO) { askAi(endpoint, key, model, chat.toList().takeLast(20), progressContext) }
                         workspaceDescription = answer
                         prefs.edit().putString("workspace_description", answer).apply()
                         chat.add(Message(true, answer))
@@ -656,7 +657,8 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                             busy = true
                             chat.add(Message(false, instruction))
                             scope.launch {
-                                val answer = withContext(Dispatchers.IO) { askAi(endpoint, key, model, (chat.toList().takeLast(20) + Message(false, "Uprav aktívny návrh podľa tejto požiadavky: $instruction. Zachovaj užitočné časti a vysvetli konkrétne zmeny.")), prefs.getString("memories", "").orEmpty()) }
+                                val projectContext = prefs.getString("memories", "").orEmpty() + "\nUložené osobné záznamy (iba ak relevantné):\n" + prefs.getString("progress_data", "").orEmpty()
+                                val answer = withContext(Dispatchers.IO) { askAi(endpoint, key, model, (chat.toList().takeLast(20) + Message(false, "Uprav aktívny návrh podľa tejto požiadavky: $instruction. Zachovaj užitočné časti a vysvetli konkrétne zmeny.")), projectContext) }
                                 workspaceDescription = answer
                                 prefs.edit().putString("workspace_description", answer).apply()
                                 chat.add(Message(true, answer)); speak(answer); busy = false
