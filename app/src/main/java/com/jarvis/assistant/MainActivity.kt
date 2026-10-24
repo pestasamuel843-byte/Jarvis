@@ -126,10 +126,11 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     val prefs = remember { context.getSharedPreferences("jarvis", Context.MODE_PRIVATE) }
     val scope = rememberCoroutineScope()
     var input by remember { mutableStateOf("") }
-    var endpoint by remember { mutableStateOf(prefs.getString("endpoint", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions")?.let { if (it == "https://api.openai.com/v1/chat/completions") "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions" else it } ?: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions") }
-    var model by remember { mutableStateOf(prefs.getString("model", "gemini-3.8-flash")?.let { if (it == "gpt-4o-mini" && endpoint.contains("generativelanguage.googleapis.com")) "gemini-3.8-flash" else it } ?: "gemini-3.8-flash") }
+    var endpoint by remember { mutableStateOf(prefs.getString("endpoint", "https://api.cloudflare.com/client/v4/accounts/09f7e11cc7eaf76d61294654d547bd8a/ai/v1/chat/completions")?.let { if (it == "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions" || it == "https://api.openai.com/v1/chat/completions") "https://api.cloudflare.com/client/v4/accounts/09f7e11cc7eaf76d61294654d547bd8a/ai/v1/chat/completions" else it } ?: "https://api.cloudflare.com/client/v4/accounts/09f7e11cc7eaf76d61294654d547bd8a/ai/v1/chat/completions") }
+    var model by remember { mutableStateOf(prefs.getString("model", "@cf/meta/llama-3.1-8b-instruct")?.let { if ((it.startsWith("gemini-") || it == "gpt-4o-mini") && endpoint.contains("api.cloudflare.com/client/v4/accounts/")) "@cf/meta/llama-3.1-8b-instruct" else it } ?: "@cf/meta/llama-3.1-8b-instruct") }
     var key by remember { mutableStateOf(prefs.getString("key", "") ?: "") }
     var settings by remember { mutableStateOf(false) }
+    var showAdvancedSettings by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var listening by remember { mutableStateOf(false) }
     var wakeMode by remember { mutableStateOf(false) }
@@ -672,13 +673,15 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("API kľúč sa ukladá v zariadení. Nevkladajte ho do GitHubu.", color = Muted, fontSize = 12.sp)
-                        TextButton(onClick = {
-                            endpoint = "https://api.cloudflare.com/client/v4/accounts/09f7e11cc7eaf76d61294654d547bd8a/ai/v1/chat/completions"
-                            model = "@cf/meta/llama-3.1-8b-instruct"
-                        }) { Text("Nastaviť Cloudflare AI") }
-                        OutlinedTextField(endpoint, { endpoint = it }, label = { Text("API endpoint") }, singleLine = true)
-                        OutlinedTextField(model, { model = it }, label = { Text("Model") }, singleLine = true)
-                        OutlinedTextField(key, { key = it }, label = { Text("API kľúč") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
+                        Text("Predvolená služba: Cloudflare Workers AI • model Llama 3.1 8B", color = Cyan, fontSize = 12.sp)
+                        OutlinedTextField(key, { key = it }, label = { Text("Cloudflare API token") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
+                        TextButton(onClick = { showAdvancedSettings = !showAdvancedSettings }) {
+                            Text(if (showAdvancedSettings) "Skryť pokročilé nastavenia" else "Pokročilé nastavenia", color = Muted)
+                        }
+                        if (showAdvancedSettings) {
+                            OutlinedTextField(endpoint, { endpoint = it }, label = { Text("API endpoint") }, singleLine = true)
+                            OutlinedTextField(model, { model = it }, label = { Text("Model") }, singleLine = true)
+                        }
                     }
                 },
                 confirmButton = { TextButton(onClick = {
@@ -1101,10 +1104,6 @@ ${if (webContext.isNotBlank()) "\nWEBOVÉ VÝSLEDKY (môžu byť neúplné; pou�
             doOutput = true
             setRequestProperty("Content-Type", "application/json; charset=utf-8")
             setRequestProperty("Authorization", "Bearer $key")
-            // Cloudflare AI Gateway requires a gateway ID header for Workers AI (@cf/) models.
-            if (endpoint.contains("api.cloudflare.com/client/v4/accounts/") && model.startsWith("@cf/")) {
-                setRequestProperty("cf-aig-gateway-id", "default")
-            }
             setRequestProperty("Accept", "application/json")
         }
         val apiMessages = JSONArray()
