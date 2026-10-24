@@ -662,13 +662,21 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF10263A), Bg, Color(0xFF05070C))))) {
             Column(Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 7.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Box(Modifier.size(48.dp).background(Cyan.copy(alpha = .13f), CircleShape), contentAlignment = Alignment.Center) {
-                        Text("J", color = Cyan, fontSize = 27.sp, fontWeight = FontWeight.Bold)
+                    Box(Modifier.size(52.dp).background(Brush.radialGradient(listOf(Color(0xFF1B718B), Color(0xFF0B2638), Color(0xFF07111B))), CircleShape), contentAlignment = Alignment.Center) {
+                        Canvas(Modifier.fillMaxSize()) {
+                            val c = Offset(size.width / 2f, size.height / 2f)
+                            drawCircle(Cyan.copy(alpha = .8f), size.minDimension * .39f, c, style = Stroke(width = 1.2.dp.toPx()))
+                            drawArc(Cyan, 35f, 105f, false, androidx.compose.ui.geometry.Offset(size.width*.12f,size.height*.12f), androidx.compose.ui.geometry.Size(size.width*.76f,size.height*.76f), style = Stroke(width = 1.4.dp.toPx()))
+                            drawLine(Cyan.copy(alpha=.7f), Offset(size.width*.22f,size.height*.5f), Offset(size.width*.78f,size.height*.5f), .8.dp.toPx())
+                            drawLine(Cyan.copy(alpha=.7f), Offset(size.width*.5f,size.height*.22f), Offset(size.width*.5f,size.height*.78f), .8.dp.toPx())
+                        }
+                        Text("J", color = Color(0xFFE2FCFF), fontSize = 25.sp, fontWeight = FontWeight.Light)
                     }
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("J.A.R.V.I.S.", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                        Text(if (busy) "SPRACÚVAM…" else "SYSTÉMY ONLINE • SLOVENČINA", color = Cyan, fontSize = 10.sp, letterSpacing = 1.sp)
+                        Text("J.A.R.V.I.S.", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Light, letterSpacing = 3.sp)
+                        Text(if (busy) "◉ NEURÁLNA ANALÝZA…" else if (wakeMode) "◉ HLASOVÝ MODUL AKTÍVNY" else "NEURÁLNE ROZHRANIE • SK-SK", color = Cyan, fontSize = 9.sp, letterSpacing = 1.2.sp)
+                        Text("STARK SYSTEMS  /  MK-VII", color = Muted, fontSize = 7.sp, letterSpacing = 1.6.sp)
                     }
                     TextButton(onClick = { showWorkspace = !showWorkspace }) { Text("PROJEKT", color = Cyan, fontSize = 11.sp) }
                     TextButton(onClick = { settings = true }) { Text("⚙", color = Cyan, fontSize = 22.sp) }
@@ -954,8 +962,8 @@ private fun JarvisDashboard(
             }
         }
         Box(
-            Modifier.fillMaxWidth().height(290.dp)
-                .background(Brush.radialGradient(listOf(Color(0xFF174D68), Color(0xFF0B1B2B), Color(0xFF04070C))), RoundedCornerShape(24.dp))
+            Modifier.fillMaxWidth().height(320.dp)
+                .background(Brush.radialGradient(listOf(Color(0xFF17627B), Color(0xFF0A2031), Color(0xFF02050A))), RoundedCornerShape(24.dp))
                 .clip(RoundedCornerShape(24.dp))
         ) {
             // Keep the HUD self-contained: no live webpage underneath the overlay.
@@ -964,8 +972,14 @@ private fun JarvisDashboard(
                 val cx = size.width / 2f
                 val cy = size.height / 2f
                 val scale = minOf(size.width, size.height)
-                // Layered animated technical rings inspired by the film holographic workshop.
-                for (i in 1..9) drawCircle(Cyan.copy(alpha = if (i % 2 == 0) 0.13f else 0.07f), radius = i * scale / 13f, center = Offset(cx, cy), style = Stroke(width = if (i == 3) 1.8.dp.toPx() else 0.8.dp.toPx()))
+                // Layered holographic reactor rings and radial scan marks.
+                for (i in 1..12) drawCircle(Cyan.copy(alpha = if (i % 3 == 0) 0.17f else 0.045f), radius = i * scale / 15f, center = Offset(cx, cy), style = Stroke(width = if (i == 4) 2.dp.toPx() else 0.7.dp.toPx()))
+                for (i in 0..71) {
+                    val a = Math.PI * 2.0 * i / 72.0
+                    val r1 = scale * .40f
+                    val r2 = scale * if (i % 6 == 0) .46f else .425f
+                    drawLine(Color(0xFF8DEBFF).copy(alpha = if (i % 6 == 0) .8f else .22f), Offset(cx + kotlin.math.cos(a).toFloat()*r1, cy + kotlin.math.sin(a).toFloat()*r1), Offset(cx + kotlin.math.cos(a).toFloat()*r2, cy + kotlin.math.sin(a).toFloat()*r2), if (i % 6 == 0) 1.4.dp.toPx() else .6.dp.toPx())
+                }
                 drawArc(Cyan.copy(alpha = 0.9f), ringRotation, 62f, false, Offset(cx - scale * .39f, cy - scale * .39f), androidx.compose.ui.geometry.Size(scale * .78f, scale * .78f), style = Stroke(width = 2.dp.toPx()))
                 drawArc(Color(0xFF8ACBFF).copy(alpha = .75f), -ringRotation * .7f, 38f, false, Offset(cx - scale * .29f, cy - scale * .29f), androidx.compose.ui.geometry.Size(scale * .58f, scale * .58f), style = Stroke(width = 1.4.dp.toPx()))
                 for (i in 0..47) {
@@ -984,10 +998,15 @@ private fun JarvisDashboard(
                 }
             }
             Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(Modifier.size(100.dp).background(Cyan.copy(alpha = .05f), CircleShape), contentAlignment = Alignment.Center) {
-                    Box(Modifier.size(80.dp).background(Cyan.copy(alpha = .09f), CircleShape), contentAlignment = Alignment.Center) {
-                        Box(Modifier.size(62.dp).background(Brush.radialGradient(listOf(Color(0xFF2B91A8), Color(0xFF081723))), CircleShape), contentAlignment = Alignment.Center) {
-                            Text("J", color = Cyan, fontSize = 48.sp, fontWeight = FontWeight.Light)
+                Box(Modifier.size(118.dp).background(Cyan.copy(alpha = .035f), CircleShape), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(96.dp).background(Cyan.copy(alpha = .07f), CircleShape), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(76.dp).background(Brush.radialGradient(listOf(Color(0xFF5CEBFF), Color(0xFF17617B), Color(0xFF06111C))), CircleShape), contentAlignment = Alignment.Center) {
+                            Canvas(Modifier.fillMaxSize()) {
+                                drawCircle(Color(0xFFD7FBFF).copy(alpha=.85f), size.minDimension*.39f, style=Stroke(width=1.2.dp.toPx()))
+                                drawArc(Color.White.copy(alpha=.8f), ringRotation, 120f, false, androidx.compose.ui.geometry.Offset(size.width*.08f,size.height*.08f), androidx.compose.ui.geometry.Size(size.width*.84f,size.height*.84f), style=Stroke(width=1.5.dp.toPx()))
+                                drawLine(Color.White.copy(alpha=.35f), Offset(size.width*.18f,size.height*.5f), Offset(size.width*.82f,size.height*.5f), .7.dp.toPx())
+                            }
+                            Text("J", color = Color(0xFFE9FDFF), fontSize = 52.sp, fontWeight = FontWeight.ExtraLight)
                         }
                     }
                 }
