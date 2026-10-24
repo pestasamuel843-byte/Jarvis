@@ -156,6 +156,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     var showChat by remember { mutableStateOf(false) }
     var showIntro by remember { mutableStateOf(true) }
     var showCheckIn by remember { mutableStateOf(false) }
+    var showProgress by remember { mutableStateOf(false) }
     var gradeSubject by remember { mutableStateOf("") }
     var gradeValue by remember { mutableStateOf("") }
     var moodValue by remember { mutableFloatStateOf(3f) }
@@ -187,6 +188,21 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
         input = ""
         chat.add(Message(false, text))
         when {
+            text.contains("graf", true) || text.contains("známk", true) || text.contains("zlepšil", true) || text.contains("zhoršil", true) || text.contains("mentáln", true) || text.contains("ako som sa mal", true) -> {
+                showProgress = true
+                val progress = prefs.getString("progress_data", "").orEmpty()
+                busy = true
+                scope.launch {
+                    val prompt = "Odpovedz po slovensky. Použi len tieto uložené záznamy, nevymýšľaj čísla. Vysvetli, čo možno a nemožno vyčítať, zmeny v čase a 1-3 praktické kroky. Ak je údajov málo, povedz to. Používateľ chce zobraziť/priblížiť graf a počuť vysvetlenie. Požiadavka: " + text + "\nZÁZNAMY:\n" + if (progress.isBlank()) "Zatiaľ bez záznamov." else progress
+                    val answer = if (key.isBlank()) {
+                        if (progress.isBlank()) "Pane, zatiaľ nemám uložené žiadne záznamy. Po dennom prehľade sa tu budú zobrazovať vaše údaje. Na inteligentné vysvetlenie treba pridať API token v Nastaveniach."
+                        else "Pane, zobrazil som vaše záznamy. Na porovnanie trendov a hlasové odporúčania pridajte API token v Nastaveniach."
+                    } else withContext(Dispatchers.IO) {
+                        askAi(endpoint, key, model, chat.toList().takeLast(20) + Message(false, prompt), prefs.getString("memories", "").orEmpty() + "\n" + progress)
+                    }
+                    chat.add(Message(true, answer)); speak(answer); busy = false
+                }
+            }
             text.contains("projekt", true) || text.contains("nakresli", true) || text.contains("pracovný priestor", true) || text.contains("navrhni", true) || text.contains("vizualiz", true) || text.contains("premietni", true) || text.contains("ukáž mi v 3d", true) || text.contains("model", true) || text.contains("mapu", true) || text.contains("mapa", true) || text.contains("zobraz map", true) || text.contains("ukáž map", true) || text.contains("cestu okolo", true) || text.contains("trasu", true) || text.contains("okolie školy", true) || text.contains("mozog", true) || text.contains("nemocnicu", true) || text.contains("auto", true) -> {
                 showWorkspace = true
                 showChat = false
@@ -699,6 +715,60 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             if (showIntro) {
                 JarvisIntro(onSkip = { showIntro = false })
             }
+        }
+        if (showProgress && !showIntro) {
+            val entries = prefs.getString("progress_data", "").orEmpty().lines().filter { it.isNotBlank() }
+            val grades = entries.mapNotNull { line ->
+                val parts = line.split(" | ")
+                if (parts.size >= 4 && parts[1] == "ZNÁMKA") parts[0] to (parts[3].toFloatOrNull()) else null
+            }
+            val moods = entries.mapNotNull { line ->
+                val parts = line.split(" | ")
+                if (parts.size >= 4 && parts[1] == "DEŇ") parts[0] to (parts[2].substringBefore("/").toFloatOrNull()) else null
+            }
+            AlertDialog(
+                onDismissRequest = { showProgress = false },
+                title = { Text("OSOBNÉ GRAFY • JARVIS") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("ZNÁMKY (1 = najlepšia, 5 = najslabšia)", color = Cyan, fontSize = 12.sp)
+                        if (grades.isEmpty()) Text("Zatiaľ nie sú uložené známky.", color = Muted)
+                        else {
+                            Canvas(Modifier.fillMaxWidth().height(90.dp)) {
+                                val values = grades.takeLast(12).map { it.second ?: 0f }
+                                if (values.size > 1) {
+                                    val stepX = size.width / (values.size - 1)
+                                    for (i in 0 until values.lastIndex) {
+                                        val y1 = (values[i] / 5f) * size.height
+                                        val y2 = (values[i + 1] / 5f) * size.height
+                                        drawLine(Cyan, Offset(i * stepX, y1), Offset((i + 1) * stepX, y2), 3.dp.toPx())
+                                    }
+                                }
+                            }
+                            grades.takeLast(8).forEach { Text(it.first + " • " + it.second?.toInt(), color = Muted, fontSize = 11.sp) }
+                        }
+                        Text("AKO SOM SA MAL (1–5)", color = Cyan, fontSize = 12.sp)
+                        if (moods.isEmpty()) Text("Zatiaľ nie sú uložené hodnotenia dní.", color = Muted)
+                        else {
+                            Canvas(Modifier.fillMaxWidth().height(90.dp)) {
+                                val values = moods.takeLast(14).map { it.second ?: 0f }
+                                if (values.size > 1) {
+                                    val stepX = size.width / (values.size - 1)
+                                    for (i in 0 until values.lastIndex) {
+                                        val y1 = size.height - (values[i] / 5f) * size.height
+                                        val y2 = size.height - (values[i + 1] / 5f) * size.height
+                                        drawLine(Color(0xFF75E6A5), Offset(i * stepX, y1), Offset((i + 1) * stepX, y2), 3.dp.toPx())
+                                    }
+                                }
+                            }
+                            moods.takeLast(8).forEach { Text(it.first + " • " + it.second?.toInt() + "/5", color = Muted, fontSize = 11.sp) }
+                        }
+                        Text("Grafy vychádzajú iba z uložených záznamov. Sú orientačné, nie diagnostické.", color = Muted, fontSize = 10.sp)
+                    }
+                },
+                confirmButton = { TextButton(onClick = { showProgress = false }) { Text("Zavrieť") } },
+                dismissButton = { TextButton(onClick = { handle("vysvetli moje grafy a odporuč zlepšenie") }) { Text("Vysvetliť hlasom") } }
+            )
         }
         if (showCheckIn && !showIntro) {
             AlertDialog(
