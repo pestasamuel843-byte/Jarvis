@@ -23,6 +23,11 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.clip
@@ -711,6 +716,9 @@ private fun JarvisDashboard(
     onSettings: () -> Unit
 ) {
     val context = LocalContext.current
+    val transition = rememberInfiniteTransition(label = "jarvis_hud")
+    val ringRotation by transition.animateFloat(0f, 360f, infiniteRepeatable(tween(18000, easing = LinearEasing)), label = "ring_rotation")
+    val batteryPercent = remember { (context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager)?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)?.coerceIn(0, 100) }
     val prefs = remember { context.getSharedPreferences("jarvis_dashboard", Context.MODE_PRIVATE) }
     val tasks = remember {
         mutableStateListOf<JarvisTask>().apply {
@@ -756,8 +764,10 @@ private fun JarvisDashboard(
                 val cx = size.width / 2f
                 val cy = size.height / 2f
                 val scale = minOf(size.width, size.height)
-                // Technical targeting rings and radial divisions inspired by the film's holographic UI.
+                // Layered animated technical rings inspired by the film holographic workshop.
                 for (i in 1..6) drawCircle(Cyan.copy(alpha = if (i % 2 == 0) 0.13f else 0.07f), radius = i * scale / 13f, center = Offset(cx, cy), style = Stroke(width = if (i == 3) 1.8.dp.toPx() else 0.8.dp.toPx()))
+                drawArc(Cyan.copy(alpha = 0.9f), ringRotation, 62f, false, Offset(cx - scale * .39f, cy - scale * .39f), androidx.compose.ui.geometry.Size(scale * .78f, scale * .78f), style = Stroke(width = 2.dp.toPx()))
+                drawArc(Color(0xFF8ACBFF).copy(alpha = .75f), -ringRotation * .7f, 38f, false, Offset(cx - scale * .29f, cy - scale * .29f), androidx.compose.ui.geometry.Size(scale * .58f, scale * .58f), style = Stroke(width = 1.4.dp.toPx()))
                 for (i in 0..23) {
                     val a = Math.PI * 2.0 * i / 24.0
                     val r1 = scale * 0.31f
@@ -849,15 +859,21 @@ private fun JarvisDashboard(
             DashboardAction("⌘", "Tvoriť / kresliť", Modifier.weight(1f), onWorkspace)
             DashboardAction("⚙", "Nastavenia", Modifier.weight(1f), onSettings)
         }
+        Text("STARK SYSTEMS • PREHĽAD", color = Cyan, fontSize = 10.sp, letterSpacing = 2.sp)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            HudMetric("CORE", if (busy) "ANALÝZA" else "POHOTOVOSŤ", if (busy) Color(0xFFFFC66D) else Color(0xFF69F0AE), Modifier.weight(1f))
+            HudMetric("AI MODUL", if (aiReady) "TOKEN ULOŽENÝ" else "NEKONFIGUROVANÝ", if (aiReady) Cyan else Color(0xFFFFC66D), Modifier.weight(1f))
+            HudMetric("BATÉRIA", batteryPercent?.let { "$it%" } ?: "NEDOSTUPNÁ", Cyan, Modifier.weight(1f))
+        }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Column(Modifier.weight(1f).background(Color(0xFF0B1723), RoundedCornerShape(14.dp)).padding(12.dp)) {
                 Text("SYSTÉMOVÝ STAV", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
                 Text(if (wakeMode) "● Hlasový modul aktívny" else "○ Hlasový modul vypnutý", color = if (wakeMode) Cyan else Muted, fontSize = 11.sp)
-                Text(if (aiReady) "● Model: " + model else "○ AI čaká na konfiguráciu", color = if (aiReady) Cyan else Color(0xFFFFC66D), fontSize = 10.sp, maxLines = 1)
+                Text(if (aiReady) "● Token uložený • pripojenie sa overí pri požiadavke" else "○ AI čaká na konfiguráciu", color = if (aiReady) Cyan else Color(0xFFFFC66D), fontSize = 10.sp, maxLines = 2)
             }
             Column(Modifier.weight(1f).background(Color(0xFF0B1723), RoundedCornerShape(14.dp)).padding(12.dp)) {
                 Text("RÝCHLY PRÍKAZ", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
-                Text("„Hej Jarvis, navrhni mi…“", color = Color.White, fontSize = 11.sp)
+                Text("„Pane, analyzuj tento návrh…“", color = Color.White, fontSize = 11.sp)
                 Text("Návrh sa otvorí v pracovnom priestore.", color = Muted, fontSize = 9.sp)
             }
         }
@@ -1145,5 +1161,19 @@ ${if (webContext.isNotBlank()) "\nWEBOVÉ VÝSLEDKY (môžu byť neúplné; pou�
             "Pane, spojenie s AI zlyhalo: ${message.take(180).ifBlank { "neznáma chyba" }}. Skontrolujte internet, endpoint a nastavenia modelu."
     } finally {
         connection?.disconnect()
+    }
+}
+
+
+@Composable
+private fun HudMetric(label: String, value: String, valueColor: Color, modifier: Modifier = Modifier) {
+    Column(modifier.background(Color(0xFF0B1723), RoundedCornerShape(12.dp)).padding(10.dp)) {
+        Text(label, color = Muted, fontSize = 8.sp, letterSpacing = 1.sp, maxLines = 1)
+        Spacer(Modifier.height(5.dp))
+        Text(value, color = valueColor, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 2)
+        Spacer(Modifier.height(5.dp))
+        Box(Modifier.fillMaxWidth().height(2.dp).background(Color(0xFF17394A), RoundedCornerShape(2.dp))) {
+            Box(Modifier.fillMaxWidth(if (value == "NEKONFIGUROVANÝ") 0.18f else 0.72f).fillMaxHeight().background(valueColor, RoundedCornerShape(2.dp)))
+        }
     }
 }
