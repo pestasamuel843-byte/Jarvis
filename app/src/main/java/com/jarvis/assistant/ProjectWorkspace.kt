@@ -261,6 +261,49 @@ private fun WireframeScene() {
                         8 to 9, 9 to 10, 10 to 2, 11 to 12, 12 to 13, 13 to 6, 9 to 12
                     )
                 }
+                "AUTO" -> {
+                    vertices = listOf(
+                        floatArrayOf(-1.3f,-0.35f,-0.55f), floatArrayOf(1.3f,-0.35f,-0.55f),
+                        floatArrayOf(1.3f,0.05f,-0.55f), floatArrayOf(0.75f,0.55f,-0.55f),
+                        floatArrayOf(-0.75f,0.55f,-0.55f), floatArrayOf(-1.3f,0.05f,-0.55f),
+                        floatArrayOf(-1.3f,-0.35f,0.55f), floatArrayOf(1.3f,-0.35f,0.55f),
+                        floatArrayOf(1.3f,0.05f,0.55f), floatArrayOf(0.75f,0.55f,0.55f),
+                        floatArrayOf(-0.75f,0.55f,0.55f), floatArrayOf(-1.3f,0.05f,0.55f),
+                        floatArrayOf(-0.8f,-0.35f,-0.7f), floatArrayOf(-0.8f,-0.35f,0.7f),
+                        floatArrayOf(0.8f,-0.35f,-0.7f), floatArrayOf(0.8f,-0.35f,0.7f)
+                    )
+                    edges = listOf(0 to 1,1 to 2,2 to 3,3 to 4,4 to 5,5 to 0,6 to 7,7 to 8,8 to 9,9 to 10,10 to 11,11 to 6,0 to 6,1 to 7,2 to 8,3 to 9,4 to 10,5 to 11,12 to 13,14 to 15)
+                }
+                "IZBA" -> {
+                    vertices = listOf(
+                        floatArrayOf(-1f,-0.8f,-1f),floatArrayOf(1f,-0.8f,-1f),
+                        floatArrayOf(1f,0.8f,-1f),floatArrayOf(-1f,0.8f,-1f),
+                        floatArrayOf(-1f,-0.8f,1f),floatArrayOf(1f,-0.8f,1f),
+                        floatArrayOf(1f,0.8f,1f),floatArrayOf(-1f,0.8f,1f),
+                        floatArrayOf(-0.45f,-0.8f,-1.01f),floatArrayOf(0.05f,-0.8f,-1.01f),
+                        floatArrayOf(0.05f,0.25f,-1.01f),floatArrayOf(-0.45f,0.25f,-1.01f),
+                        floatArrayOf(0.35f,0.15f,-1.01f),floatArrayOf(0.8f,0.15f,-1.01f),
+                        floatArrayOf(0.8f,0.55f,-1.01f),floatArrayOf(0.35f,0.55f,-1.01f)
+                    )
+                    edges = listOf(0 to 1,1 to 2,2 to 3,3 to 0,4 to 5,5 to 6,6 to 7,7 to 4,0 to 4,1 to 5,2 to 6,3 to 7,8 to 9,9 to 10,10 to 11,11 to 8,12 to 13,13 to 14,14 to 15,15 to 12)
+                }
+                "ULICA" -> {
+                    vertices = listOf(
+                        floatArrayOf(-1.4f,-0.7f,-0.5f),floatArrayOf(-0.8f,-0.7f,-0.5f),
+                        floatArrayOf(-0.8f,0.8f,-0.5f),floatArrayOf(-1.4f,0.8f,-0.5f),
+                        floatArrayOf(0.65f,-0.7f,-0.5f),floatArrayOf(1.25f,-0.7f,-0.5f),
+                        floatArrayOf(1.25f,0.8f,-0.5f),floatArrayOf(0.65f,0.8f,-0.5f),
+                        floatArrayOf(-1.4f,-0.7f,0.5f),floatArrayOf(-0.8f,-0.7f,0.5f),
+                        floatArrayOf(-0.8f,0.8f,0.5f),floatArrayOf(-1.4f,0.8f,0.5f),
+                        floatArrayOf(0.65f,-0.7f,0.5f),floatArrayOf(1.25f,-0.7f,0.5f),
+                        floatArrayOf(1.25f,0.8f,0.5f),floatArrayOf(0.65f,0.8f,0.5f),
+                        floatArrayOf(-0.3f,-0.65f,-0.4f),floatArrayOf(-0.05f,-0.65f,-0.4f),
+                        floatArrayOf(-0.05f,0.7f,-0.4f),floatArrayOf(-0.3f,0.7f,-0.4f),
+                        floatArrayOf(0.15f,-0.65f,0.4f),floatArrayOf(0.4f,-0.65f,0.4f),
+                        floatArrayOf(0.4f,0.7f,0.4f),floatArrayOf(0.15f,0.7f,0.4f)
+                    )
+                    edges = listOf(0 to 1,1 to 2,2 to 3,3 to 0,4 to 5,5 to 6,6 to 7,7 to 4,8 to 9,9 to 10,10 to 11,11 to 8,12 to 13,13 to 14,14 to 15,15 to 12,0 to 8,1 to 9,2 to 10,3 to 11,4 to 12,5 to 13,6 to 14,7 to 15,16 to 17,17 to 18,18 to 19,19 to 16,20 to 21,21 to 22,22 to 23,23 to 20)
+                }
                 "GUĽA" -> {
                     val points = mutableListOf<FloatArray>()
                     val lines = mutableListOf<Pair<Int, Int>>()
