@@ -913,224 +913,57 @@ private data class JarvisTask(val title: String, val done: Boolean)
 
 @Composable
 private fun JarvisDashboard(
-    modifier: Modifier,
-    wakeMode: Boolean,
-    busy: Boolean,
-    aiReady: Boolean,
-    model: String,
-    onToggleVoice: () -> Unit,
-    onWorkspace: () -> Unit,
-    onChat: () -> Unit,
-    onSettings: () -> Unit
+ modifier: Modifier, wakeMode: Boolean, busy: Boolean, aiReady: Boolean, model: String,
+ onToggleVoice: () -> Unit, onWorkspace: () -> Unit, onChat: () -> Unit, onSettings: () -> Unit
 ) {
-    val context = LocalContext.current
-    val transition = rememberInfiniteTransition(label = "jarvis_hud")
-    val ringRotation by transition.animateFloat(0f, 360f, infiniteRepeatable(tween(18000, easing = LinearEasing)), label = "ring_rotation")
-    val batteryPercent = remember { (context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager)?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)?.coerceIn(0, 100) }
-    val prefs = remember { context.getSharedPreferences("jarvis_dashboard", Context.MODE_PRIVATE) }
-    val tasks = remember {
-        mutableStateListOf<JarvisTask>().apply {
-            val saved = runCatching { JSONArray(prefs.getString("tasks", "[]").orEmpty()) }.getOrNull()
-            if (saved != null) for (i in 0 until saved.length()) {
-                val item = saved.optJSONObject(i) ?: continue
-                val title = item.optString("title").trim()
-                if (title.isNotBlank()) add(JarvisTask(title, item.optBoolean("done", false)))
-            }
-            if (isEmpty()) {
-                add(JarvisTask("Skontrolovať dnešné úlohy", false))
-                add(JarvisTask("Pokračovať na projekte JARVIS", false))
-            }
-        }
+ val context=LocalContext.current
+ val transition=rememberInfiniteTransition(label="jarvis_hud")
+ val spin by transition.animateFloat(0f,360f,infiniteRepeatable(tween(24000,easing=LinearEasing)),label="spin")
+ val pulse by transition.animateFloat(.3f,.95f,infiniteRepeatable(tween(1300),repeatMode=androidx.compose.animation.core.RepeatMode.Reverse),label="pulse")
+ val battery=remember{(context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager)?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)?.coerceIn(0,100)}
+ Column(modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(14.dp)){
+  Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+   Column(Modifier.weight(1f)){Text("STARK INDUSTRIES / PERSONAL AI",color=Cyan,fontSize=9.sp,letterSpacing=2.sp);Text("J.A.R.V.I.S.",color=Color.White,fontSize=30.sp,fontWeight=FontWeight.ExtraLight,letterSpacing=5.sp);Text("NEURAL COMMAND DECK • MK-VII",color=Muted,fontSize=8.sp,letterSpacing=1.5.sp)}
+   Column(horizontalAlignment=Alignment.End){Text(SimpleDateFormat("HH:mm",Locale.getDefault()).format(Date()),color=Color.White,fontSize=23.sp,fontWeight=FontWeight.Light);Text(if(busy)"PROCESSING" else "SYSTEM ONLINE",color=if(busy)Color(0xFFFFBD68) else Color(0xFF69F0AE),fontSize=8.sp,letterSpacing=1.sp)}
+  }
+  Row(Modifier.fillMaxWidth().height(354.dp),horizontalArrangement=Arrangement.spacedBy(9.dp)){
+   Box(Modifier.weight(1.7f).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(Brush.verticalGradient(listOf(Color(0xFF10374C),Color(0xFF071521),Color(0xFF02060B))))){
+    Canvas(Modifier.fillMaxSize()){
+     val cx=size.width*.5f;val cy=size.height*.43f;val r=minOf(size.width,size.height)*.30f;val grid=Color(0xFF24546A)
+     var x=0f;while(x<size.width){drawLine(grid.copy(alpha=.25f),Offset(x,0f),Offset(x,size.height),.5.dp.toPx());x+=24.dp.toPx()}
+     var y=0f;while(y<size.height){drawLine(grid.copy(alpha=.25f),Offset(0f,y),Offset(size.width,y),.5.dp.toPx());y+=24.dp.toPx()}
+     for(i in 0..3){val d=12.dp.toPx()+i*5.dp.toPx();val l=17.dp.toPx();val c=Cyan.copy(alpha=.75f-i*.12f);drawLine(c,Offset(d,d),Offset(d+l,d),1.dp.toPx());drawLine(c,Offset(d,d),Offset(d,d+l),1.dp.toPx());drawLine(c,Offset(size.width-d,d),Offset(size.width-d-l,d),1.dp.toPx());drawLine(c,Offset(size.width-d,d),Offset(size.width-d,d+l),1.dp.toPx())}
+     drawCircle(Cyan.copy(alpha=.07f),r*1.6f,Offset(cx,cy));drawCircle(Cyan.copy(alpha=.3f),r*1.27f,Offset(cx,cy),style=Stroke(1.dp.toPx(),pathEffect=androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(),5.dp.toPx()))))
+     drawArc(Cyan.copy(alpha=.9f),spin,78f,false,Offset(cx-r,cy-r),androidx.compose.ui.geometry.Size(r*2,r*2),style=Stroke(2.dp.toPx()))
+     drawArc(Color(0xFF80CFFF).copy(alpha=.85f),-spin*.7f,38f,false,Offset(cx-r*.82f,cy-r*.82f),androidx.compose.ui.geometry.Size(r*1.64f,r*1.64f),style=Stroke(1.2.dp.toPx()))
+     drawCircle(Cyan.copy(alpha=.35f),r*.72f,Offset(cx,cy),style=Stroke(1.dp.toPx()));drawLine(Cyan.copy(alpha=.2f),Offset(cx-r*1.65f,cy),Offset(cx+r*1.65f,cy),.7.dp.toPx());drawLine(Cyan.copy(alpha=.2f),Offset(cx,cy-r*1.65f),Offset(cx,cy+r*1.65f),.7.dp.toPx())
+     for(i in 0..47){val a=Math.PI*2*i/48;val r1=r*1.06f;val r2=r*(if(i%4==0)1.23f else 1.12f);drawLine(Cyan.copy(alpha=if(i%4==0).85f else .28f),Offset(cx+kotlin.math.cos(a).toFloat()*r1,cy+kotlin.math.sin(a).toFloat()*r1),Offset(cx+kotlin.math.cos(a).toFloat()*r2,cy+kotlin.math.sin(a).toFloat()*r2),if(i%4==0)1.2.dp.toPx() else .6.dp.toPx())}
     }
-    var addDialog by remember { mutableStateOf(false) }
-    var taskInput by remember { mutableStateOf("") }
-    fun saveTasks() {
-        val json = JSONArray()
-        tasks.forEach { json.put(JSONObject().put("title", it.title).put("done", it.done)) }
-        prefs.edit().putString("tasks", json.toString()).apply()
+    Column(Modifier.align(Alignment.TopStart).padding(13.dp)){Text("ARC REACTOR",color=Cyan,fontSize=8.sp,letterSpacing=2.sp);Text("CORE 01 / "+(if(busy)"COMPUTING" else "STANDBY"),color=Muted,fontSize=7.sp)}
+    Column(Modifier.align(Alignment.TopEnd).padding(13.dp),horizontalAlignment=Alignment.End){Text("NEURAL LINK",color=Muted,fontSize=7.sp);Text(if(aiReady)"CONFIGURED" else "AWAITING KEY",color=if(aiReady)Color(0xFF69F0AE) else Color(0xFFFFBD68),fontSize=8.sp)}
+    Column(Modifier.align(Alignment.Center),horizontalAlignment=Alignment.CenterHorizontally){
+     Box(Modifier.size(128.dp).background(Cyan.copy(alpha=.035f),CircleShape),contentAlignment=Alignment.Center){Box(Modifier.size(104.dp).background(Cyan.copy(alpha=.07f),CircleShape),contentAlignment=Alignment.Center){Box(Modifier.size(82.dp).background(Brush.radialGradient(listOf(Color(0xFFC8FCFF),Color(0xFF3CCEEA),Color(0xFF104C65),Color(0xFF03101B))),CircleShape),contentAlignment=Alignment.Center){Text("J",color=Color.White,fontSize=57.sp,fontWeight=FontWeight.ExtraLight)}}}
+     Spacer(Modifier.height(12.dp));Text(if(busy)"ANALYZING REQUEST" else if(wakeMode)"VOICE CHANNEL OPEN" else "AWAITING COMMAND",color=Cyan.copy(alpha=pulse),fontSize=8.sp,letterSpacing=1.5.sp);Text("ARTIFICIAL INTELLIGENCE SYSTEM",color=Color.White.copy(alpha=.72f),fontSize=7.sp,letterSpacing=1.sp)
     }
-    Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("OSOBNÝ SYSTÉM • JARVIS", color = Cyan, fontSize = 10.sp, letterSpacing = 2.sp)
-                Text("Dobrý deň, pane.", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Light)
-                Text(SimpleDateFormat("EEEE • d. MMMM", Locale("sk", "SK")).format(Date()).uppercase(Locale("sk", "SK")), color = Muted, fontSize = 10.sp, letterSpacing = 1.sp)
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                Text(if (busy) "SPRACÚVAM" else "SYSTÉMY ONLINE", color = if (busy) Color(0xFFFFC66D) else Color(0xFF69F0AE), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                Text(if (aiReady) "AI NASTAVENÁ" else "LOKÁLNY REŽIM", color = Muted, fontSize = 9.sp)
-            }
-        }
-        Box(
-            Modifier.fillMaxWidth().height(320.dp)
-                .background(Brush.radialGradient(listOf(Color(0xFF17627B), Color(0xFF0A2031), Color(0xFF02050A))), RoundedCornerShape(24.dp))
-                .clip(RoundedCornerShape(24.dp))
-        ) {
-            // Keep the HUD self-contained: no live webpage underneath the overlay.
-            Box(Modifier.fillMaxSize().background(Color(0x99050B12), RoundedCornerShape(24.dp)))
-            Canvas(Modifier.fillMaxSize()) {
-                val cx = size.width / 2f
-                val cy = size.height / 2f
-                val scale = minOf(size.width, size.height)
-                // Layered holographic reactor rings and radial scan marks.
-                for (i in 1..12) drawCircle(Cyan.copy(alpha = if (i % 3 == 0) 0.17f else 0.045f), radius = i * scale / 15f, center = Offset(cx, cy), style = Stroke(width = if (i == 4) 2.dp.toPx() else 0.7.dp.toPx()))
-                for (i in 0..71) {
-                    val a = Math.PI * 2.0 * i / 72.0
-                    val r1 = scale * .40f
-                    val r2 = scale * if (i % 6 == 0) .46f else .425f
-                    drawLine(Color(0xFF8DEBFF).copy(alpha = if (i % 6 == 0) .8f else .22f), Offset(cx + kotlin.math.cos(a).toFloat()*r1, cy + kotlin.math.sin(a).toFloat()*r1), Offset(cx + kotlin.math.cos(a).toFloat()*r2, cy + kotlin.math.sin(a).toFloat()*r2), if (i % 6 == 0) 1.4.dp.toPx() else .6.dp.toPx())
-                }
-                drawArc(Cyan.copy(alpha = 0.9f), ringRotation, 62f, false, Offset(cx - scale * .39f, cy - scale * .39f), androidx.compose.ui.geometry.Size(scale * .78f, scale * .78f), style = Stroke(width = 2.dp.toPx()))
-                drawArc(Color(0xFF8ACBFF).copy(alpha = .75f), -ringRotation * .7f, 38f, false, Offset(cx - scale * .29f, cy - scale * .29f), androidx.compose.ui.geometry.Size(scale * .58f, scale * .58f), style = Stroke(width = 1.4.dp.toPx()))
-                for (i in 0..47) {
-                    val a = Math.PI * 2.0 * i / 48.0
-                    val r1 = scale * 0.31f
-                    val r2 = scale * if (i % 6 == 0) 0.39f else if (i % 3 == 0) 0.36f else 0.345f
-                    drawLine(Cyan.copy(alpha = if (i % 3 == 0) 0.75f else 0.22f), Offset(cx + kotlin.math.cos(a).toFloat() * r1, cy + kotlin.math.sin(a).toFloat() * r1), Offset(cx + kotlin.math.cos(a).toFloat() * r2, cy + kotlin.math.sin(a).toFloat() * r2), 1.dp.toPx())
-                }
-                drawLine(Cyan.copy(alpha = 0.12f), Offset(cx, 0f), Offset(cx, size.height), 1.dp.toPx())
-                drawLine(Cyan.copy(alpha = 0.12f), Offset(0f, cy), Offset(size.width, cy), 1.dp.toPx())
-                drawCircle(Cyan.copy(alpha = 0.18f), radius = 3.dp.toPx(), center = Offset(cx, cy))
-                // Small target markers around the central core.
-                listOf(Offset(size.width * .16f, size.height * .38f), Offset(size.width * .83f, size.height * .42f), Offset(size.width * .22f, size.height * .72f), Offset(size.width * .78f, size.height * .72f)).forEach {
-                    drawCircle(Cyan.copy(alpha = .55f), radius = 3.dp.toPx(), center = it)
-                    drawCircle(Cyan.copy(alpha = .2f), radius = 10.dp.toPx(), center = it, style = Stroke(width = 1.dp.toPx()))
-                }
-            }
-            Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(Modifier.size(118.dp).background(Cyan.copy(alpha = .035f), CircleShape), contentAlignment = Alignment.Center) {
-                    Box(Modifier.size(96.dp).background(Cyan.copy(alpha = .07f), CircleShape), contentAlignment = Alignment.Center) {
-                        Box(Modifier.size(76.dp).background(Brush.radialGradient(listOf(Color(0xFF5CEBFF), Color(0xFF17617B), Color(0xFF06111C))), CircleShape), contentAlignment = Alignment.Center) {
-                            Canvas(Modifier.fillMaxSize()) {
-                                drawCircle(Color(0xFFD7FBFF).copy(alpha=.85f), size.minDimension*.39f, style=Stroke(width=1.2.dp.toPx()))
-                                drawArc(Color.White.copy(alpha=.8f), ringRotation, 120f, false, androidx.compose.ui.geometry.Offset(size.width*.08f,size.height*.08f), androidx.compose.ui.geometry.Size(size.width*.84f,size.height*.84f), style=Stroke(width=1.5.dp.toPx()))
-                                drawLine(Color.White.copy(alpha=.35f), Offset(size.width*.18f,size.height*.5f), Offset(size.width*.82f,size.height*.5f), .7.dp.toPx())
-                            }
-                            Text("J", color = Color(0xFFE9FDFF), fontSize = 52.sp, fontWeight = FontWeight.ExtraLight)
-                        }
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-                Text("J.A.R.V.I.S.", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = 5.sp)
-                Text(if (busy) "ANALYZUJEM POŽIADAVKU" else if (wakeMode) "◉ AKTÍVNE POČÚVANIE" else "PRIPRAVENÝ NA POKYN", color = Cyan, fontSize = 9.sp, letterSpacing = 1.5.sp)
-            }
-            Column(Modifier.align(Alignment.TopStart).padding(14.dp)) {
-                Text("STARK INDUSTRIES", color = Cyan, fontSize = 9.sp, letterSpacing = 1.8.sp)
-                Text("NEURAL INTERFACE / MK–01", color = Muted, fontSize = 7.sp)
-            }
-            Column(Modifier.align(Alignment.TopEnd).padding(14.dp), horizontalAlignment = Alignment.End) {
-                Text(if (aiReady) "AI LINK • TOKEN NASTAVENÝ" else "AI LINK • STANDBY", color = if (aiReady) Color(0xFF69F0AE) else Color(0xFFFFC66D), fontSize = 8.sp)
-                Text("VOICE / SK-SK", color = Muted, fontSize = 8.sp)
-            }
-            Column(Modifier.align(Alignment.BottomStart).padding(14.dp)) {
-                Text("SYSTEM MONITOR", color = Muted, fontSize = 8.sp)
-                Text(if (wakeMode) "MICROPHONE • LISTENING" else "MICROPHONE • OFF", color = if (wakeMode) Cyan else Muted, fontSize = 8.sp)
-            }
-            Column(Modifier.align(Alignment.BottomEnd).padding(14.dp), horizontalAlignment = Alignment.End) {
-                Text("INTERFACE 02.6", color = Muted, fontSize = 8.sp)
-                Text("HOLOGRAPHIC DISPLAY • 01", color = Cyan, fontSize = 7.sp)
-            }
-            // Floating telemetry directly on the hologram, not in cards.
-            Column(Modifier.align(Alignment.CenterStart).padding(start = 12.dp).width(112.dp)) {
-                Text("PROGRES ZNÁMOK", color = Cyan, fontSize = 8.sp, letterSpacing = 1.sp)
-                Spacer(Modifier.height(4.dp))
-                Canvas(Modifier.fillMaxWidth().height(42.dp)) {
-                    val grid = Color(0xFF1C5267)
-                    for (i in 0..3) {
-                        val y = size.height * i / 3f
-                        drawLine(grid.copy(alpha = .55f), Offset(0f, y), Offset(size.width, y), .7.dp.toPx())
-                    }
-                    drawLine(Cyan.copy(alpha = .7f), Offset(0f, size.height * .78f), Offset(size.width, size.height * .78f), 1.2.dp.toPx())
-                }
-                Text("DOPLŇ ZNÁMKY PRE SLEDOVANIE", color = Muted, fontSize = 6.sp, lineHeight = 9.sp)
-            }
-            Column(Modifier.align(Alignment.CenterEnd).padding(end = 12.dp).width(96.dp), horizontalAlignment = Alignment.End) {
-                Text("OSOBNÝ PROGRES", color = Cyan, fontSize = 8.sp, letterSpacing = .8.sp)
-                Spacer(Modifier.height(7.dp))
-                Text("ÚLOHY  ${tasks.count { it.done }}/${tasks.size}", color = Color.White, fontSize = 10.sp)
-                Text("BATÉRIA  ${batteryPercent?.let { "$it%" } ?: "—"}", color = Muted, fontSize = 9.sp)
-                Spacer(Modifier.height(7.dp))
-                Text("LIVE TELEMETRY", color = Cyan.copy(alpha = .7f), fontSize = 7.sp)
-            }
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Column(Modifier.weight(1f).background(Panel, RoundedCornerShape(18.dp)).padding(12.dp)) {
-                Text("◉  SATELIT • SVIT", color = Cyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(6.dp))
-                Canvas(Modifier.fillMaxWidth().height(118.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF07131F))) {
-                    val grid = Color(0xFF15394B)
-                    val step = 22.dp.toPx()
-                    var x = 0f
-                    while (x < size.width) { drawLine(grid, Offset(x, 0f), Offset(x, size.height), 1.dp.toPx()); x += step }
-                    var y = 0f
-                    while (y < size.height) { drawLine(grid, Offset(0f, y), Offset(size.width, y), 1.dp.toPx()); y += step }
-                    val p = Path().apply {
-                        moveTo(-8f, size.height * .2f); lineTo(size.width * .3f, size.height * .35f); lineTo(size.width * .6f, size.height * .2f); lineTo(size.width + 8f, size.height * .45f)
-                    }
-                    drawPath(p, Color(0xFF2A6075), style = Stroke(width = 2.dp.toPx()))
-                    val q = Path().apply {
-                        moveTo(size.width * .1f, size.height + 8f); lineTo(size.width * .35f, size.height * .65f); lineTo(size.width * .55f, size.height * .7f); lineTo(size.width * .7f, -8f)
-                    }
-                    drawPath(q, Cyan.copy(alpha = .9f), style = Stroke(width = 2.5.dp.toPx()))
-                    drawCircle(Cyan.copy(alpha = .2f), 13.dp.toPx(), Offset(size.width * .55f, size.height * .57f))
-                    drawCircle(Cyan, 3.dp.toPx(), Offset(size.width * .55f, size.height * .57f))
-                }
-                Spacer(Modifier.height(5.dp))
-                Text("SATELITNÝ POHĽAD • SVIT, SLOVENSKO", color = Muted, fontSize = 8.sp)
-                TextButton(onClick = onWorkspace, contentPadding = PaddingValues(0.dp)) { Text("Otvoriť mapu ↗", color = Cyan, fontSize = 11.sp) }
-            }
-            Column(Modifier.weight(1f).background(Panel, RoundedCornerShape(18.dp)).padding(12.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("☑  MOJE ÚLOHY", color = Cyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    TextButton(onClick = { addDialog = true }, contentPadding = PaddingValues(0.dp)) { Text("+", color = Cyan, fontSize = 20.sp) }
-                }
-                if (tasks.isEmpty()) Text("Zatiaľ žiadne úlohy.", color = Muted, fontSize = 11.sp)
-                tasks.take(4).forEachIndexed { index, task ->
-                    Row(Modifier.fillMaxWidth().clickable { tasks[index] = task.copy(done = !task.done); saveTasks() }.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = task.done, onCheckedChange = { tasks[index] = task.copy(done = it); saveTasks() }, modifier = Modifier.size(26.dp))
-                        Text(task.title, color = if (task.done) Muted else Color.White, fontSize = 10.sp, maxLines = 2)
-                    }
-                }
-                Text(tasks.count { it.done }.toString() + " / " + tasks.size + " SPLNENÉ", color = Muted, fontSize = 9.sp)
-            }
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            DashboardAction("🎙", if (wakeMode) "Vypnúť hlas" else "Zapnúť hlas", Modifier.weight(1f), onToggleVoice)
-            DashboardAction("◈", "Rozhovor", Modifier.weight(1f), onChat)
-            DashboardAction("◇", "STARK WORKSHOP", Modifier.weight(1f), onWorkspace)
-            DashboardAction("⚙", "Nastavenia", Modifier.weight(1f), onSettings)
-        }
-        Text("STARK SYSTEMS  /  LIVE TELEMETRY", color = Cyan, fontSize = 10.sp, letterSpacing = 2.sp)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            HudMetric("CORE", if (busy) "ANALÝZA" else "POHOTOVOSŤ", if (busy) Color(0xFFFFC66D) else Color(0xFF69F0AE), Modifier.weight(1f))
-            HudMetric("AI MODUL", if (aiReady) "TOKEN ULOŽENÝ" else "NEKONFIGUROVANÝ", if (aiReady) Cyan else Color(0xFFFFC66D), Modifier.weight(1f))
-            HudMetric("BATÉRIA", batteryPercent?.let { "$it%" } ?: "NEDOSTUPNÁ", Cyan, Modifier.weight(1f))
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Column(Modifier.weight(1f).background(Color(0xFF0B1723), RoundedCornerShape(14.dp)).padding(12.dp)) {
-                Text("SYSTÉMOVÝ STAV", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
-                Text(if (wakeMode) "● Hlasový modul aktívny" else "○ Hlasový modul vypnutý", color = if (wakeMode) Cyan else Muted, fontSize = 11.sp)
-                Text(if (aiReady) "● Token uložený • pripojenie sa overí pri požiadavke" else "○ AI čaká na konfiguráciu", color = if (aiReady) Cyan else Color(0xFFFFC66D), fontSize = 10.sp, maxLines = 2)
-            }
-            Column(Modifier.weight(1f).background(Color(0xFF0B1723), RoundedCornerShape(14.dp)).padding(12.dp)) {
-                Text("RÝCHLY PRÍKAZ", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
-                Text("„Pane, analyzuj tento návrh…“", color = Color.White, fontSize = 11.sp)
-                Text("Návrh sa otvorí v pracovnom priestore.", color = Muted, fontSize = 9.sp)
-            }
-        }
+    Row(Modifier.align(Alignment.BottomStart).fillMaxWidth().background(Color(0xCC02070C)).padding(10.dp),horizontalArrangement=Arrangement.SpaceBetween){Text("SYS 7F.21",color=Muted,fontSize=7.sp);Text(if(wakeMode)"MIC ACTIVE" else "MIC STANDBY",color=if(wakeMode)Cyan else Muted,fontSize=7.sp);Text("SECURE LINK",color=Cyan,fontSize=7.sp)}
+   }
+   Column(Modifier.weight(1f).fillMaxHeight(),verticalArrangement=Arrangement.spacedBy(8.dp)){
+    Column(Modifier.weight(1f).fillMaxWidth().background(Color(0xFF0A1824),RoundedCornerShape(4.dp)).padding(11.dp)){
+     Text("01 / SYSTEM STATUS",color=Cyan,fontSize=8.sp,letterSpacing=1.sp);Spacer(Modifier.height(12.dp));Text("AI ENGINE",color=Muted,fontSize=8.sp);Text(if(aiReady)"READY" else "NOT CONFIGURED",color=if(aiReady)Color(0xFF69F0AE) else Color(0xFFFFBD68),fontSize=10.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(10.dp));Text("VOICE INPUT",color=Muted,fontSize=8.sp);Text(if(wakeMode)"LISTENING" else "DISABLED",color=if(wakeMode)Cyan else Muted,fontSize=10.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(10.dp));Text("BATTERY",color=Muted,fontSize=8.sp);Text((battery?.toString() ?: "—")+"%",color=Color.White,fontSize=18.sp,fontWeight=FontWeight.Light);Box(Modifier.fillMaxWidth().height(3.dp).background(Color(0xFF193849))){Box(Modifier.fillMaxWidth((battery?:0)/100f).fillMaxHeight().background(Cyan))}
     }
-    if (addDialog) {
-        AlertDialog(
-            onDismissRequest = { addDialog = false },
-            title = { Text("Nová úloha") },
-            text = { OutlinedTextField(value = taskInput, onValueChange = { taskInput = it }, label = { Text("Čo treba urobiť?") }, singleLine = true) },
-            confirmButton = { TextButton(onClick = {
-                val title = taskInput.trim()
-                if (title.isNotBlank()) { tasks.add(JarvisTask(title, false)); saveTasks(); taskInput = ""; addDialog = false }
-            }) { Text("Pridať") } },
-            dismissButton = { TextButton(onClick = { addDialog = false }) { Text("Zrušiť") } }
-        )
+    Column(Modifier.weight(1f).fillMaxWidth().background(Color(0xFF0A1824),RoundedCornerShape(4.dp)).padding(11.dp)){
+     Text("02 / LIVE TELEMETRY",color=Cyan,fontSize=8.sp,letterSpacing=1.sp);Spacer(Modifier.height(8.dp));Canvas(Modifier.fillMaxWidth().height(57.dp)){for(i in 0..4)drawLine(Color(0xFF193849),Offset(0f,size.height*i/4),Offset(size.width,size.height*i/4),.7.dp.toPx());val pts=(0..22).map{i->Offset(size.width*i/22f,size.height*(.5f+.24f*kotlin.math.sin(i*.72f+spin/42f).toFloat()))};val p=Path().apply{pts.forEachIndexed{i,v->if(i==0)moveTo(v.x,v.y)else lineTo(v.x,v.y)}};drawPath(p,Cyan,style=Stroke(1.4.dp.toPx()))};Spacer(Modifier.height(7.dp));Text("PROCESSOR LOAD",color=Muted,fontSize=7.sp);Text(if(busy)"PROCESSING DATA…" else "NOMINAL / ONLINE",color=Color.White,fontSize=8.sp)
     }
+   }
+  }
+  Text("COMMAND INTERFACE",color=Muted,fontSize=9.sp,letterSpacing=2.sp)
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){DashboardAction("◉",if(wakeMode)"Vypnúť hlas" else "Hlasový vstup",Modifier.weight(1f),onToggleVoice);DashboardAction("⌁","Konverzácia",Modifier.weight(1f),onChat);DashboardAction("⬡","STARK WORKSHOP",Modifier.weight(1f),onWorkspace);DashboardAction("⚙","Nastavenia",Modifier.weight(1f),onSettings)}
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+   Column(Modifier.weight(1f).background(Color(0xFF0A1824),RoundedCornerShape(4.dp)).padding(13.dp)){Text("PROJECT BAY",color=Cyan,fontSize=9.sp,letterSpacing=1.5.sp);Spacer(Modifier.height(6.dp));Text("Tvorba • 2D / 3D • mapy",color=Color.White,fontSize=13.sp);Text("Otvoriť pracovný priestor a pokračovať v návrhu.",color=Muted,fontSize=10.sp);TextButton(onClick=onWorkspace,contentPadding=PaddingValues(0.dp)){Text("OPEN WORKSPACE ↗",color=Cyan,fontSize=9.sp)}}
+   Column(Modifier.weight(1f).background(Color(0xFF0A1824),RoundedCornerShape(4.dp)).padding(13.dp)){Text("PERSONAL ASSISTANT",color=Cyan,fontSize=9.sp,letterSpacing=1.5.sp);Spacer(Modifier.height(6.dp));Text("Dobrý deň, pane.",color=Color.White,fontSize=13.sp);Text(SimpleDateFormat("EEEE • d. MMMM",Locale("sk","SK")).format(Date()).uppercase(Locale("sk","SK")),color=Muted,fontSize=9.sp);Text(if(aiReady)"AI nakonfigurovaná" else "Nastavte AI kľúč v nastaveniach",color=if(aiReady)Color(0xFF69F0AE) else Color(0xFFFFBD68),fontSize=9.sp)}
+  }
+  Text("JARVIS COMMAND DECK • ANDROID 12",color=Muted,fontSize=7.sp,letterSpacing=1.4.sp,modifier=Modifier.fillMaxWidth(),textAlign=androidx.compose.ui.text.style.TextAlign.Center)
+ }
 }
 
 @Composable
