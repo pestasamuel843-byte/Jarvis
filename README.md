@@ -26,7 +26,7 @@ The APK is available only after the workflow succeeds. A green run is required b
 
 ## AI setup
 
-Open Settings inside JARVIS and paste a valid Cloudflare API token with Workers AI permissions into the **Cloudflare API token** field, then save. The default account endpoint and `@cf/meta/llama-3.1-8b-instruct` model are preconfigured, so ordinary setup requires only the token. If the token is rejected, verify its permissions and that Workers AI is enabled for the account. API usage may be subject to account limits or charges. Never commit tokens to GitHub or send them in chat. Advanced settings are available if you deliberately use a different OpenAI-compatible provider.
+Open Settings inside JARVIS and paste a valid **Google Gemini API key** into the API-key field, then save. The default endpoint is Google's OpenAI-compatible Gemini endpoint and the default model is `gemini-2.5-flash`, so the intended basic setup requires only the Gemini API key. Create/manage a key through Google AI Studio: https://aistudio.google.com/apikey. Availability, quotas, and pricing are controlled by Google and may change. Test the connection in JARVIS settings before relying on it. Never commit tokens to GitHub or send them in chat. Advanced settings are available if you deliberately use a different OpenAI-compatible provider.
 
 ## Current limitations — important
 
