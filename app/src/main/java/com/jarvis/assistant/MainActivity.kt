@@ -168,6 +168,8 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     var gradeValue by remember { mutableStateOf("") }
     var moodValue by remember { mutableFloatStateOf(3f) }
     var moodNote by remember { mutableStateOf("") }
+    var scheduleSetupIndex by remember { mutableIntStateOf(-1) }
+    val scheduleDays = listOf("Pondelok", "Utorok", "Streda", "Štvrtok", "Piatok")
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(4700)
         showIntro = false
@@ -191,10 +193,42 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     fun handle(raw: String) {
         val text = raw.trim().replace(Regex("(?i)^(?:(?:hej|hey)\\s+)?jarvis[,: ]*"), "").trim()
         if (text.isEmpty() || busy) return
+        if (scheduleSetupIndex >= 0) {
+            val day = scheduleDays[scheduleSetupIndex / 8]
+            val period = scheduleSetupIndex % 8 + 1
+            val saved = prefs.getString("school_timetable", "").orEmpty().lines().filter { it.isNotBlank() }.toMutableList()
+            if (!text.equals("voľno", true) && !text.equals("preskoč", true) && !text.equals("ďalej", true)) saved.add("$day | $period. hodina | $text")
+            prefs.edit().putString("school_timetable", saved.joinToString("\\n")).apply()
+            scheduleSetupIndex++
+            if (scheduleSetupIndex >= 40) {
+                scheduleSetupIndex = -1
+                val done = "Rozvrh som uložil, pane. Ak chcete zmeniť konkrétnu hodinu, povedzte: uprav rozvrh."
+                chat.add(Message(true, done)); speak(done)
+            } else {
+                val nextDay = scheduleDays[scheduleSetupIndex / 8]
+                val nextPeriod = scheduleSetupIndex % 8 + 1
+                val question = "$nextDay, $nextPeriod. hodina. Aký predmet máte? Povedzte predmet, alebo voľno."
+                chat.add(Message(true, question)); speak(question)
+            }
+            showChat = true
+            return
+        }
         showChat = true
         input = ""
         chat.add(Message(false, text))
         when {
+            text.contains("nastav rozvrh", true) || text.contains("pridaj rozvrh", true) || text == "rozvrh" || text.contains("rozvrh školy", true) -> {
+                scheduleSetupIndex = 0
+                val old = "school_timetable"
+                prefs.edit().remove(old).apply()
+                val question = "Začnime rozvrhom, pane. Budem sa pýtať na každý predmet zvlášť a po každej odpovedi si ho uložím. Pondelok, prvá hodina: aký predmet máte? Ak hodina nie je, povedzte voľno."
+                chat.add(Message(true, question)); speak(question)
+            }
+            text.contains("ukáž rozvrh", true) || text.contains("môj rozvrh", true) -> {
+                val timetable = prefs.getString("school_timetable", "").orEmpty()
+                val answer = if (timetable.isBlank()) "Pane, rozvrh ešte nie je nastavený. Povedzte: nastav rozvrh." else "Váš uložený rozvrh: " + timetable.replace("\\n", ". ")
+                chat.add(Message(true, answer)); speak(answer)
+            }
             text.contains("graf", true) || text.contains("známk", true) || text.contains("zlepšil", true) || text.contains("zhoršil", true) || text.contains("mentáln", true) || text.contains("ako som sa mal", true) -> {
                 showProgress = true
                 val progress = prefs.getString("progress_data", "").orEmpty()
@@ -920,7 +954,7 @@ private fun JarvisDashboard(
             }
         }
         Box(
-            Modifier.fillMaxWidth().height(350.dp)
+            Modifier.fillMaxWidth().height(245.dp)
                 .background(Brush.radialGradient(listOf(Color(0xFF174D68), Color(0xFF0B1B2B), Color(0xFF04070C))), RoundedCornerShape(24.dp))
                 .clip(RoundedCornerShape(24.dp))
         ) {
