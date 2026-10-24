@@ -105,17 +105,24 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 override fun onError(utteranceId: String?) { speechOutputActive = false }
                 override fun onError(utteranceId: String?, errorCode: Int) { speechOutputActive = false }
             })
-            // Prefer an explicitly identified Slovak female voice when the installed Android TTS provider offers one.
-            // Voice availability depends on the tablet's installed speech engine and language packs.
+            // Prefer Slovak male voice, especially Lukáš / Neural when the installed TTS engine exposes it.
+            // The classic Microsoft Edge "sk-SK-LukasNeural" voice is not guaranteed to be available
+            // through Android TextToSpeech; this selects the closest installed Slovak voice.
             val slovakVoices = engine.voices?.filter { it.locale.language == "sk" }.orEmpty()
-            val femaleSlovak = slovakVoices.firstOrNull {
+            val lukasVoice = slovakVoices.firstOrNull {
                 val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
-                name.contains("female") || name.contains("feminine") || name.contains("woman") || name.contains("žena") || name.contains("zena")
+                name.contains("lukas") || name.contains("lukáš") || name.contains("neural")
             }
-            if (femaleSlovak != null) {
-                engine.voice = femaleSlovak
+            val maleSlovak = slovakVoices.firstOrNull {
+                val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
+                name.contains("male") || name.contains("masculine") || name.contains("man") || name.contains("muž") || name.contains("muz")
+            }
+            val selectedVoice = lukasVoice ?: maleSlovak
+            if (selectedVoice != null) {
+                engine.voice = selectedVoice
+                android.util.Log.i("JARVIS-TTS", "Selected Slovak voice: ${selectedVoice.name}")
             } else {
-                android.util.Log.w("JARVIS-TTS", "No explicitly identified Slovak female voice installed; using Android default Slovak voice. Check Android Text-to-speech settings for more voices.")
+                android.util.Log.w("JARVIS-TTS", "No identifiable Slovak male/Lukas voice installed; using Android default Slovak voice. Install/select a Slovak male voice in Android Text-to-speech settings.")
             }
         }
     }
