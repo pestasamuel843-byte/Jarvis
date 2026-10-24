@@ -15,6 +15,8 @@ import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.widget.Toast
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -44,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -738,7 +741,22 @@ private fun JarvisDashboard(
         Box(
             Modifier.fillMaxWidth().height(280.dp)
                 .background(Brush.radialGradient(listOf(Color(0xFF174D68), Color(0xFF0B1B2B), Color(0xFF04070C))), RoundedCornerShape(24.dp))
+                .clip(RoundedCornerShape(24.dp))
         ) {
+            AndroidView(
+                factory = { viewContext ->
+                    WebView(viewContext).apply {
+                        settings.javaScriptEnabled = true
+                        settings.domStorageEnabled = true
+                        settings.loadWithOverviewMode = true
+                        settings.useWideViewPort = true
+                        webViewClient = WebViewClient()
+                        loadUrl("https://www.google.com/maps/@49.0605,20.2050,15z/data=!3m1!1e3")
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+            Box(Modifier.fillMaxSize().background(Color(0x99050B12), RoundedCornerShape(24.dp)))
             Canvas(Modifier.fillMaxSize()) {
                 val cx = size.width / 2f
                 val cy = size.height / 2f
@@ -791,7 +809,7 @@ private fun JarvisDashboard(
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Column(Modifier.weight(1f).background(Panel, RoundedCornerShape(18.dp)).padding(12.dp)) {
-                Text("◉  MAPA / RADAR", color = Cyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text("◉  SATELIT • SVIT", color = Cyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(6.dp))
                 Canvas(Modifier.fillMaxWidth().height(118.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF07131F))) {
                     val grid = Color(0xFF15394B)
@@ -812,7 +830,7 @@ private fun JarvisDashboard(
                     drawCircle(Cyan, 3.dp.toPx(), Offset(size.width * .55f, size.height * .57f))
                 }
                 Spacer(Modifier.height(5.dp))
-                Text("RADAROVÝ PREHĽAD • ŽIVÉ VYHĽADÁVANIE CEZ AI", color = Muted, fontSize = 8.sp)
+                Text("SATELITNÝ POHĽAD • SVIT, SLOVENSKO", color = Muted, fontSize = 8.sp)
                 TextButton(onClick = onWorkspace, contentPadding = PaddingValues(0.dp)) { Text("Otvoriť mapu ↗", color = Cyan, fontSize = 11.sp) }
             }
             Column(Modifier.weight(1f).background(Panel, RoundedCornerShape(18.dp)).padding(12.dp)) {
