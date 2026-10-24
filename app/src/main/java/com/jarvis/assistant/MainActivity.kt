@@ -392,6 +392,24 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     runCatching { context.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) }
                 }
             }
+            text.startsWith("hľadaj ", true) || text.startsWith("vyhľadaj ", true) -> {
+                val query = text.substringAfter(' ').trim()
+                val answer = "Pane, hľadám na internete: $query"
+                chat.add(Message(true, answer)); speak(answer)
+                busy = true
+                scope.launch {
+                    val results = withContext(Dispatchers.IO) { searchWeb(query) }
+                    val resultText = if (results.isNotBlank()) {
+                        "Výsledky vyhľadávania pre „$query“:\n\n$results"
+                    } else {
+                        "Pane, priamy výpis výsledkov sa nepodarilo načítať. Otváram vyhľadávanie v prehliadači."
+                    }
+                    chat.add(Message(true, resultText))
+                    if (results.isNotBlank()) speak("Našiel som výsledky. Zobrazujem ich v konverzácii.")
+                    else runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=" + URLEncoder.encode(query, "UTF-8")))) }
+                    busy = false
+                }
+            }
             text.contains("wifi", true) || text.contains("wi-fi", true) || text.contains("internet", true) -> {
                 val connectivity = context.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
                 val network = connectivity.activeNetwork
@@ -463,24 +481,6 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             text.contains("aký je dátum", true) || text.contains("dnešný dátum", true) -> {
                 val answer = "Dnes je " + SimpleDateFormat("d. MMMM yyyy", Locale("sk", "SK")).format(Date()) + "."
                 chat.add(Message(true, answer)); speak(answer)
-            }
-            text.startsWith("hľadaj ", true) || text.startsWith("vyhľadaj ", true) -> {
-                val query = text.substringAfter(' ').trim()
-                val answer = "Pane, hľadám na internete: $query"
-                chat.add(Message(true, answer)); speak(answer)
-                busy = true
-                scope.launch {
-                    val results = withContext(Dispatchers.IO) { searchWeb(query) }
-                    val resultText = if (results.isNotBlank()) {
-                        "Výsledky vyhľadávania pre „$query“:\n\n$results"
-                    } else {
-                        "Pane, priamy výpis výsledkov sa nepodarilo načítať. Otváram vyhľadávanie v prehliadači."
-                    }
-                    chat.add(Message(true, resultText))
-                    if (results.isNotBlank()) speak("Našiel som výsledky. Zobrazujem ich v konverzácii.")
-                    else runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=" + URLEncoder.encode(query, "UTF-8")))) }
-                    busy = false
-                }
             }
             text.startsWith("poznámka ", true) || text.startsWith("zapíš ", true) -> {
                 val note = text.substringAfter(' ')
@@ -1079,7 +1079,7 @@ private fun askAi(endpoint: String, key: String, model: String, history: List<Me
             return "Pane, AI ešte nie je nakonfigurovaná. V Nastaveniach zadajte API endpoint, podporovaný model a API kľúč."
         }
         val lastUserQuery = history.lastOrNull { !it.jarvis }?.text.orEmpty()
-        val webContext = if (lastUserQuery.isNotBlank()) searchWeb(lastUserQuery) else ""
+        val webContext = if (lastUserQuery.isNotBlank() && shouldSearchWeb(lastUserQuery)) searchWeb(lastUserQuery) else ""
         val systemPrompt = """
 Si JARVIS, pokročilý slovenský AI asistent. Používateľa oslovuj „pane“. Odpovedaj po slovensky, prirodzene, presne a priamo.
 Zvládaj zložité otázky, matematiku, vysvetľovanie, plánovanie, analýzu, programovanie a ladenie kódu. Pri programovaní poskytuj kompletné, použiteľné riešenia, uveď názvy súborov, potrebné závislosti a presné kroky spustenia. Ak používateľ žiada kód, napíš skutočný kód, nie iba opis. Nevyhlasuj, že si kód spustil alebo zmenil súbory, pokiaľ to aplikácia naozaj nevykonala.
