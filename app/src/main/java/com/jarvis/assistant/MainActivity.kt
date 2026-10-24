@@ -783,7 +783,7 @@ private fun JarvisDashboard(
             }
         }
         Box(
-            Modifier.fillMaxWidth().height(280.dp)
+            Modifier.fillMaxWidth().height(350.dp)
                 .background(Brush.radialGradient(listOf(Color(0xFF174D68), Color(0xFF0B1B2B), Color(0xFF04070C))), RoundedCornerShape(24.dp))
                 .clip(RoundedCornerShape(24.dp))
         ) {
@@ -794,13 +794,13 @@ private fun JarvisDashboard(
                 val cy = size.height / 2f
                 val scale = minOf(size.width, size.height)
                 // Layered animated technical rings inspired by the film holographic workshop.
-                for (i in 1..6) drawCircle(Cyan.copy(alpha = if (i % 2 == 0) 0.13f else 0.07f), radius = i * scale / 13f, center = Offset(cx, cy), style = Stroke(width = if (i == 3) 1.8.dp.toPx() else 0.8.dp.toPx()))
+                for (i in 1..9) drawCircle(Cyan.copy(alpha = if (i % 2 == 0) 0.13f else 0.07f), radius = i * scale / 13f, center = Offset(cx, cy), style = Stroke(width = if (i == 3) 1.8.dp.toPx() else 0.8.dp.toPx()))
                 drawArc(Cyan.copy(alpha = 0.9f), ringRotation, 62f, false, Offset(cx - scale * .39f, cy - scale * .39f), androidx.compose.ui.geometry.Size(scale * .78f, scale * .78f), style = Stroke(width = 2.dp.toPx()))
                 drawArc(Color(0xFF8ACBFF).copy(alpha = .75f), -ringRotation * .7f, 38f, false, Offset(cx - scale * .29f, cy - scale * .29f), androidx.compose.ui.geometry.Size(scale * .58f, scale * .58f), style = Stroke(width = 1.4.dp.toPx()))
-                for (i in 0..23) {
-                    val a = Math.PI * 2.0 * i / 24.0
+                for (i in 0..47) {
+                    val a = Math.PI * 2.0 * i / 48.0
                     val r1 = scale * 0.31f
-                    val r2 = scale * if (i % 3 == 0) 0.38f else 0.35f
+                    val r2 = scale * if (i % 6 == 0) 0.39f else if (i % 3 == 0) 0.36f else 0.345f
                     drawLine(Cyan.copy(alpha = if (i % 3 == 0) 0.75f else 0.22f), Offset(cx + kotlin.math.cos(a).toFloat() * r1, cy + kotlin.math.sin(a).toFloat() * r1), Offset(cx + kotlin.math.cos(a).toFloat() * r2, cy + kotlin.math.sin(a).toFloat() * r2), 1.dp.toPx())
                 }
                 drawLine(Cyan.copy(alpha = 0.12f), Offset(cx, 0f), Offset(cx, size.height), 1.dp.toPx())
@@ -825,8 +825,8 @@ private fun JarvisDashboard(
                 Text(if (busy) "ANALYZUJEM POŽIADAVKU" else if (wakeMode) "◉ AKTÍVNE POČÚVANIE" else "PRIPRAVENÝ NA POKYN", color = Cyan, fontSize = 9.sp, letterSpacing = 1.5.sp)
             }
             Column(Modifier.align(Alignment.TopStart).padding(14.dp)) {
-                Text("STARK INTERFACE", color = Cyan, fontSize = 9.sp, letterSpacing = 1.5.sp)
-                Text("CORE MK–01", color = Muted, fontSize = 8.sp)
+                Text("STARK INDUSTRIES", color = Cyan, fontSize = 9.sp, letterSpacing = 1.8.sp)
+                Text("NEURAL INTERFACE / MK–01", color = Muted, fontSize = 7.sp)
             }
             Column(Modifier.align(Alignment.TopEnd).padding(14.dp), horizontalAlignment = Alignment.End) {
                 Text(if (aiReady) "AI LINK • TOKEN NASTAVENÝ" else "AI LINK • STANDBY", color = if (aiReady) Color(0xFF69F0AE) else Color(0xFFFFC66D), fontSize = 8.sp)
@@ -838,7 +838,7 @@ private fun JarvisDashboard(
             }
             Column(Modifier.align(Alignment.BottomEnd).padding(14.dp), horizontalAlignment = Alignment.End) {
                 Text("INTERFACE 02.6", color = Muted, fontSize = 8.sp)
-                Text("HOLOGRAPHIC HUD", color = Cyan, fontSize = 8.sp)
+                Text("HOLOGRAPHIC DISPLAY • 01", color = Cyan, fontSize = 7.sp)
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -885,10 +885,10 @@ private fun JarvisDashboard(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             DashboardAction("🎙", if (wakeMode) "Vypnúť hlas" else "Zapnúť hlas", Modifier.weight(1f), onToggleVoice)
             DashboardAction("◈", "Rozhovor", Modifier.weight(1f), onChat)
-            DashboardAction("⌘", "Tvoriť / kresliť", Modifier.weight(1f), onWorkspace)
+            DashboardAction("◇", "STARK WORKSHOP", Modifier.weight(1f), onWorkspace)
             DashboardAction("⚙", "Nastavenia", Modifier.weight(1f), onSettings)
         }
-        Text("STARK SYSTEMS • PREHĽAD", color = Cyan, fontSize = 10.sp, letterSpacing = 2.sp)
+        Text("STARK SYSTEMS  /  LIVE TELEMETRY", color = Cyan, fontSize = 10.sp, letterSpacing = 2.sp)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             HudMetric("CORE", if (busy) "ANALÝZA" else "POHOTOVOSŤ", if (busy) Color(0xFFFFC66D) else Color(0xFF69F0AE), Modifier.weight(1f))
             HudMetric("AI MODUL", if (aiReady) "TOKEN ULOŽENÝ" else "NEKONFIGUROVANÝ", if (aiReady) Cyan else Color(0xFFFFC66D), Modifier.weight(1f))
