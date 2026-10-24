@@ -525,7 +525,10 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             else -> {
                 busy = true
                 scope.launch {
-                    val answer = withContext(Dispatchers.IO) { askAi(endpoint, key, model, chat.toList().takeLast(20), prefs.getString("memories", "").orEmpty()) }
+                    val progress = prefs.getString("progress_data", "").orEmpty()
+                    val personalContext = prefs.getString("memories", "").orEmpty() +
+                        if (progress.isBlank()) "" else "\nOsobné záznamy známok a dennej pohody (používaj len tieto údaje; nevymýšľaj hodnoty):\n" + progress
+                    val answer = withContext(Dispatchers.IO) { askAi(endpoint, key, model, chat.toList().takeLast(20), personalContext) }
                     chat.add(Message(true, answer)); speak(answer); busy = false
                 }
             }
