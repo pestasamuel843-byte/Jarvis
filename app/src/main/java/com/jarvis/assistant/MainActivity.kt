@@ -156,7 +156,8 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     var showChat by remember { mutableStateOf(false) }
     var showIntro by remember { mutableStateOf(true) }
     LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(2800)
+        // Welcome first, then logo, then dashboard.
+        kotlinx.coroutines.delay(4700)
         showIntro = false
     }
     var lastWorkspaceRequest by remember { mutableStateOf("") }
@@ -858,6 +859,28 @@ private fun JarvisDashboard(
                 Text("INTERFACE 02.6", color = Muted, fontSize = 8.sp)
                 Text("HOLOGRAPHIC DISPLAY • 01", color = Cyan, fontSize = 7.sp)
             }
+            // Floating telemetry directly on the hologram, not in cards.
+            Column(Modifier.align(Alignment.CenterStart).padding(start = 12.dp).width(112.dp)) {
+                Text("PROGRES ZNÁMOK", color = Cyan, fontSize = 8.sp, letterSpacing = 1.sp)
+                Spacer(Modifier.height(4.dp))
+                Canvas(Modifier.fillMaxWidth().height(42.dp)) {
+                    val grid = Color(0xFF1C5267)
+                    for (i in 0..3) {
+                        val y = size.height * i / 3f
+                        drawLine(grid.copy(alpha = .55f), Offset(0f, y), Offset(size.width, y), .7.dp.toPx())
+                    }
+                    drawLine(Cyan.copy(alpha = .7f), Offset(0f, size.height * .78f), Offset(size.width, size.height * .78f), 1.2.dp.toPx())
+                }
+                Text("DOPLŇ ZNÁMKY PRE SLEDOVANIE", color = Muted, fontSize = 6.sp, lineHeight = 9.sp)
+            }
+            Column(Modifier.align(Alignment.CenterEnd).padding(end = 12.dp).width(96.dp), horizontalAlignment = Alignment.End) {
+                Text("OSOBNÝ PROGRES", color = Cyan, fontSize = 8.sp, letterSpacing = .8.sp)
+                Spacer(Modifier.height(7.dp))
+                Text("ÚLOHY  ${tasks.count { it.done }}/${tasks.size}", color = Color.White, fontSize = 10.sp)
+                Text("BATÉRIA  ${batteryPercent?.let { "$it%" } ?: "—"}", color = Muted, fontSize = 9.sp)
+                Spacer(Modifier.height(7.dp))
+                Text("LIVE TELEMETRY", color = Cyan.copy(alpha = .7f), fontSize = 7.sp)
+            }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Column(Modifier.weight(1f).background(Panel, RoundedCornerShape(18.dp)).padding(12.dp)) {
@@ -1228,6 +1251,8 @@ private fun HudMetric(label: String, value: String, valueColor: Color, modifier:
 
 @Composable
 private fun JarvisIntro(onSkip: () -> Unit) {
+    var welcomeVisible by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) { kotlinx.coroutines.delay(1550); welcomeVisible = false }
     val transition = rememberInfiniteTransition(label = "jarvis_intro")
     val rotation by transition.animateFloat(
         initialValue = 0f, targetValue = 360f,
@@ -1278,32 +1303,41 @@ private fun JarvisIntro(onSkip: () -> Unit) {
             drawLine(Cyan.copy(alpha=.12f), Offset(cx, size.height*.12f), Offset(cx,size.height*.88f), .7.dp.toPx())
             drawLine(Cyan.copy(alpha=.12f), Offset(size.width*.12f,cy), Offset(size.width*.88f,cy), .7.dp.toPx())
         }
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Box(
-                Modifier.size(150.dp).background(Cyan.copy(alpha=.035f*pulse), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(Modifier.size(118.dp).background(Cyan.copy(alpha=.07f*pulse), CircleShape), contentAlignment = Alignment.Center) {
-                    Box(Modifier.size(88.dp).background(Brush.radialGradient(listOf(Color(0xFF36DFFF),Color(0xFF0C405A),Color(0xFF06111C))), CircleShape), contentAlignment = Alignment.Center) {
-                        Text("J", color = Color(0xFFDDFBFF), fontSize = 68.sp, fontWeight = FontWeight.ExtraLight)
+        if (welcomeVisible) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Text("VITAJTE", color = Muted, fontSize = 12.sp, letterSpacing = 5.sp)
+                Spacer(Modifier.height(12.dp))
+                Text("SAMUEL", color = Color.White, fontSize = 38.sp, fontWeight = FontWeight.Light, letterSpacing = 7.sp)
+                Spacer(Modifier.height(18.dp))
+                Box(Modifier.width(100.dp).height(1.dp).background(Cyan.copy(alpha = pulse)))
+                Spacer(Modifier.height(12.dp))
+                Text("PRIPRAVUJEM OSOBNÝ SYSTÉM", color = Cyan, fontSize = 9.sp, letterSpacing = 2.sp)
+            }
+        } else {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Box(Modifier.size(150.dp).background(Cyan.copy(alpha=.035f*pulse), CircleShape), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(118.dp).background(Cyan.copy(alpha=.07f*pulse), CircleShape), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(88.dp).background(Brush.radialGradient(listOf(Color(0xFF36DFFF),Color(0xFF0C405A),Color(0xFF06111C))), CircleShape), contentAlignment = Alignment.Center) {
+                            Text("J", color = Color(0xFFDDFBFF), fontSize = 68.sp, fontWeight = FontWeight.ExtraLight)
+                        }
                     }
                 }
+                Spacer(Modifier.height(24.dp))
+                Text("J.A.R.V.I.S.", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Light, letterSpacing = 8.sp)
+                Spacer(Modifier.height(8.dp))
+                Text("JUST A RATHER VERY INTELLIGENT SYSTEM", color = Cyan.copy(alpha=.9f), fontSize = 8.sp, letterSpacing = 2.sp)
+                Spacer(Modifier.height(30.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    Box(Modifier.size(5.dp).background(Cyan.copy(alpha=pulse), CircleShape))
+                    Text("INICIALIZÁCIA SYSTÉMOV", color = Cyan, fontSize = 10.sp, letterSpacing = 2.sp)
+                }
+                Spacer(Modifier.height(12.dp))
+                Box(Modifier.width(190.dp).height(2.dp).background(Color(0xFF17394A), RoundedCornerShape(2.dp))) {
+                    Box(Modifier.fillMaxWidth(pulse).fillMaxHeight().background(Cyan, RoundedCornerShape(2.dp)))
+                }
+                Spacer(Modifier.height(22.dp))
+                Text("DOTKNITE SA PRE PRESKOČENIE", color = Muted.copy(alpha=.7f), fontSize = 8.sp, letterSpacing = 1.4.sp)
             }
-            Spacer(Modifier.height(24.dp))
-            Text("J.A.R.V.I.S.", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Light, letterSpacing = 8.sp)
-            Spacer(Modifier.height(8.dp))
-            Text("JUST A RATHER VERY INTELLIGENT SYSTEM", color = Cyan.copy(alpha=.9f), fontSize = 8.sp, letterSpacing = 2.sp)
-            Spacer(Modifier.height(30.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                Box(Modifier.size(5.dp).background(Cyan.copy(alpha=pulse), CircleShape))
-                Text("INICIALIZÁCIA SYSTÉMOV", color = Cyan, fontSize = 10.sp, letterSpacing = 2.sp)
-            }
-            Spacer(Modifier.height(12.dp))
-            Box(Modifier.width(190.dp).height(2.dp).background(Color(0xFF17394A), RoundedCornerShape(2.dp))) {
-                Box(Modifier.fillMaxWidth(pulse).fillMaxHeight().background(Cyan, RoundedCornerShape(2.dp)))
-            }
-            Spacer(Modifier.height(22.dp))
-            Text("DOTKNITE SA PRE PRESKOČENIE", color = Muted.copy(alpha=.7f), fontSize = 8.sp, letterSpacing = 1.4.sp)
         }
         Column(Modifier.align(Alignment.TopStart).padding(22.dp)) {
             Text("STARK INDUSTRIES", color = Cyan.copy(alpha=.8f), fontSize = 9.sp, letterSpacing = 2.sp)
