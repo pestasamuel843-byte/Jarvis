@@ -1101,6 +1101,10 @@ ${if (webContext.isNotBlank()) "\nWEBOVÉ VÝSLEDKY (môžu byť neúplné; pou�
             doOutput = true
             setRequestProperty("Content-Type", "application/json; charset=utf-8")
             setRequestProperty("Authorization", "Bearer $key")
+            // Cloudflare AI Gateway requires a gateway ID header for Workers AI (@cf/) models.
+            if (endpoint.contains("api.cloudflare.com/client/v4/accounts/") && model.startsWith("@cf/")) {
+                setRequestProperty("cf-aig-gateway-id", "default")
+            }
             setRequestProperty("Accept", "application/json")
         }
         val apiMessages = JSONArray()
