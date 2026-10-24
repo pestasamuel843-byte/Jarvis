@@ -77,8 +77,18 @@ private val Muted = Color(0xFF9BAFC2)
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = null
     @Volatile private var speechOutputActive = false
+    @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Film-style full-screen interface: hide status/navigation bars while JARVIS is open.
+        window.decorView.systemUiVisibility = (
+            android.view.View.SYSTEM_UI_FLAG_FULLSCREEN or
+            android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+            android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+            android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+            android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+            android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+        )
         tts = TextToSpeech(this, this)
         setContent { JarvisScreen(::speak, { speechOutputActive }) }
     }
@@ -144,6 +154,11 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     var appForeground by remember { mutableStateOf(true) }
     var showWorkspace by remember { mutableStateOf(false) }
     var showChat by remember { mutableStateOf(false) }
+    var showIntro by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(2800)
+        showIntro = false
+    }
     var lastWorkspaceRequest by remember { mutableStateOf("") }
     var workspaceDescription by remember { mutableStateOf(prefs.getString("workspace_description", "Povedzte JARVISu, čo chcete navrhnúť. Návrh AI sa zobrazí tu a náčrt môžete kresliť prstom.") ?: "") }
     val chat = remember {
@@ -580,7 +595,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
 
     MaterialTheme(colorScheme = darkColorScheme(primary = Cyan, background = Bg, surface = Panel, onBackground = Color.White, onSurface = Color.White)) {
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF10263A), Bg, Color(0xFF05070C))))) {
-            Column(Modifier.fillMaxSize().padding(16.dp)) {
+            Column(Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 7.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     Box(Modifier.size(48.dp).background(Cyan.copy(alpha = .13f), CircleShape), contentAlignment = Alignment.Center) {
                         Text("J", color = Cyan, fontSize = 27.sp, fontWeight = FontWeight.Bold)
@@ -671,6 +686,9 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 }
                 Text(if (wakeMode) "MIKROFÓN AKTÍVNY • povedzte príkaz." else "MIKROFÓN VYPNUTÝ • stlačte 🎤, povedzte príkaz a JARVIS ho vypne.", color = Muted, fontSize = 10.sp)
                 }
+            }
+            if (showIntro) {
+                JarvisIntro(onSkip = { showIntro = false })
             }
         }
         if (settings) {
@@ -1203,6 +1221,97 @@ private fun HudMetric(label: String, value: String, valueColor: Color, modifier:
         Spacer(Modifier.height(5.dp))
         Box(Modifier.fillMaxWidth().height(2.dp).background(Color(0xFF17394A), RoundedCornerShape(2.dp))) {
             Box(Modifier.fillMaxWidth(if (value == "NEKONFIGUROVANÝ") 0.18f else 0.72f).fillMaxHeight().background(valueColor, RoundedCornerShape(2.dp)))
+        }
+    }
+}
+
+
+@Composable
+private fun JarvisIntro(onSkip: () -> Unit) {
+    val transition = rememberInfiniteTransition(label = "jarvis_intro")
+    val rotation by transition.animateFloat(
+        initialValue = 0f, targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(6500, easing = LinearEasing)),
+        label = "intro_rotation"
+    )
+    val pulse by transition.animateFloat(
+        initialValue = 0.35f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1100), repeatMode = androidx.compose.animation.core.RepeatMode.Reverse),
+        label = "intro_pulse"
+    )
+    Box(
+        Modifier.fillMaxSize()
+            .background(Brush.radialGradient(listOf(Color(0xFF123D55), Color(0xFF07131F), Color(0xFF010308))))
+            .clickable { onSkip() },
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            val cx = size.width / 2f
+            val cy = size.height / 2f
+            val unit = minOf(size.width, size.height)
+            for (i in 1..14) {
+                val r = unit * (0.075f + i * 0.033f)
+                drawCircle(Cyan.copy(alpha = if (i % 3 == 0) .25f else .09f), r, Offset(cx, cy), style = Stroke(width = if (i % 3 == 0) 1.5.dp.toPx() else .7.dp.toPx()))
+            }
+            drawArc(Cyan.copy(alpha = .9f), rotation, 72f, false, Offset(cx-unit*.36f,cy-unit*.36f), androidx.compose.ui.geometry.Size(unit*.72f,unit*.72f), style=Stroke(width=2.dp.toPx()))
+            drawArc(Color(0xFF8ECFFF).copy(alpha=.75f), -rotation*.62f, 42f, false, Offset(cx-unit*.29f,cy-unit*.29f), androidx.compose.ui.geometry.Size(unit*.58f,unit*.58f), style=Stroke(width=1.2.dp.toPx()))
+            for (i in 0 until 96) {
+                val a = Math.PI * 2.0 * i / 96.0
+                val r1 = unit * .37f
+                val r2 = unit * if (i % 8 == 0) .43f else .395f
+                drawLine(Cyan.copy(alpha=if(i%8==0).65f else .2f),
+                    Offset(cx+kotlin.math.cos(a).toFloat()*r1,cy+kotlin.math.sin(a).toFloat()*r1),
+                    Offset(cx+kotlin.math.cos(a).toFloat()*r2,cy+kotlin.math.sin(a).toFloat()*r2),
+                    if(i%8==0) 1.5.dp.toPx() else .7.dp.toPx())
+            }
+            // Four HUD targeting brackets and a subtle center crosshair.
+            val bracket = unit * .055f
+            val insetX = size.width * .12f
+            val insetY = size.height * .16f
+            val corners = listOf(Offset(insetX,insetY),Offset(size.width-insetX,insetY),Offset(insetX,size.height-insetY),Offset(size.width-insetX,size.height-insetY))
+            corners.forEachIndexed { index, p ->
+                val sx = if (index % 2 == 0) 1f else -1f
+                val sy = if (index < 2) 1f else -1f
+                drawLine(Cyan.copy(alpha=.65f),p,Offset(p.x+bracket*sx,p.y),1.2.dp.toPx())
+                drawLine(Cyan.copy(alpha=.65f),p,Offset(p.x,p.y+bracket*sy),1.2.dp.toPx())
+            }
+            drawLine(Cyan.copy(alpha=.12f), Offset(cx, size.height*.12f), Offset(cx,size.height*.88f), .7.dp.toPx())
+            drawLine(Cyan.copy(alpha=.12f), Offset(size.width*.12f,cy), Offset(size.width*.88f,cy), .7.dp.toPx())
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Box(
+                Modifier.size(150.dp).background(Cyan.copy(alpha=.035f*pulse), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(Modifier.size(118.dp).background(Cyan.copy(alpha=.07f*pulse), CircleShape), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(88.dp).background(Brush.radialGradient(listOf(Color(0xFF36DFFF),Color(0xFF0C405A),Color(0xFF06111C))), CircleShape), contentAlignment = Alignment.Center) {
+                        Text("J", color = Color(0xFFDDFBFF), fontSize = 68.sp, fontWeight = FontWeight.ExtraLight)
+                    }
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+            Text("J.A.R.V.I.S.", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Light, letterSpacing = 8.sp)
+            Spacer(Modifier.height(8.dp))
+            Text("JUST A RATHER VERY INTELLIGENT SYSTEM", color = Cyan.copy(alpha=.9f), fontSize = 8.sp, letterSpacing = 2.sp)
+            Spacer(Modifier.height(30.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Box(Modifier.size(5.dp).background(Cyan.copy(alpha=pulse), CircleShape))
+                Text("INICIALIZÁCIA SYSTÉMOV", color = Cyan, fontSize = 10.sp, letterSpacing = 2.sp)
+            }
+            Spacer(Modifier.height(12.dp))
+            Box(Modifier.width(190.dp).height(2.dp).background(Color(0xFF17394A), RoundedCornerShape(2.dp))) {
+                Box(Modifier.fillMaxWidth(pulse).fillMaxHeight().background(Cyan, RoundedCornerShape(2.dp)))
+            }
+            Spacer(Modifier.height(22.dp))
+            Text("DOTKNITE SA PRE PRESKOČENIE", color = Muted.copy(alpha=.7f), fontSize = 8.sp, letterSpacing = 1.4.sp)
+        }
+        Column(Modifier.align(Alignment.TopStart).padding(22.dp)) {
+            Text("STARK INDUSTRIES", color = Cyan.copy(alpha=.8f), fontSize = 9.sp, letterSpacing = 2.sp)
+            Text("NEURAL INTERFACE • BOOT SEQUENCE", color = Muted, fontSize = 7.sp, letterSpacing = 1.sp)
+        }
+        Column(Modifier.align(Alignment.BottomEnd).padding(22.dp), horizontalAlignment = Alignment.End) {
+            Text("J.A.R.V.I.S. / MK-VII", color = Cyan.copy(alpha=.8f), fontSize = 8.sp, letterSpacing = 1.5.sp)
+            Text("SYSTEM ONLINE SOON", color = Muted, fontSize = 7.sp, letterSpacing = 1.sp)
         }
     }
 }
