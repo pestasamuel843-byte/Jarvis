@@ -1009,7 +1009,7 @@ private fun JarvisDashboard(
                     Column(Modifier.align(Alignment.TopStart).padding(18.dp)) { Text("HOLOGRAPHIC CORE  /  01",color=Cyan,fontSize=8.sp,letterSpacing=2.sp); Text(if(busy) "COGNITIVE PROCESS ACTIVE" else "NEURAL FIELD STABLE",color=Muted,fontSize=7.sp,letterSpacing=1.sp) }
                     Column(Modifier.align(Alignment.TopEnd).padding(18.dp),horizontalAlignment=Alignment.End) { Text("MK-VII  •  INTERFACE",color=Cyan,fontSize=8.sp,letterSpacing=1.5.sp); Text("SECURE LOCAL SESSION",color=Muted,fontSize=7.sp) }
                     Column(Modifier.align(Alignment.Center),horizontalAlignment=Alignment.CenterHorizontally) {
-                        Box(Modifier.size((minOf(maxWidth.value, maxHeight.value)*.43f).coerceIn(150f,300f).dp).background(Cyan.copy(alpha=.025f*pulse),CircleShape).border(1.dp,Cyan.copy(alpha=.18f),CircleShape),contentAlignment=Alignment.Center) {
+                        Box(Modifier.size(220.dp).background(Cyan.copy(alpha=.025f*pulse),CircleShape).border(1.dp,Cyan.copy(alpha=.18f),CircleShape),contentAlignment=Alignment.Center) {
                             Box(Modifier.fillMaxSize(.86f).border(1.dp,Cyan.copy(alpha=.32f*pulse),CircleShape).background(Cyan.copy(alpha=.025f),CircleShape),contentAlignment=Alignment.Center) {
                                 Box(Modifier.fillMaxSize(.76f).border(2.dp,Color(0xFF82EFFF).copy(alpha=.55f),CircleShape).background(Brush.radialGradient(listOf(Color(0xFFBFFBFF).copy(alpha=.95f),Color(0xFF26C9F1).copy(alpha=.8f),Color(0xFF0A3852),Color(0xFF020A14))),CircleShape),contentAlignment=Alignment.Center) {
                                     Text("J",color=Color.White,fontSize=94.sp,fontWeight=FontWeight.ExtraLight)
