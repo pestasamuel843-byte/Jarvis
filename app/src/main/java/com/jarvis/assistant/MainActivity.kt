@@ -967,6 +967,33 @@ private fun JarvisDashboard(
     val battery = remember { (context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager)?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)?.coerceIn(0,100) }
     BoxWithConstraints(modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0xFF102C42), Color(0xFF06111D), Color(0xFF02050B))))) {
         val wide = maxWidth >= 600.dp
+        // World-map hologram is drawn directly over the background, not boxed in a card.
+        Canvas(Modifier.fillMaxSize()) {
+            val ink = Cyan
+            val top = size.height * .70f
+            val h = size.height * .27f
+            val continents = listOf(
+                listOf(.05f to .18f,.09f to .06f,.17f to .08f,.22f to .21f,.19f to .34f,.22f to .48f,.17f to .67f,.13f to .49f,.10f to .37f,.06f to .27f),
+                listOf(.23f to .07f,.31f to .06f,.37f to .18f,.35f to .32f,.30f to .40f,.28f to .60f,.24f to .46f,.22f to .28f),
+                listOf(.42f to .13f,.47f to .06f,.57f to .09f,.62f to .18f,.71f to .13f,.79f to .20f,.85f to .14f,.93f to .24f,.88f to .35f,.79f to .39f,.73f to .30f,.66f to .43f,.60f to .34f,.55f to .42f,.50f to .30f,.45f to .32f),
+                listOf(.48f to .35f,.56f to .37f,.59f to .51f,.56f to .68f,.52f to .83f,.49f to .65f,.46f to .49f),
+                listOf(.77f to .47f,.84f to .45f,.89f to .52f,.86f to .61f,.81f to .58f)
+            )
+            continents.forEach { points ->
+                val path = Path()
+                points.forEachIndexed { i, p ->
+                    val x = p.first * size.width
+                    val y = top + p.second * h
+                    if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                }
+                path.close()
+                drawPath(path, ink.copy(alpha = .035f))
+                drawPath(path, ink.copy(alpha = .22f), style = Stroke(.9.dp.toPx()))
+            }
+            for (i in 0..4) { val y = top + h * i / 4f; drawLine(ink.copy(alpha = .11f), Offset(0f,y), Offset(size.width,y), .6.dp.toPx()) }
+            for (i in 0..12) { val x = size.width * i / 12f; drawLine(ink.copy(alpha = .06f), Offset(x,top), Offset(x,top+h), .5.dp.toPx()) }
+            drawLine(ink.copy(alpha = .28f), Offset(0f,top+h*.56f), Offset(size.width,top+h*.56f), .7.dp.toPx())
+        }
         if (wide) {
             Row(Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                 Column(Modifier.weight(0.95f).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
