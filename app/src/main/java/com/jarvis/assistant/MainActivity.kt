@@ -1109,17 +1109,17 @@ private class WakeWordLoop(
     private val handler = Handler(Looper.getMainLooper())
     private var recognizer: SpeechRecognizer? = null
     private var stopped = false
-    private var armed = false
+    // Only a recognized wake phrase arms one command. After that command, return to wake-word mode.
+    private var awaitingCommand = false
     private var restartQueued = false
 
     fun start() {
         stopped = false
         if (!SpeechRecognizer.isRecognitionAvailable(appContext)) {
-            handler.postDelayed({ start() }, 2500)
+            scheduleRestart(2500L)
             return
         }
         runCatching {
-            // Reuse one recognizer instead of destroying/recreating it after every phrase.
             if (recognizer == null) {
                 recognizer = SpeechRecognizer.createSpeechRecognizer(appContext).also { speech ->
                     speech.setRecognitionListener(object : RecognitionListener {
@@ -1132,16 +1132,14 @@ private class WakeWordLoop(
                         override fun onEvent(eventType: Int, params: Bundle?) {}
 
                         override fun onError(error: Int) {
-                            // Android recognition services can leave a reused recognizer in a stuck
-                            // state after ERROR_CLIENT / ERROR_RECOGNIZER_BUSY. Dispose of it and
-                            // create a fresh instance on the next retry instead of looping on a dead mic.
                             val delay = when (error) {
                                 SpeechRecognizer.ERROR_NO_MATCH,
-                                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 900L
-                                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> 1800L
-                                SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> 5000L
-                                else -> 1400L
+                                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 450L
+                                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> 1200L
+                                SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> 4000L
+                                else -> 800L
                             }
+                            // Recreate the recognizer after errors; this avoids a stuck Android mic session.
                             runCatching { recognizer?.cancel() }
                             runCatching { recognizer?.destroy() }
                             recognizer = null
@@ -1155,35 +1153,31 @@ private class WakeWordLoop(
                                 .replace(Regex("[^\\p{L}\\p{N} ]"), " ")
                                 .replace(Regex("\\s+"), " ").trim()
                             val wake = Regex("^(?:(?:hej|hey) )?jarvis\\b[ ,:]*", RegexOption.IGNORE_CASE)
-                            val wakeMatch = wake.find(normalized)
-                            val remainder = if (wakeMatch != null) normalized.substring(wakeMatch.range.last + 1).trim() else ""
-                            var delay = 850L
-                            if (wakeMatch != null) {
+                            val match = wake.find(normalized)
+                            val remainder = if (match != null) normalized.substring(match.range.last + 1).trim() else ""
+
+                            if (match != null) {
                                 if (remainder.isNotBlank()) {
-                                    armed = false
+                                    // "Hey Jarvis, ..." in one sentence: execute it immediately.
+                                    awaitingCommand = false
                                     onCommand(remainder)
-                                    delay = 1000L
                                 } else {
-                                    armed = true
+                                    // "Hey Jarvis" alone: acknowledge, then listen for exactly one command.
+                                    awaitingCommand = true
                                     onWake()
-                                    delay = 1000L
                                 }
-                            } else if (normalized.isNotBlank()) {
-                                // Button-enabled listening accepts the next spoken phrase directly.
-                                // No wake word is required after the user has explicitly enabled the mic.
-                                armed = false
+                            } else if (awaitingCommand && normalized.isNotBlank()) {
+                                awaitingCommand = false
                                 onCommand(spoken.trim())
-                                delay = 1200L
                             }
-                            scheduleRestart(delay)
+                            // If not armed, ignore all speech except Hey/Hej Jarvis.
+                            scheduleRestart(if (awaitingCommand) 250L else 500L)
                         }
                     })
                 }
             }
             listenOnce()
-        }.onFailure {
-            scheduleRestart(1000L)
-        }
+        }.onFailure { scheduleRestart(800L) }
     }
 
     fun stop() {
@@ -1193,6 +1187,7 @@ private class WakeWordLoop(
         runCatching { recognizer?.cancel() }
         runCatching { recognizer?.destroy() }
         recognizer = null
+        awaitingCommand = false
     }
 
     private fun scheduleRestart(delay: Long) {
@@ -1206,8 +1201,7 @@ private class WakeWordLoop(
 
     private fun listenOnce() {
         if (stopped) return
-        // SpeechRecognizer must not run over TTS output or while an AI response is being prepared.
-        // Otherwise it transcribes JARVIS itself, causing repeated toggling and false commands.
+        // Do not listen while JARVIS is speaking or preparing a reply; resume wake-word mode afterwards.
         if (!canListen()) {
             scheduleRestart(350L)
             return
@@ -1223,10 +1217,10 @@ private class WakeWordLoop(
                 putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 5000L)
-                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 3000L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1600L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 900L)
             })
-        }.onFailure { scheduleRestart(700L) }
+        }.onFailure { scheduleRestart(600L) }
     }
 }
 
