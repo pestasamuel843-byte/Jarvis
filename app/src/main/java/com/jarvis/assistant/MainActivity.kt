@@ -764,6 +764,45 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 }
                 Text(if (wakeMode) "MIKROFÓN AKTÍVNY • povedzte príkaz." else "MIKROFÓN VYPNUTÝ • stlačte 🎤, povedzte príkaz a JARVIS ho vypne.", color = Muted, fontSize = 10.sp)
                 }
+                // Persistent navigation makes every primary screen reachable in one tap.
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF24465A), RoundedCornerShape(16.dp))
+                        .background(Color(0xCC091522), RoundedCornerShape(16.dp)).padding(5.dp),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val navItems = listOf(
+                        Triple("⌂", "DOMOV", "home"),
+                        Triple("◉", "CHAT", "chat"),
+                        Triple("◇", "PROJEKT", "project"),
+                        Triple("⚙", "NASTAV.", "settings")
+                    )
+                    navItems.forEach { item ->
+                        val selected = when (item.third) {
+                            "home" -> !showChat && !showWorkspace
+                            "chat" -> showChat && !showWorkspace
+                            "project" -> showWorkspace
+                            else -> false
+                        }
+                        Column(
+                            modifier = Modifier.weight(1f).clip(RoundedCornerShape(11.dp))
+                                .background(if (selected) Color(0xFF12364A) else Color.Transparent)
+                                .clickable {
+                                    when (item.third) {
+                                        "home" -> { showWorkspace = false; showChat = false }
+                                        "chat" -> { showWorkspace = false; showChat = true }
+                                        "project" -> { showChat = false; showWorkspace = true }
+                                        "settings" -> settings = true
+                                    }
+                                }.padding(vertical = 8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(item.first, color = if (selected) Cyan else Muted, fontSize = 18.sp)
+                            Text(item.second, color = if (selected) Color.White else Muted, fontSize = 8.sp, letterSpacing = .7.sp)
+                        }
+                    }
+                }
             }
             if (showIntro) {
                 JarvisIntro(onSkip = { showIntro = false })
