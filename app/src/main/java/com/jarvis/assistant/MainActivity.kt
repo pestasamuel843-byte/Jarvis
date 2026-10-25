@@ -642,7 +642,10 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             val wakeLoop = WakeWordLoop(
                 context = context,
                 onCommand = { spoken ->
-                    // Keep the voice session active; WakeWordLoop pauses during speech/processing.
+                    // One command per explicit mic session: close the mic before processing the request.
+                    // This prevents the recognizer from restarting over JARVIS TTS or the AI response.
+                    wakeMode = false
+                    listening = false
                     handle(spoken)
                 },
                 onWake = {
