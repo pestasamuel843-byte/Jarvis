@@ -959,54 +959,108 @@ private fun JarvisDashboard(
  modifier: Modifier, wakeMode: Boolean, busy: Boolean, aiReady: Boolean, model: String,
  onToggleVoice: () -> Unit, onWorkspace: () -> Unit, onChat: () -> Unit, onSettings: () -> Unit
 ) {
- val context=LocalContext.current
- val transition=rememberInfiniteTransition(label="jarvis_hud")
- val spin by transition.animateFloat(0f,360f,infiniteRepeatable(tween(24000,easing=LinearEasing)),label="spin")
- val pulse by transition.animateFloat(.3f,.95f,infiniteRepeatable(tween(1300),repeatMode=androidx.compose.animation.core.RepeatMode.Reverse),label="pulse")
- val battery=remember{(context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager)?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)?.coerceIn(0,100)}
- Column(modifier.verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(14.dp)){
-  Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
-   Column(Modifier.weight(1f)){Text("STARK INDUSTRIES / PERSONAL AI",color=Cyan,fontSize=9.sp,letterSpacing=2.sp);Text("J.A.R.V.I.S.",color=Color.White,fontSize=30.sp,fontWeight=FontWeight.ExtraLight,letterSpacing=5.sp);Text("NEURAL COMMAND DECK • MK-VII",color=Muted,fontSize=8.sp,letterSpacing=1.5.sp)}
-   Column(horizontalAlignment=Alignment.End){Text(SimpleDateFormat("HH:mm",Locale.getDefault()).format(Date()),color=Color.White,fontSize=23.sp,fontWeight=FontWeight.Light);Text(if(busy)"PROCESSING" else "SYSTEM ONLINE",color=if(busy)Color(0xFFFFBD68) else Color(0xFF69F0AE),fontSize=8.sp,letterSpacing=1.sp)}
-  }
-  Row(Modifier.fillMaxWidth().height(354.dp),horizontalArrangement=Arrangement.spacedBy(9.dp)){
-   Box(Modifier.weight(1.7f).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(Brush.verticalGradient(listOf(Color(0xFF10374C),Color(0xFF071521),Color(0xFF02060B))))){
-    Canvas(Modifier.fillMaxSize()){
-     val cx=size.width*.5f;val cy=size.height*.43f;val r=minOf(size.width,size.height)*.30f;val grid=Color(0xFF24546A)
-     var x=0f;while(x<size.width){drawLine(grid.copy(alpha=.25f),Offset(x,0f),Offset(x,size.height),.5.dp.toPx());x+=24.dp.toPx()}
-     var y=0f;while(y<size.height){drawLine(grid.copy(alpha=.25f),Offset(0f,y),Offset(size.width,y),.5.dp.toPx());y+=24.dp.toPx()}
-     for(i in 0..3){val d=12.dp.toPx()+i*5.dp.toPx();val l=17.dp.toPx();val c=Cyan.copy(alpha=.75f-i*.12f);drawLine(c,Offset(d,d),Offset(d+l,d),1.dp.toPx());drawLine(c,Offset(d,d),Offset(d,d+l),1.dp.toPx());drawLine(c,Offset(size.width-d,d),Offset(size.width-d-l,d),1.dp.toPx());drawLine(c,Offset(size.width-d,d),Offset(size.width-d,d+l),1.dp.toPx())}
-     drawCircle(Cyan.copy(alpha=.07f),r*1.6f,Offset(cx,cy));drawCircle(Cyan.copy(alpha=.3f),r*1.27f,Offset(cx,cy),style=Stroke(1.dp.toPx(),pathEffect=androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(),5.dp.toPx()))))
-     drawArc(Cyan.copy(alpha=.9f),spin,78f,false,Offset(cx-r,cy-r),androidx.compose.ui.geometry.Size(r*2,r*2),style=Stroke(2.dp.toPx()))
-     drawArc(Color(0xFF80CFFF).copy(alpha=.85f),-spin*.7f,38f,false,Offset(cx-r*.82f,cy-r*.82f),androidx.compose.ui.geometry.Size(r*1.64f,r*1.64f),style=Stroke(1.2.dp.toPx()))
-     drawCircle(Cyan.copy(alpha=.35f),r*.72f,Offset(cx,cy),style=Stroke(1.dp.toPx()));drawLine(Cyan.copy(alpha=.2f),Offset(cx-r*1.65f,cy),Offset(cx+r*1.65f,cy),.7.dp.toPx());drawLine(Cyan.copy(alpha=.2f),Offset(cx,cy-r*1.65f),Offset(cx,cy+r*1.65f),.7.dp.toPx())
-     for(i in 0..47){val a=Math.PI*2*i/48;val r1=r*1.06f;val r2=r*(if(i%4==0)1.23f else 1.12f);drawLine(Cyan.copy(alpha=if(i%4==0).85f else .28f),Offset(cx+kotlin.math.cos(a).toFloat()*r1,cy+kotlin.math.sin(a).toFloat()*r1),Offset(cx+kotlin.math.cos(a).toFloat()*r2,cy+kotlin.math.sin(a).toFloat()*r2),if(i%4==0)1.2.dp.toPx() else .6.dp.toPx())}
+    val context = LocalContext.current
+    val transition = rememberInfiniteTransition(label = "cinematic_hud")
+    val spin by transition.animateFloat(0f, 360f, infiniteRepeatable(tween(18000, easing = LinearEasing)), label = "orbit")
+    val counterSpin by transition.animateFloat(360f, 0f, infiniteRepeatable(tween(26000, easing = LinearEasing)), label = "counter_orbit")
+    val pulse by transition.animateFloat(.32f, 1f, infiniteRepeatable(tween(1450), repeatMode = androidx.compose.animation.core.RepeatMode.Reverse), label = "core_pulse")
+    val battery = remember { (context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager)?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)?.coerceIn(0,100) }
+    BoxWithConstraints(modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0xFF102C42), Color(0xFF06111D), Color(0xFF02050B))))) {
+        val wide = maxWidth >= 600.dp
+        if (wide) {
+            Row(Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                Column(Modifier.weight(0.95f).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
+                    Column {
+                        Text("STARK INDUSTRIES  /  PERSONAL AI", color=Cyan, fontSize=9.sp, letterSpacing=2.4.sp)
+                        Spacer(Modifier.height(5.dp))
+                        Text("J.A.R.V.I.S.", color=Color.White, fontSize=30.sp, fontWeight=FontWeight.ExtraLight, letterSpacing=5.sp)
+                        Text("NEURAL COMMAND DECK  •  MK-VII", color=Muted, fontSize=8.sp, letterSpacing=1.4.sp)
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                        HudMetric("NEURAL LINK", if(aiReady) "ONLINE" else "AWAITING KEY", if(aiReady) Color(0xFF69F0AE) else Color(0xFFFFBD68), Modifier.fillMaxWidth())
+                        HudMetric("VOICE CHANNEL", if(wakeMode) "LISTENING" else "STANDBY", if(wakeMode) Cyan else Muted, Modifier.fillMaxWidth())
+                        HudMetric("POWER CELL", "${battery ?: "—"}%", Color.White, Modifier.fillMaxWidth())
+                    }
+                    Column {
+                        Text("SYSTEM TIME", color=Muted, fontSize=8.sp, letterSpacing=1.8.sp)
+                        Text(SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()), color=Color.White, fontSize=28.sp, fontWeight=FontWeight.ExtraLight)
+                        Text(if(busy) "PROCESSING REQUEST…" else "ALL SYSTEMS NOMINAL", color=if(busy) Color(0xFFFFBD68) else Color(0xFF69F0AE), fontSize=8.sp, letterSpacing=1.sp)
+                    }
+                }
+                Box(Modifier.weight(1.65f).fillMaxHeight().clip(RoundedCornerShape(2.dp)).background(Brush.verticalGradient(listOf(Color(0xFF0B2638), Color(0xFF06121E), Color(0xFF02060B))))) {
+                    Canvas(Modifier.fillMaxSize()) {
+                        val cx=size.width*.5f; val cy=size.height*.48f; val unit=minOf(size.width,size.height); val r=unit*.265f
+                        val grid=Color(0xFF24546A)
+                        var x=0f; while(x<size.width){drawLine(grid.copy(alpha=.20f),Offset(x,0f),Offset(x,size.height),.55.dp.toPx());x+=28.dp.toPx()}
+                        var y=0f; while(y<size.height){drawLine(grid.copy(alpha=.20f),Offset(0f,y),Offset(size.width,y),.55.dp.toPx());y+=28.dp.toPx()}
+                        drawRect(Cyan.copy(alpha=.025f), size=androidx.compose.ui.geometry.Size(size.width,size.height))
+                        for(i in 1..5) drawCircle(Cyan.copy(alpha=.035f),unit*(.12f+i*.095f),Offset(cx,cy),style=Stroke(if(i%2==0)1.1.dp.toPx() else .55.dp.toPx()))
+                        drawCircle(Cyan.copy(alpha=.10f*pulse),r*1.72f,Offset(cx,cy))
+                        drawArc(Cyan.copy(alpha=.95f),spin,104f,false,Offset(cx-r*1.48f,cy-r*1.48f),androidx.compose.ui.geometry.Size(r*2.96f,r*2.96f),style=Stroke(2.dp.toPx()))
+                        drawArc(Color(0xFF8CDFFF).copy(alpha=.85f),counterSpin,64f,false,Offset(cx-r*1.28f,cy-r*1.28f),androidx.compose.ui.geometry.Size(r*2.56f,r*2.56f),style=Stroke(1.3.dp.toPx()))
+                        drawArc(Cyan.copy(alpha=.75f),-spin*1.7f,36f,false,Offset(cx-r*1.92f,cy-r*1.92f),androidx.compose.ui.geometry.Size(r*3.84f,r*3.84f),style=Stroke(.8.dp.toPx()))
+                        for(i in 0..95){val a=Math.PI*2*i/96;val r1=r*1.55f;val r2=r*(if(i%4==0)1.76f else 1.62f);drawLine(Cyan.copy(alpha=if(i%4==0).9f else .3f),Offset(cx+kotlin.math.cos(a).toFloat()*r1,cy+kotlin.math.sin(a).toFloat()*r1),Offset(cx+kotlin.math.cos(a).toFloat()*r2,cy+kotlin.math.sin(a).toFloat()*r2),if(i%4==0)1.2.dp.toPx() else .6.dp.toPx())}
+                        drawLine(Cyan.copy(alpha=.16f),Offset(cx-r*2.2f,cy),Offset(cx+r*2.2f,cy),.7.dp.toPx())
+                        drawLine(Cyan.copy(alpha=.16f),Offset(cx,cy-r*2.2f),Offset(cx,cy+r*2.2f),.7.dp.toPx())
+                        for(i in 0..7){val a=Math.PI*2*i/8+spin*.008;val px=cx+kotlin.math.cos(a).toFloat()*r*2.08f;val py=cy+kotlin.math.sin(a).toFloat()*r*2.08f;drawCircle(Cyan.copy(alpha=.65f),2.2.dp.toPx(),Offset(px,py))}
+                        val bx=size.width*.06f;val by=size.height*.08f;val l=18.dp.toPx()
+                        listOf(Offset(bx,by),Offset(size.width-bx,by),Offset(bx,size.height-by),Offset(size.width-bx,size.height-by)).forEachIndexed { i,p -> val sx=if(i%2==0)1f else -1f;val sy=if(i<2)1f else -1f;drawLine(Cyan.copy(alpha=.7f),p,Offset(p.x+sx*l,p.y),1.4.dp.toPx());drawLine(Cyan.copy(alpha=.7f),p,Offset(p.x,p.y+sy*l),1.4.dp.toPx()) }
+                    }
+                    Column(Modifier.align(Alignment.TopStart).padding(18.dp)) { Text("HOLOGRAPHIC CORE  /  01",color=Cyan,fontSize=8.sp,letterSpacing=2.sp); Text(if(busy) "COGNITIVE PROCESS ACTIVE" else "NEURAL FIELD STABLE",color=Muted,fontSize=7.sp,letterSpacing=1.sp) }
+                    Column(Modifier.align(Alignment.TopEnd).padding(18.dp),horizontalAlignment=Alignment.End) { Text("MK-VII  •  INTERFACE",color=Cyan,fontSize=8.sp,letterSpacing=1.5.sp); Text("SECURE LOCAL SESSION",color=Muted,fontSize=7.sp) }
+                    Column(Modifier.align(Alignment.Center),horizontalAlignment=Alignment.CenterHorizontally) {
+                        Box(Modifier.size((minOf(maxWidth.value, maxHeight.value)*.43f).coerceIn(150f,300f).dp).background(Cyan.copy(alpha=.025f*pulse),CircleShape).border(1.dp,Cyan.copy(alpha=.18f),CircleShape),contentAlignment=Alignment.Center) {
+                            Box(Modifier.fillMaxSize(.86f).border(1.dp,Cyan.copy(alpha=.32f*pulse),CircleShape).background(Cyan.copy(alpha=.025f),CircleShape),contentAlignment=Alignment.Center) {
+                                Box(Modifier.fillMaxSize(.76f).border(2.dp,Color(0xFF82EFFF).copy(alpha=.55f),CircleShape).background(Brush.radialGradient(listOf(Color(0xFFBFFBFF).copy(alpha=.95f),Color(0xFF26C9F1).copy(alpha=.8f),Color(0xFF0A3852),Color(0xFF020A14))),CircleShape),contentAlignment=Alignment.Center) {
+                                    Text("J",color=Color.White,fontSize=94.sp,fontWeight=FontWeight.ExtraLight)
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(14.dp))
+                        Text(if(busy) "ANALYZING" else if(wakeMode) "VOICE CHANNEL OPEN" else "AWAITING COMMAND",color=Cyan.copy(alpha=.7f+.3f*pulse),fontSize=9.sp,letterSpacing=2.2.sp)
+                        Text("JUST A RATHER VERY INTELLIGENT SYSTEM",color=Color.White.copy(alpha=.65f),fontSize=7.sp,letterSpacing=1.6.sp)
+                    }
+                    Row(Modifier.align(Alignment.BottomStart).fillMaxWidth().background(Color(0xCC02070C)).padding(horizontal=16.dp, vertical=9.dp),horizontalArrangement=Arrangement.SpaceBetween){Text("SYS 7F.21",color=Muted,fontSize=7.sp);Text("FIELD OSCILLATION  ${(35+pulse*60).toInt()}%",color=Cyan,fontSize=7.sp);Text("JARVIS CORE ACTIVE",color=Cyan,fontSize=7.sp)}
+                }
+                Column(Modifier.weight(1.0f).fillMaxHeight(), verticalArrangement=Arrangement.SpaceBetween) {
+                    Column {
+                        Text("COMMAND DECK",color=Muted,fontSize=9.sp,letterSpacing=2.sp)
+                        Spacer(Modifier.height(10.dp))
+                        DashboardAction("◉",if(wakeMode) "Vypnúť hlas" else "Hlasový vstup",Modifier.fillMaxWidth(),onToggleVoice)
+                        Spacer(Modifier.height(7.dp))
+                        DashboardAction("⌁","Konverzácia",Modifier.fillMaxWidth(),onChat)
+                        Spacer(Modifier.height(7.dp))
+                        DashboardAction("⬡","STARK WORKSPACE",Modifier.fillMaxWidth(),onWorkspace)
+                        Spacer(Modifier.height(7.dp))
+                        DashboardAction("⚙","Nastavenia",Modifier.fillMaxWidth(),onSettings)
+                    }
+                    Column {
+                        Text("LIVE TELEMETRY",color=Cyan,fontSize=8.sp,letterSpacing=1.7.sp)
+                        Spacer(Modifier.height(8.dp))
+                        Canvas(Modifier.fillMaxWidth().height(70.dp)) { for(i in 0..4) drawLine(Color(0xFF193849),Offset(0f,size.height*i/4),Offset(size.width,size.height*i/4),.7.dp.toPx()); val pts=(0..30).map{i->Offset(size.width*i/30f,size.height*(.5f+.30f*kotlin.math.sin(i*.58f+spin/35f).toFloat()))}; val p=Path().apply{pts.forEachIndexed{i,v->if(i==0)moveTo(v.x,v.y)else lineTo(v.x,v.y)}};drawPath(p,Cyan,style=Stroke(1.4.dp.toPx())) }
+                        Spacer(Modifier.height(8.dp))
+                        Text("AI ENGINE",color=Muted,fontSize=8.sp); Text(if(aiReady) "READY  /  $model" else "NOT CONFIGURED",color=if(aiReady)Color(0xFF69F0AE) else Color(0xFFFFBD68),fontSize=9.sp,maxLines=1)
+                        Spacer(Modifier.height(8.dp))
+                        Text("TAP A COMMAND TO ENTER",color=Muted,fontSize=7.sp,letterSpacing=1.sp)
+                    }
+                }
+            }
+        } else {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
+                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)){Text("STARK INDUSTRIES / PERSONAL AI",color=Cyan,fontSize=9.sp,letterSpacing=2.sp);Text("J.A.R.V.I.S.",color=Color.White,fontSize=30.sp,fontWeight=FontWeight.ExtraLight,letterSpacing=5.sp);Text("NEURAL COMMAND DECK • MK-VII",color=Muted,fontSize=8.sp)}
+                    Column(horizontalAlignment=Alignment.End){Text(SimpleDateFormat("HH:mm",Locale.getDefault()).format(Date()),color=Color.White,fontSize=23.sp);Text(if(busy)"PROCESSING" else "SYSTEM ONLINE",color=if(busy)Color(0xFFFFBD68) else Color(0xFF69F0AE),fontSize=8.sp)}
+                }
+                Box(Modifier.fillMaxWidth().height(360.dp).background(Color(0xFF06121E))) {
+                    Canvas(Modifier.fillMaxSize()) { val cx=size.width*.5f;val cy=size.height*.47f;val r=minOf(size.width,size.height)*.29f; for(i in 1..9)drawCircle(Cyan.copy(alpha=.045f),r*(.5f+i*.19f),Offset(cx,cy),style=Stroke(.7.dp.toPx()));drawArc(Cyan.copy(alpha=.9f),spin,100f,false,Offset(cx-r,cy-r),androidx.compose.ui.geometry.Size(r*2,r*2),style=Stroke(2.dp.toPx()));drawArc(Color(0xFF80CFFF),counterSpin,55f,false,Offset(cx-r*.78f,cy-r*.78f),androidx.compose.ui.geometry.Size(r*1.56f,r*1.56f),style=Stroke(1.dp.toPx())) }
+                    Column(Modifier.align(Alignment.Center),horizontalAlignment=Alignment.CenterHorizontally){Box(Modifier.size(132.dp).border(1.dp,Cyan.copy(alpha=.35f),CircleShape).background(Brush.radialGradient(listOf(Color(0xFFBFFBFF),Color(0xFF26C9F1),Color(0xFF06243A))),CircleShape),contentAlignment=Alignment.Center){Text("J",color=Color.White,fontSize=70.sp,fontWeight=FontWeight.ExtraLight)};Spacer(Modifier.height(12.dp));Text(if(busy)"ANALYZING" else "AWAITING COMMAND",color=Cyan,fontSize=9.sp,letterSpacing=2.sp)}
+                }
+                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){DashboardAction("◉",if(wakeMode)"Vypnúť hlas" else "Hlasový vstup",Modifier.weight(1f),onToggleVoice);DashboardAction("⌁","Konverzácia",Modifier.weight(1f),onChat)}
+                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){DashboardAction("⬡","STARK WORKSPACE",Modifier.weight(1f),onWorkspace);DashboardAction("⚙","Nastavenia",Modifier.weight(1f),onSettings)}
+                Text("AI: ${if(aiReady) "READY" else "NOT CONFIGURED"}     BATTERY: ${battery ?: "—"}%",color=Muted,fontSize=9.sp)
+            }
+        }
     }
-    Column(Modifier.align(Alignment.TopStart).padding(13.dp)){Text("JARVIS CORE",color=Cyan,fontSize=8.sp,letterSpacing=2.sp);Text("JADRO 01 / "+(if(busy)"ANALÝZA" else "POHOTOVOSŤ"),color=Muted,fontSize=7.sp)}
-    Column(Modifier.align(Alignment.TopEnd).padding(13.dp),horizontalAlignment=Alignment.End){Text("NEURAL LINK",color=Muted,fontSize=7.sp);Text(if(aiReady)"CONFIGURED" else "AWAITING KEY",color=if(aiReady)Color(0xFF69F0AE) else Color(0xFFFFBD68),fontSize=8.sp)}
-    Column(Modifier.align(Alignment.Center),horizontalAlignment=Alignment.CenterHorizontally){
-     Box(Modifier.size((124f + pulse * 7f).dp).background(Cyan.copy(alpha=.035f + pulse * .025f),CircleShape),contentAlignment=Alignment.Center){Box(Modifier.size(104.dp).border(1.dp, Cyan.copy(alpha=.25f + pulse * .25f), CircleShape).background(Cyan.copy(alpha=.07f),CircleShape),contentAlignment=Alignment.Center){Box(Modifier.size(82.dp).background(Brush.radialGradient(listOf(Color(0xFFC8FCFF),Color(0xFF3CCEEA),Color(0xFF104C65),Color(0xFF03101B))),CircleShape),contentAlignment=Alignment.Center){Text("J",color=Color.White,fontSize=57.sp,fontWeight=FontWeight.ExtraLight)}}}
-     Spacer(Modifier.height(12.dp));Text(if(busy)"ANALYZING REQUEST" else if(wakeMode)"VOICE CHANNEL OPEN" else "AWAITING COMMAND",color=Cyan.copy(alpha=pulse),fontSize=8.sp,letterSpacing=1.5.sp);Text("ARTIFICIAL INTELLIGENCE SYSTEM",color=Color.White.copy(alpha=.72f),fontSize=7.sp,letterSpacing=1.sp)
-    }
-    Row(Modifier.align(Alignment.BottomStart).fillMaxWidth().background(Color(0xCC02070C)).padding(10.dp),horizontalArrangement=Arrangement.SpaceBetween){Text("SYS 7F.21",color=Muted,fontSize=7.sp);Text(if(wakeMode)"MIC ACTIVE" else "MIC STANDBY",color=if(wakeMode)Cyan else Muted,fontSize=7.sp);Text("SECURE LINK",color=Cyan,fontSize=7.sp)}
-   }
-   Column(Modifier.weight(1f).fillMaxHeight(),verticalArrangement=Arrangement.spacedBy(8.dp)){
-    Column(Modifier.weight(1f).fillMaxWidth().background(Color(0xFF0A1824),RoundedCornerShape(4.dp)).padding(11.dp)){
-     Text("01 / SYSTEM STATUS",color=Cyan,fontSize=8.sp,letterSpacing=1.sp);Spacer(Modifier.height(12.dp));Text("AI ENGINE",color=Muted,fontSize=8.sp);Text(if(aiReady)"READY" else "NOT CONFIGURED",color=if(aiReady)Color(0xFF69F0AE) else Color(0xFFFFBD68),fontSize=10.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(10.dp));Text("VOICE INPUT",color=Muted,fontSize=8.sp);Text(if(wakeMode)"LISTENING" else "DISABLED",color=if(wakeMode)Cyan else Muted,fontSize=10.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(10.dp));Text("BATTERY",color=Muted,fontSize=8.sp);Text((battery?.toString() ?: "—")+"%",color=Color.White,fontSize=18.sp,fontWeight=FontWeight.Light);Box(Modifier.fillMaxWidth().height(3.dp).background(Color(0xFF193849))){Box(Modifier.fillMaxWidth((battery?:0)/100f).fillMaxHeight().background(Cyan))}
-    }
-    Column(Modifier.weight(1f).fillMaxWidth().background(Color(0xFF0A1824),RoundedCornerShape(4.dp)).padding(11.dp)){
-     Text("02 / LIVE TELEMETRY",color=Cyan,fontSize=8.sp,letterSpacing=1.sp);Spacer(Modifier.height(8.dp));Canvas(Modifier.fillMaxWidth().height(57.dp)){for(i in 0..4)drawLine(Color(0xFF193849),Offset(0f,size.height*i/4),Offset(size.width,size.height*i/4),.7.dp.toPx());val pts=(0..22).map{i->Offset(size.width*i/22f,size.height*(.5f+.24f*kotlin.math.sin(i*.72f+spin/42f).toFloat()))};val p=Path().apply{pts.forEachIndexed{i,v->if(i==0)moveTo(v.x,v.y)else lineTo(v.x,v.y)}};drawPath(p,Cyan,style=Stroke(1.4.dp.toPx()))};Spacer(Modifier.height(7.dp));Text("PROCESSOR LOAD",color=Muted,fontSize=7.sp);Text(if(busy)"PROCESSING DATA…" else "NOMINAL / ONLINE",color=Color.White,fontSize=8.sp)
-    }
-   }
-  }
-  Text("COMMAND INTERFACE",color=Muted,fontSize=9.sp,letterSpacing=2.sp)
-  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){DashboardAction("◉",if(wakeMode)"Vypnúť hlas" else "Hlasový vstup",Modifier.weight(1f),onToggleVoice);DashboardAction("⌁","Konverzácia",Modifier.weight(1f),onChat);DashboardAction("⬡","STARK WORKSHOP",Modifier.weight(1f),onWorkspace);DashboardAction("⚙","Nastavenia",Modifier.weight(1f),onSettings)}
-  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
-   Column(Modifier.weight(1f).background(Color(0xFF0A1824),RoundedCornerShape(4.dp)).padding(13.dp)){Text("PROJECT BAY",color=Cyan,fontSize=9.sp,letterSpacing=1.5.sp);Spacer(Modifier.height(6.dp));Text("Tvorba • 2D / 3D • mapy",color=Color.White,fontSize=13.sp);Text("Otvoriť pracovný priestor a pokračovať v návrhu.",color=Muted,fontSize=10.sp);TextButton(onClick=onWorkspace,contentPadding=PaddingValues(0.dp)){Text("OPEN WORKSPACE ↗",color=Cyan,fontSize=9.sp)}}
-   Column(Modifier.weight(1f).background(Color(0xFF0A1824),RoundedCornerShape(4.dp)).padding(13.dp)){Text("PERSONAL ASSISTANT",color=Cyan,fontSize=9.sp,letterSpacing=1.5.sp);Spacer(Modifier.height(6.dp));Text("Dobrý deň, pane.",color=Color.White,fontSize=13.sp);Text(SimpleDateFormat("EEEE • d. MMMM",Locale("sk","SK")).format(Date()).uppercase(Locale("sk","SK")),color=Muted,fontSize=9.sp);Text(if(aiReady)"AI nakonfigurovaná" else "Nastavte AI kľúč v nastaveniach",color=if(aiReady)Color(0xFF69F0AE) else Color(0xFFFFBD68),fontSize=9.sp)}
-  }
-  Text("JARVIS COMMAND DECK • ANDROID 12",color=Muted,fontSize=7.sp,letterSpacing=1.4.sp,modifier=Modifier.fillMaxWidth(),textAlign=androidx.compose.ui.text.style.TextAlign.Center)
- }
 }
 
 @Composable
