@@ -370,6 +370,78 @@ Known incomplete or unverified:
 - Offline model API/build/download compatibility needs verification.
 - No verified final APK or real-device acceptance test.
 
+
+
+# 23. Historical prompt audit — recovered requirements and final reconciliation
+
+This section consolidates additional requirements recovered from earlier user conversations that were not fully explicit in the preceding sections. Newer instructions take precedence when earlier requests conflict.
+
+## 23.1 One assistant brain and execution layer
+- The user previously specified that JARVIS should behave as one main assistant/brain, with Android APIs and integrations acting as its execution tools rather than several unrelated bots with separate personalities.
+- Preserve one continuous identity, conversation history and task context across voice, chat, map and project modes.
+- Reconcile the earlier request to use ChatGPT as the sole brain with the later requirement for a usable no-key/offline baseline: the product must expose one unified JARVIS assistant. It may route reasoning to a local model when offline/no credentials exist and optionally to a connected cloud model when explicitly configured. Do not present these as separate assistants or silently switch without showing the active capability/source.
+- The no-key local baseline is the current priority. Online/cloud AI remains optional and must never be falsely described as available without connectivity/provider access.
+
+## 23.2 Historical everyday voice commands
+- Read current time and date.
+- Report battery percentage and available connectivity/Wi-Fi status.
+- Open supported apps, browser, YouTube, camera, gallery, files, calculator and Android settings.
+- Create, list, delete and retrieve notes by voice.
+- Create reminders, calendar entries, alarms and timers using supported Android intents/APIs.
+- Read notifications only after the user explicitly grants Android notification access; let the user choose which apps/categories can be read.
+- Summarize notifications before reading long content aloud; never send a reply without the user's explicit confirmation.
+- Keep user-approved memory and recent conversation context across sessions, with review/delete controls.
+- These commands exist in part in the current prototype according to README/source inspection, but must be end-to-end tested on the target tablet before being marked complete.
+
+## 23.3 Voice interruption and speech behavior
+- If the user starts speaking while JARVIS is speaking, stop JARVIS TTS immediately (barge-in) and listen to the user. Provide an optional sensitivity setting to avoid accidental interruption from background noise.
+- User previously asked for a quieter, serious voice and for JARVIS to stop speaking immediately when interrupted.
+- Preferred male Slovak voice remains Lukáš where installed; otherwise report the actual Android TTS fallback.
+- A continuous conversational session should not require a wake phrase for every command. The current source's one-command-per-mic-session behavior is explicitly incomplete and must be replaced and tested.
+- The user wants “Hej Jarvis” activation and background/locked-tablet availability. Implement only through Android-compliant, user-visible microphone foreground service and supported wake-word processing. If Android/device restrictions prevent it, state the exact limitation; never claim it works from the lock screen without a real-device test.
+
+## 23.4 Messaging and social apps
+- Earlier requests included reading notifications/messages and Instagram message reading, composing and sending.
+- Actual private message access requires a supported official API or a user-enabled Android notification listener/approved integration. Opening Instagram is not equivalent to reading its inbox.
+- Where no supported API exists, JARVIS may open the relevant app and help the user compose manually, but must not claim inbox access or automate around security controls.
+- Before sending any message, read back the recipient and full content and obtain explicit confirmation.
+
+## 23.5 App locking and security
+- “Jarvis, zamkni apky” locks only the user-selected applications through an Android-supported, transparent mechanism.
+- Unlocking requires the user's configured PIN/biometric authentication; voice recognition alone is not secure authentication.
+- App-lock support must be validated on the target Android version. Do not claim system-wide protection if the OS does not allow it.
+
+## 23.6 User-directed teaching
+- “Jarvis, douč sa to” / “zisti si to a zapamätaj” triggers a guided research/learning workflow.
+- JARVIS researches a named topic, checks sources, summarizes the result and asks whether to save the knowledge.
+- Saved notes/retrieval do not equal retraining the underlying model. JARVIS must distinguish memory, indexed documents, tool capabilities and actual model training.
+- Installing a skill, modifying code, changing permissions or updating the app requires explicit approval and validation.
+
+## 23.7 Implementation status snapshot from repository inspection
+The README and inspected Android source describe the following as present in prototype form:
+- Native Kotlin/Compose tablet app, landscape orientation and sci-fi dashboard/intro.
+- Slovak Android speech recognition and TTS; local commands for time/date, battery, notes, memory, app launching, settings, alarms, timers, reminders, YouTube/search, files/gallery/camera and map navigation.
+- Gemini-compatible cloud endpoint and experimental offline model download path.
+- MapLibre/OpenFreeMap 3D extruded building map prototype.
+- Basic wireframe project workspace and sketch canvas.
+- School check-in, timetable and personal progress storage.
+
+The inspected source also confirms important gaps:
+- Microphone starts only after a manual control; when foreground wake mode is enabled, the current loop processes one command and then turns itself off. It is not continuous conversation and not verified for locked-screen/background operation.
+- JARVIS TTS is suppressed from the recognizer while speaking, but the user cannot reliably interrupt speech with barge-in in the current loop.
+- Current source routes normal AI conversation and project generation to a configured API key; offline brain is only an optional downloaded fallback and must be verified.
+- No verified notification listener, Gmail OAuth, Instagram inbox integration, voice app lock, room/object 3D scan, conversation coach, AR glasses HUD, or camera-based environment analysis was found in the inspected source/README.
+- The 3D project view is a small wireframe primitive/sketch prototype, not a complete generative 3D/CAD workspace.
+- Map is a real-data map prototype, but its dataset coverage, routing correctness, building heights, licensing/attribution and accuracy need validation. It is not yet certified as a complete real-world map.
+- No final release APK, successful reproducible release build, or target-device acceptance test has been verified in this audit.
+
+## 23.8 Final release gate
+- Keep a feature matrix with four honest states: implemented and tested; implemented but not tested; requires permission/account/hardware; not implemented.
+- No requirement becomes “done” merely because it appears in this document or a Git commit.
+- Release is complete only after the APK builds, installs on the actual tablet, core features are tested, privacy/security controls are validated, and known limitations are documented.
+- User priority order: (1) stable Slovak voice assistant and one continuous conversational session; (2) genuinely real-world 3D map; (3) voice-first editable 3D project workspace; (4) offline-capable unified AI brain; (5) app/system control, notes/reminders/notifications; (6) camera scanning and consent-based conversation coach; (7) AR display/wearables and advanced connected-device features.
+- Preserve the explicit exclusions: no Iron Man suit functions, no Termux/ADB/root requirement, no ChatGPT-launcher wrapper, no invented map data, no secret recording/surveillance, no false claims of completed features.
+
 # 22. Acceptance criteria before calling it finished
 
 1. Build a directly installable APK from the actual repository; verify artifact exists and installs.
