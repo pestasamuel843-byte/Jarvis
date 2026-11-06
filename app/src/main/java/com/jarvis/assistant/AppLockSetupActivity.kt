@@ -87,7 +87,7 @@ class AppLockSetupActivity : Activity() {
         val labels = apps.map { it.loadLabel(packageManager).toString() }.toTypedArray()
         val packages = apps.map { it.activityInfo.packageName }
         val checked = BooleanArray(packages.size) { selectedPackages.contains(packages[it]) }
-        androidx.appcompat.app.AlertDialog.Builder(this)
+        android.app.AlertDialog.Builder(this)
             .setTitle("Aplikácie na uzamknutie")
             .setMultiChoiceItems(labels, checked) { _, which, isChecked ->
                 if (isChecked) selectedPackages.add(packages[which]) else selectedPackages.remove(packages[which])
