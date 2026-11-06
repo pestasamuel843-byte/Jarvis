@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.provider.Settings
 import android.os.Bundle
 import android.os.BatteryManager
 import android.os.Handler
@@ -264,6 +265,54 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     prefs.edit().putString("workspace_description", answer).apply()
                     chat.add(Message(true, answer)); speak(answer)
                 }
+            }
+            text.contains("nastavenia wi-fi", true) || text.contains("nastavenia wifi", true) || text.contains("zapni wi-fi", true) || text.contains("zapni wifi", true) || text.contains("vypni wi-fi", true) || text.contains("vypni wifi", true) -> {
+                val answer = "Otváram systémové nastavenia Wi-Fi, pane. Zmenu potvrďte priamo v Androide."
+                chat.add(Message(true, answer)); speak(answer)
+                runCatching { context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) }
+                    .onFailure { Toast.makeText(context, "Nastavenia Wi-Fi sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+            }
+            text.contains("nastavenia bluetooth", true) || text.contains("zapni bluetooth", true) || text.contains("vypni bluetooth", true) -> {
+                val answer = "Otváram nastavenia Bluetooth, pane. Zmenu potvrďte priamo v Androide."
+                chat.add(Message(true, answer)); speak(answer)
+                runCatching { context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) }
+                    .onFailure { Toast.makeText(context, "Nastavenia Bluetooth sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+            }
+            text.contains("nastavenia zvuku", true) || text.contains("hlasitosť", true) || text.contains("nastavenia hlasitosti", true) -> {
+                val answer = "Otváram nastavenia zvuku, pane."
+                chat.add(Message(true, answer)); speak(answer)
+                runCatching { context.startActivity(Intent(Settings.ACTION_SOUND_SETTINGS)) }
+                    .onFailure { Toast.makeText(context, "Nastavenia zvuku sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+            }
+            text.contains("nastavenia displeja", true) || text.contains("jas obrazovky", true) || text.contains("nastavenia obrazovky", true) -> {
+                val answer = "Otváram nastavenia displeja, pane."
+                chat.add(Message(true, answer)); speak(answer)
+                runCatching { context.startActivity(Intent(Settings.ACTION_DISPLAY_SETTINGS)) }
+                    .onFailure { Toast.makeText(context, "Nastavenia displeja sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+            }
+            text.contains("nastavenia aplikácií", true) || text.contains("povolenia aplikácií", true) || text.contains("oprávnenia", true) -> {
+                val answer = "Otváram systémové nastavenia aplikácií a oprávnení, pane."
+                chat.add(Message(true, answer)); speak(answer)
+                runCatching { context.startActivity(Intent(Settings.ACTION_APPLICATION_SETTINGS)) }
+                    .onFailure { Toast.makeText(context, "Nastavenia aplikácií sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+            }
+            text.contains("otvor súbory", true) || text.contains("otvor správcu súborov", true) || text.contains("moje súbory", true) -> {
+                val answer = "Otváram správcu súborov, pane."
+                chat.add(Message(true, answer)); speak(answer)
+                runCatching { context.startActivity(Intent(Intent.ACTION_OPEN_DOCUMENT).apply { addCategory(Intent.CATEGORY_OPENABLE); type = "*/*" }) }
+                    .onFailure { Toast.makeText(context, "Výber súborov sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+            }
+            text.contains("otvor instagram", true) || text.contains("spusti instagram", true) -> {
+                val answer = "Otváram Instagram, pane."
+                chat.add(Message(true, answer)); speak(answer)
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.instagram.com/"))) }
+                    .onFailure { Toast.makeText(context, "Instagram sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+            }
+            text.contains("otvor galériu", true) || text.contains("otvor fotografie", true) || text.contains("moje fotky", true) -> {
+                val answer = "Otváram galériu fotografií, pane."
+                chat.add(Message(true, answer)); speak(answer)
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW).setType("image/*")) }
+                    .onFailure { Toast.makeText(context, "Galériu sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
             }
             Regex("(-?\\d+(?:[.,]\\d+)?)\\s*(\\+|plus|\\-|mínus|krat|krát|delené|/|\\*|×|x)\\s*(-?\\d+(?:[.,]\\d+)?)", RegexOption.IGNORE_CASE).find(text) != null -> {
                 val match = Regex("(-?\\d+(?:[.,]\\d+)?)\\s*(\\+|plus|\\-|mínus|krat|krát|delené|/|\\*|×|x)\\s*(-?\\d+(?:[.,]\\d+)?)", RegexOption.IGNORE_CASE).find(text)!!
@@ -1368,6 +1417,14 @@ private fun askAi(endpoint: String, key: String, model: String, history: List<Me
         val webContext = if (lastUserQuery.isNotBlank() && shouldSearchWeb(lastUserQuery)) searchWeb(lastUserQuery) else ""
         val systemPrompt = """
 Si JARVIS, pokročilý slovenský AI asistent. Používateľa oslovuj „pane“. Odpovedaj po slovensky, prirodzene, presne a priamo.
+Tvoje hlavné úlohy v rámci schopností aplikácie:
+- Hlasový asistent: rozumej prirodzenej slovenčine, krátkym príkazom aj neformálnemu vyjadrovaniu. Odpovedaj stručne a s vykaním.
+- Osobný organizér: pomáhaj s poznámkami, školským rozvrhom, známkami, dennými záznamami a plánovaním; nikdy si nevymýšľaj osobné ani zdravotné údaje.
+- Projekty: pomáhaj navrhovať autá, zariadenia, budovy, miestnosti, mapy, 2D náčrty, 3D koncepty a programy. Vysvetli, čo vie aktuálny pracovný priestor skutočne zobraziť.
+- Tablet: aplikácia vie otvárať vybrané systémové nastavenia a aplikácie. Ak nemáš potvrdenú akciu, povedz používateľovi, ako ju bezpečne vykonať; netvrď, že si zmenil Wi-Fi, Bluetooth, nastavenia či odoslal správu, ak sa to nestalo.
+- Web: pri aktuálnych témach používaj dostupné výsledky vyhľadávania, uvádzaj URL a upozorni na neúplné výsledky.
+- Súkromie: nepýtaj si heslá, nezobrazuj API kľúče, neposielaj správy ani nič nekupuj bez výslovného potvrdenia používateľa.
+
 Zvládaj zložité otázky, matematiku, vysvetľovanie, plánovanie, analýzu, programovanie a ladenie kódu. Pri programovaní poskytuj kompletné, použiteľné riešenia, uveď názvy súborov, potrebné závislosti a presné kroky spustenia. Ak používateľ žiada kód, napíš skutočný kód, nie iba opis. Nevyhlasuj, že si kód spustil alebo zmenil súbory, pokiaľ to aplikácia naozaj nevykonala.
 Ak je priložený webový kontext, použi ho na aktuálne fakty, rozlišuj fakty od odhadov a pripoj URL relevantných zdrojov. Výsledky vyhľadávania môžu byť neúplné; ak chýbajú, otvorene to povedz a nevymýšľaj citácie. Pri otázkach vyžadujúcich aktuálne údaje použi poskytnuté webové výsledky, ak sú dostupné.
 Pri návrhoch projektov identifikuj praktické možnosti, odporuč najlepšiu a navrhni ďalší krok. Pri vizualizácii jasne odlišuj textový návrh a jednoduchý preddefinovaný 3D náhľad od skutočného generovania ľubovoľných 3D modelov.
