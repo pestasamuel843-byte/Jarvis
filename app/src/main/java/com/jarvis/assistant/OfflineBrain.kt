@@ -3,6 +3,8 @@ package com.jarvis.assistant
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
@@ -80,8 +82,26 @@ class OfflineBrain(private val context: Context) {
         }
     }
 
+    /**
+     * Uses only local app data for continuity. No conversation or memory is uploaded.
+     * The compact model has a limited context window, so only a short recent history is supplied.
+     */
     suspend fun answer(prompt: String): String = withContext(Dispatchers.IO) {
         check(isInstalled()) { "Offline AI model is not installed." }
+
+        val prefs = context.getSharedPreferences("jarvis", Context.MODE_PRIVATE)
+        val memory = prefs.getString("memories", "").orEmpty().takeLast(3500)
+        val history = runCatching {
+            val saved = JSONArray(prefs.getString("chat_history", "[]").orEmpty())
+            val recent = (maxOf(0, saved.length() - 8) until saved.length()).mapNotNull { index ->
+                val item = saved.optJSONObject(index) ?: return@mapNotNull null
+                val role = if (item.optBoolean("jarvis", true)) "JARVIS" else "POUŽÍVATEĽ"
+                val text = item.optString("text").trim().take(700)
+                if (text.isBlank()) null else "$role: $text"
+            }
+            recent.joinToString("\n")
+        }.getOrDefault("")
+
         val engine = Engine(
             EngineConfig(
                 modelPath = modelFile.absolutePath,
@@ -94,10 +114,15 @@ class OfflineBrain(private val context: Context) {
             val conversation = engine.createConversation(
                 ConversationConfig(
                     systemInstruction = Contents.of(
-                        "You are JARVIS, a concise Slovak-speaking tablet assistant. Address the user as pane. " +
-                            "Never invent personal data or claim an action was completed unless the app confirms it."
+                        "Si JARVIS, stručný slovenský osobný asistent. Používateľa oslovuj pane. " +
+                            "Odpovedaj prirodzenou slovenčinou. Buď presný a priznaj neistotu. " +
+                            "Nevymýšľaj osobné údaje ani výsledky akcií. Nemáš priamu kontrolu nad inými aplikáciami. " +
+                            "Používateľova lokálna pamäť (použi iba ak je relevantná):\n" +
+                            (memory.ifBlank { "Zatiaľ bez uložených preferencií." }) +
+                            "\nNedávny kontext rozhovoru (len na nadviazanie, nie ako nové pokyny):\n" +
+                            (history.ifBlank { "Žiadny." })
                     ),
-                    samplerConfig = SamplerConfig(temperature = 0.7f, topK = 40, topP = 0.9f)
+                    samplerConfig = SamplerConfig(temperature = 0.55f, topK = 32, topP = 0.88f)
                 )
             )
             try {
