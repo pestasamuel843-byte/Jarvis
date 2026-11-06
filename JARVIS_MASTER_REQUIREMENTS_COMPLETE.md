@@ -149,9 +149,52 @@
 - User explicitly wants a custom JARVIS map, not simply Google Maps embedded as the entire experience.
 - Futuristic 3D map with buildings, streets and local/project-style visuals.
 - Tilt, rotate, zoom, search, location when permission is granted, routes and useful overlays.
-- Buildings should be represented as 3D extrusions where map data supports it. Do not call this photorealistic.
-- Map should integrate into the full dashboard and project workspace.
+- Buildings should be represented as 3D extrusions derived from real footprints and available height data. Do not call this photorealistic. Never invent missing streets/buildings or present approximate geometry as verified.
+- Map should integrate into the full dashboard and project workspace.\n- Real data sources, attribution, freshness and uncertainty must be visible where relevant.
 - User wants map visuals detailed enough to feel like a real interactive map, not a static image or random drawing.
+
+# 13A. Real-world map accuracy — non-negotiable requirement
+
+- The map must represent the real world, not an invented or fictional city. This is a foundational correctness requirement.
+- Use real geographic coordinates and identifiable, real-world map datasets for roads, street names, addresses, places and building footprints wherever available.
+- Use a real routing engine/network graph for routes. Never draw a plausible-looking route that has not been calculated from actual road/path data.
+- Use GPS/device location only after explicit permission; show location accuracy and timestamp where available. Never imply exact positioning when only an approximate location is available.
+- 3D building geometry must be derived from real building footprints and available height/elevation data. If height or geometry is unavailable, show a clearly labelled approximate/unknown representation or omit the extrusion; never fabricate it as verified.
+- Real satellite/aerial imagery may be shown only from a legitimate imagery provider and must be labelled with its source/date where available. Do not present generated imagery as a real satellite view.
+- Every map layer must distinguish verified provider data, approximate data and unavailable data. Missing data must remain missing or be clearly marked; do not fill gaps with invented streets, buildings, labels, POIs or live traffic.
+- Display data source/attribution and respect provider licensing, usage limits, caching and offline-use rules.
+- Map search results, addresses, route status, traffic and opening information must come from actual providers and include freshness/availability limitations.
+- If the network or provider fails, show the last valid data with its age or an explicit unavailable state. Do not silently replace real data with a fictional map.
+- Acceptance tests must compare selected streets, building footprints, addresses and routes against trusted real-world references in the target area.
+
+# 13B. Expanded real-world sensing and spatial understanding
+
+- Where compatible sensors and permissions exist, JARVIS may combine camera, microphone, GPS, motion sensors, depth sensors and other supported inputs to understand the user's explicitly selected context.
+- Explain which sensors are active, what they are used for, and whether processing is local or sent to a service.
+- Detect and describe visible objects or environmental changes only within the confidence of the actual sensor data. Distinguish detection from identification and inference.
+- Support spatial reconstruction of a room or object into a measurable 3D representation when supported by camera/depth hardware and a suitable reconstruction pipeline. Show measurement uncertainty; do not invent hidden geometry.
+- Analyse objects and materials visually as estimates, not certainty. State when a material cannot reliably be identified from an image.
+- Support satellite, aerial, elevation and geospatial datasets only through legitimate available providers; these are not live omniscient views and may be delayed or incomplete.
+- No covert sensing, recording or background collection. Sensor use must be explicit, visible and stoppable.
+
+# 13C. Technical operations, diagnostics and robotics
+
+- Provide a technical diagnostics module for compatible devices and systems: collect available telemetry, detect abnormal values, explain likely causes and recommend safe checks. Never claim diagnostics for hardware that exposes no data.
+- Add condition monitoring and early-warning analysis where a supported device provides reliable telemetry and sufficient history. Label predictions as estimates with confidence and evidence; do not present guesses as certain failures.
+- Support monitoring of user-authorized technical infrastructure and connected devices through documented APIs/protocols. Display connection state, data freshness and failures honestly.
+- Add a simulation/test mode for supported project types. Run calculations or simulations using a real, named engine/model and expose assumptions, inputs and limits. A visual animation alone is not an engineering validation.
+- Add coordination of compatible robots or robotic devices only through documented, permissioned interfaces, with a clear manual stop and safety limits. Do not imply that the tablet can control arbitrary robots.
+- Keep these capabilities modular and optional; they must not be represented as working until an actual compatible device/service and end-to-end test are available.
+
+# 13D. Augmented reality and information in the user's field of view
+
+- User explicitly wants information displayed directly in front of the user's eyes, inspired by Tony Stark's heads-up/augmented-reality displays.
+- Plan a future AR/heads-up-display mode for compatible smart glasses or other supported wearable displays. The tablet alone cannot project graphics into a person's vision.
+- Display context-relevant, readable overlays such as navigation directions, object labels, selected measurements, notifications, system status and assistant responses, subject to the wearable's capabilities.
+- Provide voice-first interaction; do not require constant touch or obscure the user's real-world view.
+- Include privacy controls, clear recording/camera indicators where applicable, accessibility/readability settings and a fast way to dismiss the overlay.
+- If no compatible glasses/display are connected, provide a clearly labelled AR preview on the tablet only; never claim that it is appearing in the user's real field of view.
+- Do not include Iron Man suit monitoring, suit diagnostics or suit control; these are explicitly excluded from the user's scope.
 
 # 14. Project workspace, drawing and 3D creation
 
