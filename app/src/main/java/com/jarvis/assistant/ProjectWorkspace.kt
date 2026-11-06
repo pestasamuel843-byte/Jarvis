@@ -343,3 +343,48 @@ function locate(){
         }
     )
 }
+
+
+@Composable
+private fun WireframeScene(model: String, onModelChange: (String) -> Unit) {
+    var rotation by remember { mutableFloatStateOf(0.45f) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            listOf("KOCKA", "PYRAMÍDA", "DOM", "AUTO", "ULICA", "GUĽA").forEach { shape ->
+                TextButton(onClick = { onModelChange(shape) }, contentPadding = PaddingValues(horizontal = 3.dp, vertical = 2.dp)) {
+                    Text(shape, color = if (model == shape) Color.White else WorkCyan, fontSize = 9.sp)
+                }
+            }
+        }
+        Canvas(
+            Modifier.fillMaxWidth().height(240.dp)
+                .background(Color(0xFF07101A), RoundedCornerShape(12.dp))
+                .pointerInput(Unit) {
+                    detectDragGestures { change, drag ->
+                        change.consume()
+                        rotation += drag.x * 0.01f
+                    }
+                }
+        ) {
+            val vertices = listOf(
+                floatArrayOf(-1f,-1f,-1f), floatArrayOf(1f,-1f,-1f),
+                floatArrayOf(1f,1f,-1f), floatArrayOf(-1f,1f,-1f),
+                floatArrayOf(-1f,-1f,1f), floatArrayOf(1f,-1f,1f),
+                floatArrayOf(1f,1f,1f), floatArrayOf(-1f,1f,1f)
+            )
+            val edges = listOf(0 to 1,1 to 2,2 to 3,3 to 0,4 to 5,5 to 6,6 to 7,7 to 4,0 to 4,1 to 5,2 to 6,3 to 7)
+            val points = vertices.map { v ->
+                val x = v[0] * cos(rotation) - v[2] * sin(rotation)
+                val z = v[0] * sin(rotation) + v[2] * cos(rotation)
+                Offset(size.width/2f + x*size.minDimension*.27f, size.height/2f + (v[1] + z*.22f)*size.minDimension*.27f)
+            }
+            var x = 0f
+            while (x < size.width) { drawLine(Color(0xFF153246), Offset(x,0f), Offset(x,size.height), .7.dp.toPx()); x += 28.dp.toPx() }
+            var y = 0f
+            while (y < size.height) { drawLine(Color(0xFF153246), Offset(0f,y), Offset(size.width,y), .7.dp.toPx()); y += 28.dp.toPx() }
+            edges.forEach { (a,b) -> drawLine(WorkCyan.copy(alpha=.9f), points[a], points[b], 2.dp.toPx()) }
+            points.forEach { drawCircle(WorkCyan, 3.dp.toPx(), it) }
+        }
+        Text("MODEL: $model • POTIAHNI PRE OTOČENIE", color = Color(0xFF9BAFC2), fontSize = 9.sp)
+    }
+}
