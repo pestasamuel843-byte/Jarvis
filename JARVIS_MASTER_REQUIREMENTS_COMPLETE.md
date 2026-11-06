@@ -101,6 +101,29 @@
 - Consequential actions such as sending messages, sharing personal data, deleting data, account changes or purchases require explicit confirmation.
 - No claim that every app or every touch can be automated; list real support and limitations.
 
+
+
+# 8A. Voice-controlled app locking
+
+- User can say “Jarvis, zamkni apky” to activate the app-lock feature for the applications the user has selected.
+- The user can configure which apps are protected and choose a PIN or supported biometric authentication. JARVIS must never invent or silently choose the PIN.
+- Where Android supports it, use an approved app-lock mechanism or a transparent, user-enabled accessibility/overlay approach that does not bypass Android security. Explain device/version limitations.
+- When a protected app is opened, require the configured authentication before allowing access, to the extent technically supported. Do not claim system-wide app locking if Android does not permit it.
+- Voice commands may lock the configured apps, but must not expose or speak the PIN. Unlocking sensitive apps should require the user's configured secure authentication, not merely a voice match.
+- Include “Jarvis, odomkni apky” only as a request to begin the normal secure unlock flow; it must not bypass authentication.
+- Provide an immediate manual fallback, recovery path and a way to disable the feature in settings.
+
+# 5A. User-directed learning and knowledge updates
+
+- If JARVIS does not know something, the user can say “Jarvis, douč sa to” or “zisti si to a zapamätaj”.
+- JARVIS should clarify what topic or skill the user means if the reference is ambiguous, then use permitted sources (web, user-provided documents or examples, and approved local files) to learn the information.
+- It must distinguish between learning a fact, learning a procedure, and acquiring a genuinely new technical capability. Reading about a capability does not automatically implement that capability.
+- After researching, JARVIS should summarize what it learned, cite or retain source references where possible, identify uncertainty and ask whether the user wants the useful result saved to its local knowledge/memory.
+- Saved knowledge must be reviewable, editable and deletable. Respect source licences, privacy, and access permissions.
+- JARVIS must not silently rewrite its own application code, change security settings, install software, grant permissions, or modify its underlying model. Any code change, installation, or consequential configuration change requires explicit user approval and validation.
+- Use retrieval from approved local knowledge and sources to improve later answers. Do not claim that the underlying AI model has permanently retrained itself when it has only stored notes or indexed documents.
+- If the user teaches JARVIS a specific preference or procedure, it may save that instruction after confirming the intended meaning.
+
 # 9. Gmail, messages and social apps
 
 - Gmail integration requested: user can ask “Jarvis, aké mám Gmaili?” and JARVIS should report unread mail / available inbox summary after account connection.
