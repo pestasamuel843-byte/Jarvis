@@ -1049,28 +1049,16 @@ private fun JarvisDashboard(
                     }
                     Row(Modifier.align(Alignment.BottomStart).fillMaxWidth().background(Color(0xCC02070C)).padding(horizontal=16.dp, vertical=9.dp),horizontalArrangement=Arrangement.SpaceBetween){Text("SYS 7F.21",color=Muted,fontSize=7.sp);Text("FIELD OSCILLATION  ${(35+pulse*60).toInt()}%",color=Cyan,fontSize=7.sp);Text("JARVIS CORE ACTIVE",color=Cyan,fontSize=7.sp)}
                 }
-                Column(Modifier.weight(1.0f).fillMaxHeight(), verticalArrangement=Arrangement.SpaceBetween) {
-                    Column {
-                        Text("COMMAND DECK",color=Muted,fontSize=9.sp,letterSpacing=2.sp)
-                        Spacer(Modifier.height(10.dp))
-                        DashboardAction("◉",if(wakeMode) "Vypnúť hlas" else "Hlasový vstup",Modifier.fillMaxWidth(),onToggleVoice)
-                        Spacer(Modifier.height(7.dp))
-                        DashboardAction("⌁","Konverzácia",Modifier.fillMaxWidth(),onChat)
-                        Spacer(Modifier.height(7.dp))
-                        DashboardAction("⬡","STARK WORKSPACE",Modifier.fillMaxWidth(),onWorkspace)
-                        Spacer(Modifier.height(7.dp))
-                        DashboardAction("⚙","Nastavenia",Modifier.fillMaxWidth(),onSettings)
-                    }
-                    Column {
-                        Text("LIVE TELEMETRY",color=Cyan,fontSize=8.sp,letterSpacing=1.7.sp)
-                        Spacer(Modifier.height(8.dp))
-                        Canvas(Modifier.fillMaxWidth().height(70.dp)) { for(i in 0..4) drawLine(Color(0xFF193849),Offset(0f,size.height*i/4),Offset(size.width,size.height*i/4),.7.dp.toPx()); val pts=(0..30).map{i->Offset(size.width*i/30f,size.height*(.5f+.30f*kotlin.math.sin(i*.58f+spin/35f).toFloat()))}; val p=Path().apply{pts.forEachIndexed{i,v->if(i==0)moveTo(v.x,v.y)else lineTo(v.x,v.y)}};drawPath(p,Cyan,style=Stroke(1.4.dp.toPx())) }
-                        Spacer(Modifier.height(8.dp))
-                        Text("AI ENGINE",color=Muted,fontSize=8.sp); Text(if(aiReady) "READY  /  $model" else "NOT CONFIGURED",color=if(aiReady)Color(0xFF69F0AE) else Color(0xFFFFBD68),fontSize=9.sp,maxLines=1)
-                        Spacer(Modifier.height(8.dp))
-                        Text("TAP A COMMAND TO ENTER",color=Muted,fontSize=7.sp,letterSpacing=1.sp)
-                    }
-                }
+                PersonalDashboardSidePanel(
+                    modifier = Modifier.weight(1.0f).fillMaxHeight(),
+                    wakeMode = wakeMode,
+                    busy = busy,
+                    aiReady = aiReady,
+                    onToggleVoice = onToggleVoice,
+                    onChat = onChat,
+                    onWorkspace = onWorkspace,
+                    onSettings = onSettings
+                )
             }
         } else {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
@@ -1087,6 +1075,67 @@ private fun JarvisDashboard(
                 Text("AI: ${if(aiReady) "READY" else "NOT CONFIGURED"}     BATTERY: ${battery ?: "—"}%",color=Muted,fontSize=9.sp)
             }
         }
+    }
+}
+
+@Composable
+private fun PersonalDashboardSidePanel(
+    modifier: Modifier,
+    wakeMode: Boolean,
+    busy: Boolean,
+    aiReady: Boolean,
+    onToggleVoice: () -> Unit,
+    onChat: () -> Unit,
+    onWorkspace: () -> Unit,
+    onSettings: () -> Unit
+) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("jarvis", Context.MODE_PRIVATE) }
+    val latest = prefs.getString("progress_data", "").orEmpty().lines().filter { it.isNotBlank() }.takeLast(3).asReversed()
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(9.dp)) {
+        Text("PERSONAL PROFILE  /  LIVE DATA", color = Cyan, fontSize = 8.sp, letterSpacing = 1.5.sp)
+        Column(
+            Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(10.dp))
+                .background(Color(0xB3091B29)).border(1.dp, Color(0x6639BBD5), RoundedCornerShape(10.dp)).padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("INSTAGRAM  /  FEED", color = Cyan, fontSize = 9.sp, letterSpacing = 1.1.sp)
+                Text("EXTERNÝ ÚČET", color = Muted, fontSize = 7.sp)
+            }
+            Box(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(7.dp)).background(Color(0xFF07121D)), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("◎", color = Cyan, fontSize = 30.sp)
+                    Text("POSLEDNÉ PRÍSPEVKY", color = Color.White, fontSize = 9.sp, letterSpacing = 1.sp)
+                    Text("Instagram zatiaľ nie je pripojený", color = Muted, fontSize = 8.sp)
+                    Text("Po pripojení účtu sa tu môže zobraziť dostupný obsah.", color = Muted, fontSize = 7.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                }
+            }
+            DashboardAction("◎", "OTVORIŤ INSTAGRAM", Modifier.fillMaxWidth()) {
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.instagram.com/"))) }
+            }
+        }
+        Column(
+            Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(10.dp))
+                .background(Color(0xB3091B29)).border(1.dp, Color(0x6639BBD5), RoundedCornerShape(10.dp)).padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text("OSOBNÉ ZÁZNAMY  /  PRIVATE", color = Cyan, fontSize = 9.sp, letterSpacing = 1.sp)
+            Text("Zdravie a denný prehľad", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+            if (latest.isEmpty()) Text("Zatiaľ bez uložených denných záznamov.", color = Muted, fontSize = 8.sp)
+            else latest.forEach { Text(it.take(90), color = Color(0xFFD3E7F1), fontSize = 8.sp, maxLines = 2) }
+            Text("Zobrazujú sa len údaje, ktoré si uložíš. Nie je to zdravotná diagnostika.", color = Muted, fontSize = 7.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                DashboardAction("⌁", "PREHĽAD", Modifier.weight(1f)) { onChat() }
+                DashboardAction("▥", "GRAFY", Modifier.weight(1f)) { onChat() }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            DashboardAction("◉", if (wakeMode) "VYPNÚŤ HLAS" else "HLAS", Modifier.weight(1f), onToggleVoice)
+            DashboardAction("⬡", "PROJEKT", Modifier.weight(1f), onWorkspace)
+            DashboardAction("⚙", "NASTAVENIA", Modifier.weight(1f), onSettings)
+        }
+        Text(if (busy) "JARVIS PRACUJE…" else if (aiReady) "AI ENGINE ONLINE" else "AI ENGINE NEKONFIGUROVANÝ", color = if (busy) Color(0xFFFFBD68) else if (aiReady) Color(0xFF69F0AE) else Muted, fontSize = 7.sp)
     }
 }
 
