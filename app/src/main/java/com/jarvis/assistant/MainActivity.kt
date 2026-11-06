@@ -221,6 +221,31 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
         input = ""
         chat.add(Message(false, text))
         when {
+            text.contains("nastav ochranu aplikácií", true) || text.contains("nastav zamykanie", true) || text.contains("nastav zabezpečenie aplikácií", true) -> {
+                val answer = "Otváram nastavenie ochrany aplikácií. Nastavte PIN, vyberte aplikácie a povoľte službu prístupnosti."
+                chat.add(Message(true, answer)); speak(answer)
+                context.startActivity(Intent(context, AppLockSetupActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }
+            text.contains("zamkni aplikácie", true) || text.contains("zamkni apky", true) -> {
+                val lockPrefs = context.getSharedPreferences(AppLockAccessibilityService.PREFS, Context.MODE_PRIVATE)
+                val hasPin = !lockPrefs.getString(AppLockAccessibilityService.KEY_PIN_HASH, "").isNullOrBlank()
+                val hasApps = lockPrefs.getStringSet(AppLockAccessibilityService.KEY_PACKAGES, emptySet()).orEmpty().isNotEmpty()
+                if (!hasPin || !hasApps || !AppLockAccessibilityService.isEnabled(context)) {
+                    val answer = "Ochrana ešte nie je pripravená. Otváram nastavenie PIN-u, výberu aplikácií a povolenia služby prístupnosti."
+                    chat.add(Message(true, answer)); speak(answer)
+                    context.startActivity(Intent(context, AppLockSetupActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                } else {
+                    lockPrefs.edit().putBoolean(AppLockAccessibilityService.KEY_ENABLED, true).apply()
+                    val answer = "Ochrana vybraných aplikácií je zapnutá, pane."
+                    chat.add(Message(true, answer)); speak(answer)
+                }
+            }
+            text.contains("odomkni aplikácie", true) || text.contains("odomkni apky", true) || text.contains("vypni zamykanie", true) -> {
+                context.getSharedPreferences(AppLockAccessibilityService.PREFS, Context.MODE_PRIVATE)
+                    .edit().putBoolean(AppLockAccessibilityService.KEY_ENABLED, false).apply()
+                val answer = "Zamykanie aplikácií je vypnuté, pane."
+                chat.add(Message(true, answer)); speak(answer)
+            }
             text.contains("nastav rozvrh", true) || text.contains("pridaj rozvrh", true) || text == "rozvrh" || text.contains("rozvrh školy", true) -> {
                 scheduleSetupIndex = 0
                 val old = "school_timetable"
