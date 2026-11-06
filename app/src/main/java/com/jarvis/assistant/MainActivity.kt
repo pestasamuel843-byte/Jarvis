@@ -897,9 +897,21 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 title = { Text("Nastavenia JARVIS") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("API kľúč sa ukladá v zariadení. Nevkladajte ho do GitHubu.", color = Muted, fontSize = 12.sp)
+                        Text("Internetové vyhľadávanie funguje bez AI kľúča. Na generovanie odpovedí Gemini je potrebný osobný API kľúč, ktorý sa uloží iba v tomto zariadení.", color = Muted, fontSize = 12.sp)
                         Text("Predvolená služba: Google Gemini API • model Gemini 2.5 Flash", color = Cyan, fontSize = 12.sp)
-                        OutlinedTextField(key, { key = it }, label = { Text("Google Gemini API kľúč") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
+                        OutlinedTextField(key, { key = it }, label = { Text("Google Gemini API kľúč") }, placeholder = { Text("Vložte svoj kľúč z Google AI Studio") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
+                        Button(
+                            onClick = {
+                                apiTesting = true
+                                apiTestResult = "Kontrolujem internetové pripojenie…"
+                                scope.launch {
+                                    val online = withContext(Dispatchers.IO) { testInternetConnection() }
+                                    apiTestResult = if (online) "Internet funguje. Teraz môžete otestovať AI." else "Internet nie je dostupný. Skontrolujte Wi-Fi alebo mobilné dáta."
+                                    apiTesting = false
+                                }
+                            },
+                            enabled = !apiTesting
+                        ) { Text(if (apiTesting) "KONTROLUJEM…" else "OTESTOVAŤ INTERNET") }
                         Button(
                             onClick = {
                                 if (key.isBlank()) {
@@ -1269,16 +1281,39 @@ private class WakeWordLoop(
     }
 }
 
+private fun testInternetConnection(): Boolean {
+    var connection: HttpURLConnection? = null
+    return try {
+        connection = (URL("https://www.google.com/generate_204").openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 7000
+            readTimeout = 7000
+            instanceFollowRedirects = true
+        }
+        connection.responseCode == 204
+    } catch (_: Exception) {
+        false
+    } finally {
+        connection?.disconnect()
+    }
+}
+
 private fun shouldSearchWeb(query: String): Boolean {
     val q = query.lowercase(Locale.ROOT)
-    return listOf(
-        "vyhľadaj", "vyhladaj", "hľadaj na internete", "hladaj na internete",
-        "na internete", "na webe", "zdroje", "cituj", "aktuálne", "aktualne",
-        "najnovšie", "najnovsie", "dnes", "teraz", "novinky", "správy", "spravy",
-        "cena", "počasie", "pocasie", "otváracie hodiny", "otvaracie hodiny",
+    val explicit = listOf(
+        "vyhľadaj", "vyhladaj", "hľadaj", "hladaj", "na internete", "na webe",
+        "zdroje", "cituj", "aktuálne", "aktualne", "najnovšie", "najnovsie",
+        "dnes", "teraz", "novinky", "správy", "spravy", "cena", "koľko stojí",
+        "kolko stoji", "počasie", "pocasie", "otváracie hodiny", "otvaracie hodiny",
         "dokumentácia", "dokumentacia", "latest", "current", "today", "recent",
         "news", "search the web", "look up", "research"
-    ).any { q.contains(it) }
+    )
+    val currentInfo = listOf(
+        "kto je momentálne", "kto je teraz", "kedy bude", "kedy sa koná",
+        "výsledky zápasu", "vysledky zapasu", "cena akcie", "kurz eura",
+        "recenzie", "porovnaj produkty", "kde kúpiť", "kde kupit"
+    )
+    return explicit.any { q.contains(it) } || currentInfo.any { q.contains(it) }
 }
 
 private fun searchWeb(query: String): String {
