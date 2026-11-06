@@ -33,6 +33,7 @@ class JarvisVoiceService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        isRunning = true
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
         createRecognizer()
@@ -138,6 +139,7 @@ class JarvisVoiceService : Service() {
         val normalized = command.lowercase(Locale.ROOT)
         val stop = listOf("vypni počúvanie", "prestaň počúvať", "vypni mikrofón", "jarvis spi", "ukonči rozhovor", "ukonči konverzáciu")
         if (stop.any { normalized.contains(it) }) {
+            isRunning = false
             sendCommandBroadcast(ACTION_COMMAND, command)
             stopSelf()
             return
@@ -230,6 +232,7 @@ class JarvisVoiceService : Service() {
     }
 
     override fun onDestroy() {
+        isRunning = false
         stopped = true
         handler.removeCallbacksAndMessages(null)
         runCatching { recognizer?.cancel() }
@@ -242,6 +245,10 @@ class JarvisVoiceService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
+        @Volatile
+        var isRunning: Boolean = false
+            private set
+
         const val ACTION_COMMAND = "com.jarvis.assistant.VOICE_COMMAND"
         const val ACTION_WAKE = "com.jarvis.assistant.VOICE_WAKE"
         const val ACTION_STATUS = "com.jarvis.assistant.VOICE_STATUS"
