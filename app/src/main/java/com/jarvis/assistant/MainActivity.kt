@@ -946,6 +946,27 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 title = { Text("Nastavenia JARVIS") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("OFFLINE AI MOZOG", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("Stiahne model Qwen3 INT4 (približne 330 MB). Potom bude lokálna AI fungovať bez API kľúča a bez internetu.", color = Muted, fontSize = 11.sp)
+                        Button(
+                            onClick = {
+                                apiTesting = true
+                                apiTestResult = "Sťahujem offline AI model…"
+                                scope.launch {
+                                    try {
+                                        OfflineBrain(context).download { percent ->
+                                            apiTestResult = "Sťahujem offline AI model: $percent %"
+                                        }
+                                        apiTestResult = "Offline AI model je stiahnutý."
+                                    } catch (error: Exception) {
+                                        apiTestResult = "Stiahnutie modelu zlyhalo: ${error.message ?: "neznáma chyba"}"
+                                    } finally {
+                                        apiTesting = false
+                                    }
+                                }
+                            },
+                            enabled = !apiTesting
+                        ) { Text(if (apiTesting) "PRACUJEM…" else "STIAHNUŤ OFFLINE AI MOZOG") }
                         Text("Internetové vyhľadávanie funguje bez AI kľúča. Na generovanie odpovedí Gemini je potrebný osobný API kľúč, ktorý sa uloží iba v tomto zariadení.", color = Muted, fontSize = 12.sp)
                         Text("Predvolená služba: Google Gemini API • model Gemini 2.5 Flash", color = Cyan, fontSize = 12.sp)
                         OutlinedTextField(key, { key = it }, label = { Text("Google Gemini API kľúč") }, placeholder = { Text("Vložte svoj kľúč z Google AI Studio") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
