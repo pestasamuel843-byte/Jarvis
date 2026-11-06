@@ -64,7 +64,7 @@
 - Should support conversation, reasoning, learning from user-approved memory, coding, planning, research, explaining, and using app capabilities.
 - Online AI provider support was requested, with model/provider settings and an API key field in earlier specifications. Gemini 2.5 Flash endpoint was used in the prototype.
 - User later strongly preferred a ready-to-use assistant with no keys or manual connecting. Product should therefore have a keyless local baseline and a clear optional online upgrade. Never promise a large online model without credentials, connectivity or provider access.
-- Offline model support requested. Current prototype uses a modest Qwen 0.6B LiteRT-LM model concept; this is not equivalent to a powerful cloud model and must not be marketed as all-knowing.
+- Offline model support requested at high capability, not just the prototype Qwen 0.6B model. Select the strongest model that actually fits the tablet after measuring hardware; see the dedicated offline-brain requirements below.
 - Local/offline and online capability must be clearly distinguished. Offline knowledge may be stale and cannot search the live web.
 - AI should use available tools to perform actions, not merely tell the user how. Every action must be implemented, permissioned, validated and report its real result.
 - If no tool exists for a requested action, say so plainly.
@@ -191,14 +191,37 @@
 - In project mode, collapse or move aside irrelevant dashboard panels and give the editable 2D/3D workspace the available screen area. Keep a small voice/status indicator and conversational feedback visible.
 - Visual quality is an acceptance criterion: a technically working app with a childish or generic interface does not meet the user's request.
 
-# 16. Camera and visual understanding
+# 15A. Offline AI brain — high-priority requirement
 
-- Camera access only when the user explicitly asks to use it.
+- User explicitly wants a substantial offline AI model, regardless of download size, as long as it can converse in Slovak, understand context, write and create useful content, help build projects, and work without a paid API key.
+- Do not limit the design to the current tiny 0.6B experimental model. Evaluate the largest practical model(s) that can run on the actual tablet, including quantized models and memory/storage constraints. Do not promise that a huge model will run smoothly until device RAM, storage, CPU/GPU/NPU and runtime compatibility are measured.
+- Prefer a model manager that can download a selected model with clear size, storage estimate, license, progress, pause/resume, integrity check, and delete/replace controls. The user should not need to manually handle model files.
+- Offline brain must support Slovak conversation, drafting/writing, summarizing locally available documents, reasoning within its actual capability, and generating project plans/code or structured scene edits for the workspace.
+- Keep a clear distinction between language-model reasoning and actual app tools. The model can propose an action; only the validated Android integration performs it.
+- Offline AI can summarize email already synchronized to the device, but receiving new Gmail messages, searching the live inbox and sending mail require internet and an authorized Gmail connection. Do not imply that an offline model alone can access Gmail.
+- If a larger model exceeds device capacity, offer the strongest compatible model and explain the measured limitation; do not silently fall back to a much weaker model without telling the user.
+- Keep private profile and personal memory local by default. Do not send camera frames, mail contents or private memories to cloud AI unless the user explicitly enables it.
+
+# 16. Camera-based person/activity alerts
+
+- User wants to be able to deliberately connect or select a camera, for example one pointed at a staircase or veranda, and receive spoken alerts while using another app or watching a film.
+- Example alerts: “Pane, niekto ide po schodoch”; “Pane, prišla osoba na verandu.” Alerts should be concise and not repeatedly trigger for the same continuous event.
+- The system may detect a person, movement, direction/zone crossing and approximate approach based on the camera's field of view and configured zones. It must not claim an exact arrival countdown unless the camera placement and measured movement genuinely support a defensible estimate. Prefer “osoba sa približuje” over invented precise minutes.
+- Camera operation must be explicitly configured and enabled by the user, visibly indicated, and easy to pause or stop. No hidden camera activation, covert recording, or secret uploads.
+- Process video locally where technically feasible. Do not save footage or snapshots by default; make retention settings explicit if recording is ever added.
+- Do not identify a family member by face by default. A “sister arrived” identification feature would require informed, explicit consent from the person being enrolled and any other people subject to recognition, secure local storage of biometric templates, a deletion mechanism, and compliance with applicable law. If consent or reliable recognition is absent, say “známa osoba” only if a consented profile is available, otherwise simply “osoba”.
+- Never infer a person's identity from appearance, guess a relationship, or announce “your sister” without a user-confirmed and consented identity profile.
+- Handle poor lighting, occlusion, pets, shadows, camera disconnection and false detections with confidence thresholds and cautious wording. Provide a quiet-hours / alert sensitivity setting.
+- The feature must be tested with the actual camera and real environment before being represented as reliable. A camera stream or simple motion detector alone is not a dependable person-recognition or arrival-time system.
+
+# 17. Camera and visual understanding
+
+- Camera access only when the user explicitly configures and enables a camera feature; staircase/veranda person-activity alerts are an explicit requested use case.
 - Provide camera guidance/visual analysis when explicitly requested.
 - No always-on camera, no secret recording and no hidden image storage.
 - Screen sharing/film visual understanding is separate from camera permission and must also be explicit and visible.
 
-# 17. Privacy, security and reliability
+# 18. Privacy, security and reliability
 
 - App lock / PIN concept for private areas; biometric unlock may be supported if available.
 - Never invent or silently set a weak PIN. User chooses it.
@@ -212,7 +235,7 @@
 - Robust lifecycle behavior: handle app pause/resume, recognizer errors, permissions, network loss, TTS and mic conflicts.
 - Clear error states and recovery; no fake “online” statuses.
 
-# 18. Future / exploratory ideas
+# 19. Future / exploratory ideas
 
 These were mentioned as future ambitions, not necessarily launch blockers:
 - Support for smart glasses / wearable interface in a later version.
@@ -221,19 +244,19 @@ These were mentioned as future ambitions, not necessarily launch blockers:
 - Deeper user-approved app automation and context-aware film companion.
 - JARVIS should become more capable over time as real integrations are added and tested.
 
-# 19. Explicit exclusions
+# 20. Explicit exclusions
 
 - No smart-home control was requested in the earlier definitive scope.
 - No emergency-call feature.
 - No Termux, ADB, root, shell scripts or Termux:API requirement.
 - No wrapper that merely launches ChatGPT.
-- No secret camera/screen capture or covert recording.
+- No secret camera/screen capture or covert recording. Person/activity alerts must be transparent, locally processed where feasible, and consent-aware.
 - No sending messages, purchases, deleting data or sharing private information without confirmation.
 - Do not label a simple prototype, wireframe, static graphic or incomplete source tree as a finished JARVIS.
 - Do not substitute typing and clicking for the requested voice-first project workflow.
 - Do not substitute a childish or generic UI for the requested cinematic, professional JARVIS dashboard.
 
-# 20. Known project state — not equivalent to completion
+# 21. Known project state — not equivalent to completion
 
 The repository has had prototype work on:
 - Kotlin + Jetpack Compose Android UI and animated HUD/core.
@@ -255,7 +278,7 @@ Known incomplete or unverified:
 - Offline model API/build/download compatibility needs verification.
 - No verified final APK or real-device acceptance test.
 
-# 21. Acceptance criteria before calling it finished
+# 22. Acceptance criteria before calling it finished
 
 1. Build a directly installable APK from the actual repository; verify artifact exists and installs.
 2. Test on the target Android tablet and report the actual device/Android version.
@@ -273,7 +296,7 @@ Known incomplete or unverified:
 14. Personal memory review/edit/export/delete and local-first behavior tested.
 15. App lock, secret storage, permission controls and data deletion tested.
 16. UI passes visual review for premium futuristic JARVIS styling; no childish, generic or unrelated UI elements.
-17. No unsupported feature is represented as implemented. Publish a feature matrix: working, requires account/permission, prototype, not implemented.
+17. Offline model size/capability is benchmarked on the target tablet; Slovak conversation and local creation tasks are tested without an API key.\n18. Camera alerts are tested with consent and visible activation; false alarms and limitations are documented.\n19. No unsupported feature is represented as implemented. Publish a feature matrix: working, requires account/permission, prototype, not implemented.
 
 ---
 
