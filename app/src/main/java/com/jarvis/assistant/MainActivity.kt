@@ -230,20 +230,16 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 val answer = if (timetable.isBlank()) "Pane, rozvrh ešte nie je nastavený. Povedzte: nastav rozvrh." else "Váš uložený rozvrh: " + timetable.replace("\\n", ". ")
                 chat.add(Message(true, answer)); speak(answer)
             }
-            text.contains("graf", true) || text.contains("známk", true) || text.contains("zlepšil", true) || text.contains("zhoršil", true) || text.contains("mentáln", true) || text.contains("ako som sa mal", true) -> {
+            text.contains("graf", true) || text.contains("známk", true) || text.contains("zlepšil", true) || text.contains("zhoršil", true) || text.contains("mentáln", true) || text.contains("ako som sa mal", true) || text.contains("zdrav", true) || text.contains("osobný prehľad", true) -> {
                 showProgress = true
                 val progress = prefs.getString("progress_data", "").orEmpty()
-                busy = true
-                scope.launch {
-                    val prompt = "Odpovedz po slovensky. Použi len tieto uložené záznamy, nevymýšľaj čísla. Vysvetli, čo možno a nemožno vyčítať, zmeny v čase a 1-3 praktické kroky. Ak je údajov málo, povedz to. Používateľ chce zobraziť/priblížiť graf a počuť vysvetlenie. Požiadavka: " + text + "\nZÁZNAMY:\n" + if (progress.isBlank()) "Zatiaľ bez záznamov." else progress
-                    val answer = if (key.isBlank()) {
-                        if (progress.isBlank()) "Pane, zatiaľ nemám uložené žiadne záznamy. Po dennom prehľade sa tu budú zobrazovať vaše údaje. Na inteligentné vysvetlenie treba pridať API token v Nastaveniach."
-                        else "Pane, zobrazil som vaše záznamy. Na porovnanie trendov a hlasové odporúčania pridajte API token v Nastaveniach."
-                    } else withContext(Dispatchers.IO) {
-                        askAi(endpoint, key, model, chat.toList().takeLast(20) + Message(false, prompt), prefs.getString("memories", "").orEmpty() + "\n" + progress)
-                    }
-                    chat.add(Message(true, answer)); speak(answer); busy = false
+                val gradeCount = progress.lines().count { it.contains(" | ZNÁMKA | ") }
+                val dayCount = progress.lines().count { it.contains(" | DEŇ | ") }
+                val answer = when {
+                    progress.isBlank() -> "Pane, osobný prehľad je otvorený. Zatiaľ nemám uložené známky ani denné hodnotenia. Počas denného prehľadu ich môžete pridať. Údaje zostávajú v tomto zariadení."
+                    else -> "Pane, zobrazil som osobné grafy. V zariadení je uložených $gradeCount záznamov známok a $dayCount denných hodnotení. Grafy zobrazujú iba údaje, ktoré ste sami zadali; nie sú zdravotnou diagnostikou."
                 }
+                chat.add(Message(true, answer)); speak(answer)
             }
             text.contains("projekt", true) || text.contains("nakresli", true) || text.contains("pracovný priestor", true) || text.contains("navrhni", true) || text.contains("vizualiz", true) || text.contains("premietni", true) || text.contains("ukáž mi v 3d", true) || text.contains("model", true) || text.contains("mapu", true) || text.contains("mapa", true) || text.contains("zobraz map", true) || text.contains("ukáž map", true) || text.contains("cestu okolo", true) || text.contains("trasu", true) || text.contains("okolie školy", true) || text.contains("mozog", true) || text.contains("nemocnicu", true) || text.contains("auto", true) -> {
                 showWorkspace = true
