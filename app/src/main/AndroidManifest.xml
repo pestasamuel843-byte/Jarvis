@@ -24,6 +24,22 @@
         <uses-native-library android:name="libvndksupport.so" android:required="false" />
         <uses-native-library android:name="libOpenCL.so" android:required="false" />
         <activity
+            android:name=".AppLockSetupActivity"
+            android:exported="false"
+            android:label="JARVIS – ochrana aplikácií" />
+        <service
+            android:name=".AppLockAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true"
+            android:label="JARVIS – ochrana aplikácií">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/jarvis_app_lock_service" />
+        </service>
+        <activity
             android:name=".MainActivity"
             android:exported="true"
             android:screenOrientation="landscape">
