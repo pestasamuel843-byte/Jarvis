@@ -13,7 +13,6 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import java.security.MessageDigest
 
 class AppLockSetupActivity : Activity() {
     private val prefs by lazy { getSharedPreferences(AppLockAccessibilityService.PREFS, MODE_PRIVATE) }
@@ -109,14 +108,14 @@ class AppLockSetupActivity : Activity() {
             return
         }
         val editor = prefs.edit().putStringSet(AppLockAccessibilityService.KEY_PACKAGES, selectedPackages.toSet())
-        if (pin.isNotBlank()) editor.putString(AppLockAccessibilityService.KEY_PIN_HASH, sha256(pin))
+        if (pin.isNotBlank()) {
+            val (salt, hash) = AppLockPin.create(pin)
+            editor.putString(AppLockAccessibilityService.KEY_PIN_SALT, salt)
+            editor.putString(AppLockAccessibilityService.KEY_PIN_HASH, hash)
+        }
         editor.apply()
         pinInput.text?.clear()
         Toast.makeText(this, "Nastavenia ochrany uložené.", Toast.LENGTH_SHORT).show()
     }
 
-    private fun sha256(value: String): String =
-        MessageDigest.getInstance("SHA-256")
-            .digest(value.toByteArray(Charsets.UTF_8))
-            .joinToString("") { "%02x".format(it) }
 }
