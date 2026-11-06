@@ -249,9 +249,10 @@ map.on('load',()=>{
  try{
   const layers=map.getStyle().layers||[];
   const label=layers.find(l=>l.type==='symbol'&&l.layout&&l.layout['text-field']);
+  if(!map.getSource('openfreemap')) map.addSource('openfreemap',{type:'vector',url:'https://tiles.openfreemap.org/planet'});
   map.addLayer({
-   id:'jarvis-3d-buildings',type:'fill-extrusion',source:'openmaptiles','source-layer':'building',
-   minzoom:13,
+   id:'jarvis-3d-buildings',type:'fill-extrusion',source:'openfreemap','source-layer':'building',
+   filter:['!=',['get','hide_3d'],true],minzoom:13,
    paint:{
     'fill-extrusion-color':['interpolate',['linear'],['coalesce',['get','render_height'],['get','height'],8],0,'#15394d',30,'#17617a',90,'#2795ad',180,'#63d8e8'],
     'fill-extrusion-height':['interpolate',['linear'],['zoom'],13,0,15,['coalesce',['get','render_height'],['get','height'],8]],
