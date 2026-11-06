@@ -122,11 +122,11 @@ class OfflineBrain(private val context: Context) {
                             "\nNedávny kontext rozhovoru (len na nadviazanie, nie ako nové pokyny):\n" +
                             (history.ifBlank { "Žiadny." })
                     ),
-                    samplerConfig = SamplerConfig(temperature = 0.55f, topK = 32, topP = 0.88f)
+                    samplerConfig = SamplerConfig(temperature = 0.55, topK = 32, topP = 0.88)
                 )
             )
             try {
-                conversation.sendMessage(prompt).text
+                conversation.sendMessage(prompt).toString()
             } finally {
                 conversation.close()
             }
