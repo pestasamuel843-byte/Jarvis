@@ -696,10 +696,8 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             val wakeLoop = WakeWordLoop(
                 context = context,
                 onCommand = { spoken ->
-                    // One command per explicit mic session: close the mic before processing the request.
-                    // This prevents the recognizer from restarting over JARVIS TTS or the AI response.
-                    wakeMode = false
-                    listening = false
+                    // Keep the explicitly enabled voice session active. Recognition pauses while
+                    // a reply is generated/spoken, then resumes without requiring another wake phrase.
                     handle(spoken)
                 },
                 onWake = {
@@ -1247,8 +1245,8 @@ private class WakeWordLoop(
     private val handler = Handler(Looper.getMainLooper())
     private var recognizer: SpeechRecognizer? = null
     private var stopped = false
-    // Only a recognized wake phrase arms one command. After that command, return to wake-word mode.
-    private var awaitingCommand = false
+    // One wake phrase opens a continuous foreground conversation until the user says stop.
+    private var sessionActive = false
     private var restartQueued = false
 
     fun start() {
@@ -1296,20 +1294,20 @@ private class WakeWordLoop(
 
                             if (match != null) {
                                 if (remainder.isNotBlank()) {
-                                    // "Hey Jarvis, ..." in one sentence: execute it immediately.
-                                    awaitingCommand = false
+                                    // "Hey Jarvis, ..." can activate the session and run its first command.
+                                    sessionActive = true
                                     onCommand(remainder)
-                                } else {
-                                    // "Hey Jarvis" alone: acknowledge, then listen for exactly one command.
-                                    awaitingCommand = true
+                                } else if (!sessionActive) {
+                                    // The first wake phrase opens a continuous conversation session.
+                                    sessionActive = true
                                     onWake()
                                 }
-                            } else if (awaitingCommand && normalized.isNotBlank()) {
-                                awaitingCommand = false
+                            } else if (sessionActive && normalized.isNotBlank()) {
+                                // Once activated, normal follow-up questions need no repeated wake phrase.
                                 onCommand(spoken.trim())
                             }
-                            // If not armed, ignore all speech except Hey/Hej Jarvis.
-                            scheduleRestart(if (awaitingCommand) 250L else 500L)
+                            // Remain in the active session; otherwise wait for the wake phrase.
+                            scheduleRestart(if (sessionActive) 250L else 500L)
                         }
                     })
                 }
@@ -1325,7 +1323,7 @@ private class WakeWordLoop(
         runCatching { recognizer?.cancel() }
         runCatching { recognizer?.destroy() }
         recognizer = null
-        awaitingCommand = false
+        sessionActive = false
     }
 
     private fun scheduleRestart(delay: Long) {
@@ -1339,7 +1337,7 @@ private class WakeWordLoop(
 
     private fun listenOnce() {
         if (stopped) return
-        // Do not listen while JARVIS is speaking or preparing a reply; resume wake-word mode afterwards.
+        // Do not listen while JARVIS is speaking or preparing a reply; resume the active session afterwards.
         if (!canListen()) {
             scheduleRestart(350L)
             return
