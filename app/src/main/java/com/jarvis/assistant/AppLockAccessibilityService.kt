@@ -37,7 +37,15 @@ class AppLockAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val pkg = event?.packageName?.toString() ?: return
         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        if (isInputMethodPackage(pkg) || pkg == packageName) return
+        if (isInputMethodPackage(pkg)) return
+        if (pkg == packageName) {
+            if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+                lastForegroundPackage?.let { unlockedPackages.remove(it) }
+                lastForegroundPackage = pkg
+                removeLock()
+            }
+            return
+        }
         if (pkg != lastForegroundPackage) {
             lastForegroundPackage?.let { unlockedPackages.remove(it) }
             lastForegroundPackage = pkg
@@ -91,6 +99,8 @@ class AppLockAccessibilityService : AccessibilityService() {
         root.addView(title, LinearLayout.LayoutParams(-1, -2))
         root.addView(subtitle, LinearLayout.LayoutParams(-1, -2))
         root.addView(pin, LinearLayout.LayoutParams(-1, -2))
+        pin.requestFocus()
+        pin.post { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(pin, InputMethodManager.SHOW_IMPLICIT) }
         root.addView(unlock, LinearLayout.LayoutParams(-1, -2))
         unlock.setOnClickListener {
             val stored = getSharedPreferences(PREFS, MODE_PRIVATE)
