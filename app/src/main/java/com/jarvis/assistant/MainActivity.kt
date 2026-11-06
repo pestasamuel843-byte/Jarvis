@@ -900,6 +900,9 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                         Text("Internetové vyhľadávanie funguje bez AI kľúča. Na generovanie odpovedí Gemini je potrebný osobný API kľúč, ktorý sa uloží iba v tomto zariadení.", color = Muted, fontSize = 12.sp)
                         Text("Predvolená služba: Google Gemini API • model Gemini 2.5 Flash", color = Cyan, fontSize = 12.sp)
                         OutlinedTextField(key, { key = it }, label = { Text("Google Gemini API kľúč") }, placeholder = { Text("Vložte svoj kľúč z Google AI Studio") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
+                        TextButton(onClick = {
+                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://aistudio.google.com/app/apikey"))) }
+                        }) { Text("ZÍSKAŤ API KĽÚČ V GOOGLE AI STUDIO", color = Cyan) }
                         Button(
                             onClick = {
                                 apiTesting = true
