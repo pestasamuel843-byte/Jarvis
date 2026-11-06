@@ -106,7 +106,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             engine.setPitch(1.0f)
             engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) { speechOutputActive = true }
-                override fun onDone(utteranceId: String?) { speechOutputActive = false; startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
+                override fun onDone(utteranceId: String?) { speechOutputActive = false; if (JarvisVoiceService.isRunning) startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
                 @Deprecated("Deprecated in Java")
                 override fun onError(utteranceId: String?) { speechOutputActive = false; startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
                 override fun onError(utteranceId: String?, errorCode: Int) { speechOutputActive = false; startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
@@ -136,7 +136,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         val engine = tts ?: return
         // Mark speech synchronously so the microphone loop cannot hear JARVIS speaking.
         speechOutputActive = true
-        startService(Intent(this, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_PAUSE))
+        if (JarvisVoiceService.isRunning) startService(Intent(this, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_PAUSE))
         val result = engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis")
         if (result == TextToSpeech.ERROR) speechOutputActive = false
     }
