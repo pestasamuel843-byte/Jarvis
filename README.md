@@ -6,11 +6,12 @@ Native Android prototype written in Kotlin and Jetpack Compose. It does not requ
 
 - JARVIS launcher identity and dark sci-fi/cyan home screen, configured for tablet landscape orientation.
 - Slovak Android speech recognition and text-to-speech.
-- While the main screen is open, cycles Android speech recognition looking for “Hej Jarvis” / “Hey Jarvis”; say the command after the wake phrase or in the next utterance. This is not guaranteed to work with the screen locked or in the background.
+- While the main screen is open, cycles Android speech recognition looking for “Hej Jarvis” / “Hey Jarvis”; partial speech results can activate the wake phrase before the final recognition callback. Say the command after the wake phrase or in the next utterance. This is not guaranteed to work with the screen locked or in the background.
 - Voice commands can be paused/resumed from the conversation, and recent chat history is stored locally on the device.
 - Local commands: time, date, battery percentage, open YouTube, Android Settings, camera, Google search, create/list/delete notes, remember/forget preferences, clear chat history, arithmetic, set an alarm in the Clock app, create a calendar reminder, open an installed app by its visible name, dial a number (user confirms the call), timer via the Clock app, Wi-Fi settings/status, maps/navigation, browser, calculator (if installed), and open ChatGPT in the browser.
 - AI conversation through a configurable OpenAI-compatible Chat Completions endpoint, with recent conversation context.
-- Project workspace: AI-generated project brief, rotatable wireframe 3D primitives (cube, pyramid, house, sphere), finger-drawn canvas, and locally saved sketch.
+- Project workspace: interactive Three.js WebGL scene editor with orbit camera, object selection, add/remove cube/sphere/cylinder/cone/torus, move/rotate/scale gizmo controls, and locally saved scene; finger-drawn 2D sketch remains available.
+- Optional app lock: select launcher apps, set a salted PBKDF2 PIN, and enable a user-authorized AccessibilityService that displays a PIN gate over selected apps. It does not read screen contents. Android requires the user to explicitly enable the service in Accessibility settings.
 - Interactive 3D city map workspace using MapLibre and OpenFreeMap vector tiles, with extruded building shapes, place search, zoom/rotation/tilt, optional current location, and optional route drawing. Map tiles, search, location, and routes require internet and relevant permissions.
 - API endpoint, model, and key settings; the key is not committed to the repository.
 - GitHub Actions builds a debug APK and uploads it as a workflow artifact.
@@ -33,7 +34,8 @@ Open Settings inside JARVIS and paste a valid **Google Gemini API key** into the
 This is still an early prototype, not the full autonomous assistant described in the original brief. The latest source includes additional local voice commands, but each feature still needs testing on the target tablet.
 
 - The app cycles Android SpeechRecognizer while its main screen is open. This is not a reliable background/locked-screen wake-word service; recognition availability and offline behavior depend on the Android speech provider. It may consume battery.
-- The offline 3D design view provides several rotatable wireframe primitives, not arbitrary AI-generated 3D models or a full CAD editor. The drawing canvas is a freehand sketch pad and saves locally.
+- The Three.js 3D editor is a real interactive scene editor, but it is not yet a full CAD suite: arbitrary GLB/GLTF import/export, parametric constraints, advanced mesh sculpting, and AI-to-geometry generation are not implemented. The editor loads Three.js modules from jsDelivr and therefore needs internet. The 2D drawing canvas is a freehand sketch pad and saves locally.
+- App locking requires the user to configure a PIN, choose apps, and explicitly enable JARVIS in Android Accessibility settings. Android version/manufacturer behavior must be tested on the target tablet; this is an app-level deterrent, not a replacement for Android's device security.
 - The 3D map extrudes mapped building footprints; it is not a complete photorealistic 3D city, AR overlay, or live traffic system. Map tiles and public geocoding/routing services require internet and have coverage/usage limits.
 - AI project responses are displayed as text; the app does not yet compile generated source code or turn arbitrary prompts into complete interactive diagrams or 3D scenes. The 3D preview remains a small set of predefined wireframe primitives.
 - The app cannot freely control all other apps, send messages without confirmation, or bypass Android permissions/background restrictions.
