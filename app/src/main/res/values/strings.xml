@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">JARVIS</string>
+    <string name="jarvis_app_lock_description">Zobrazuje PIN ochranu iba pre aplikácie, ktoré si používateľ výslovne vyberie v nastaveniach JARVIS. Nečíta obsah obrazovky.</string>
+</resources>
