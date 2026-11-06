@@ -96,7 +96,7 @@ const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
 renderer.domElement.addEventListener('pointerdown',e=>{if(transform.dragging)return;const r=renderer.domElement.getBoundingClientRect();pointer.x=((e.clientX-r.left)/r.width)*2-1;pointer.y=-((e.clientY-r.top)/r.height)*2+1;raycaster.setFromCamera(pointer,camera);const hits=raycaster.intersectObjects(scene.children.filter(o=>o.isMesh),false);if(hits.length)select(hits[0].object)});
 function resize(){const w=host.clientWidth,h=host.clientHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h)}
 new ResizeObserver(resize).observe(host);resize();restore();
-if(count===0){const preset="\${initialModel}".toUpperCase();const shape=({AUTO:"box",KOCKA:"box",GUĽA:"sphere",PYRAMÍDA:"cone",DOM:"box",IZBA:"box",ULICA:"box"})[preset]||"box";add(shape)}
+if(count===0){const preset="${initialModel}".toUpperCase();const shape=({AUTO:"box",KOCKA:"box",GUĽA:"sphere",PYRAMÍDA:"cone",DOM:"box",IZBA:"box",ULICA:"box"})[preset]||"box";add(shape)}
 function frame(){requestAnimationFrame(frame);orbit.update();renderer.render(scene,camera)}frame();
 status('3D engine pripravený • pridaj objekt, vyber ho a uprav osi');
 </script>
