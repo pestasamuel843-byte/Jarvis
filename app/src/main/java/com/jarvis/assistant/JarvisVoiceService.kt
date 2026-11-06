@@ -168,6 +168,7 @@ class JarvisVoiceService : Service() {
         if (stopped || pausedForSpeech) return
         if (recognizer == null) {
             createRecognizer()
+            scheduleRestart(250L)
             return
         }
         if (listening) return
