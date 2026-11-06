@@ -1286,7 +1286,23 @@ private class WakeWordLoop(
                         override fun onRmsChanged(rmsdB: Float) {}
                         override fun onBufferReceived(buffer: ByteArray?) {}
                         override fun onEndOfSpeech() {}
-                        override fun onPartialResults(partialResults: Bundle?) {}
+                        override fun onPartialResults(partialResults: Bundle?) {
+                            // React to the wake phrase as soon as Android recognizes it,
+                            // without waiting for the final end-of-speech callback.
+                            // Commands are still dispatched only from onResults to avoid
+                            // sending partial/duplicated commands to the assistant.
+                            val partial = partialResults
+                                ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                                ?.firstOrNull().orEmpty()
+                            val normalized = partial.lowercase(Locale.ROOT)
+                                .replace(Regex("[^\\p{L}\\p{N} ]"), " ")
+                                .replace(Regex("\\s+"), " ").trim()
+                            val wakeOnly = Regex("^(?:(?:hej|hey) )?jarvis$", RegexOption.IGNORE_CASE)
+                            if (!sessionActive && wakeOnly.matches(normalized)) {
+                                sessionActive = true
+                                onWake()
+                            }
+                        }
                         override fun onEvent(eventType: Int, params: Bundle?) {}
 
                         override fun onError(error: Int) {
@@ -1373,7 +1389,7 @@ private class WakeWordLoop(
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, "sk-SK")
                 putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
-                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
                 putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1600L)
                 putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 900L)
