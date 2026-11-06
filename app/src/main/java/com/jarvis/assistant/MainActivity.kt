@@ -2,6 +2,8 @@ package com.jarvis.assistant
 
 import android.Manifest
 import android.content.Context
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioManager
@@ -104,10 +106,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             engine.setPitch(1.0f)
             engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) { speechOutputActive = true }
-                override fun onDone(utteranceId: String?) { speechOutputActive = false }
+                override fun onDone(utteranceId: String?) { speechOutputActive = false; startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
                 @Deprecated("Deprecated in Java")
-                override fun onError(utteranceId: String?) { speechOutputActive = false }
-                override fun onError(utteranceId: String?, errorCode: Int) { speechOutputActive = false }
+                override fun onError(utteranceId: String?) { speechOutputActive = false; startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
+                override fun onError(utteranceId: String?, errorCode: Int) { speechOutputActive = false; startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
             })
             // Prefer Slovak male voice, especially Lukáš / Neural when the installed TTS engine exposes it.
             // The classic Microsoft Edge "sk-SK-LukasNeural" voice is not guaranteed to be available
@@ -134,6 +136,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         val engine = tts ?: return
         // Mark speech synchronously so the microphone loop cannot hear JARVIS speaking.
         speechOutputActive = true
+        startService(Intent(this, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_PAUSE))
         val result = engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis")
         if (result == TextToSpeech.ERROR) speechOutputActive = false
     }
@@ -161,7 +164,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     var apiTesting by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var listening by remember { mutableStateOf(false) }
-    var wakeMode by remember { mutableStateOf(false) }
+    var wakeMode by remember { mutableStateOf(prefs.getBoolean("voice_enabled", false)) }
     var appForeground by remember { mutableStateOf(true) }
     var showWorkspace by remember { mutableStateOf(false) }
     var showChat by remember { mutableStateOf(false) }
@@ -339,6 +342,8 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             text.contains("vypni počúvanie", true) || text.contains("prestaň počúvať", true) || text.contains("vypni mikrofón", true) || text.contains("jarvis spi", true) || text.contains("ukonči rozhovor", true) || text.contains("ukonči konverzáciu", true) -> {
                 wakeMode = false
                 listening = false
+                prefs.edit().putBoolean("voice_enabled", false).apply()
+                context.stopService(Intent(context, JarvisVoiceService::class.java))
                 val answer = "Hlasové počúvanie vypnuté, pane."
                 chat.add(Message(true, answer)); speak(answer)
             }
@@ -346,6 +351,8 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                     wakeMode = true
                     listening = true
+                    prefs.edit().putBoolean("voice_enabled", true).apply()
+                    context.startForegroundService(Intent(context, JarvisVoiceService::class.java))
                     val answer = "Hlasové počúvanie zapnuté. Povedzte Hey Jarvis, pane."
                     chat.add(Message(true, answer)); speak(answer)
                 } else {
@@ -681,6 +688,8 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
         if (granted) {
             wakeMode = true
             listening = true
+            prefs.edit().putBoolean("voice_enabled", true).apply()
+            context.startForegroundService(Intent(context, JarvisVoiceService::class.java))
         } else {
             wakeMode = false
             listening = false
@@ -688,51 +697,42 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
         }
     }
 
-    // Do not start the microphone at app launch. The user explicitly enables it with the mic button.
+    // The voice service is user-enabled once and remains independent of Compose navigation.
     LaunchedEffect(Unit) {
-        wakeMode = false
-        listening = false
-    }
-
-    val activityLifecycle = (context as? ComponentActivity)?.lifecycle
-    DisposableEffect(activityLifecycle) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP) {
-                appForeground = false
-                wakeMode = false
-                listening = false
-            } else if (event == Lifecycle.Event.ON_START) {
-                appForeground = true
-            }
-        }
-        activityLifecycle?.addObserver(observer)
-        onDispose { activityLifecycle?.removeObserver(observer) }
-    }
-
-    DisposableEffect(wakeMode, appForeground) {
-        if (!wakeMode || !appForeground) {
-            listening = false
-            onDispose { }
+        if (wakeMode && context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            runCatching { context.startForegroundService(Intent(context, JarvisVoiceService::class.java)) }
+                .onFailure { listening = false; Toast.makeText(context, "Hlasovú službu sa nepodarilo spustiť: ${it.message}", Toast.LENGTH_LONG).show() }
         } else {
-            listening = true
-            val wakeLoop = WakeWordLoop(
-                context = context,
-                onCommand = { spoken ->
-                    // Keep the explicitly enabled voice session active. Recognition pauses while
-                    // a reply is generated/spoken, then resumes without requiring another wake phrase.
-                    handle(spoken)
-                },
-                onWake = {
-                    speak("Počúvam, pane.")
-                },
-                canListen = { !isSpeaking() && !busy }
-            )
-            wakeLoop.start()
-            onDispose {
-                wakeLoop.stop()
-                listening = false
+            listening = false
+        }
+    }
+
+    val latestVoiceCommand by rememberUpdatedState<(String) -> Unit>({ spoken -> handle(spoken) })
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(receiverContext: Context?, intent: Intent?) {
+                when (intent?.action) {
+                    JarvisVoiceService.ACTION_COMMAND -> intent.getStringExtra(JarvisVoiceService.EXTRA_COMMAND)?.let { latestVoiceCommand(it) }
+                    JarvisVoiceService.ACTION_WAKE -> speak("Počúvam, pane.")
+                    JarvisVoiceService.ACTION_STATUS -> {
+                        val status = intent.getStringExtra(JarvisVoiceService.EXTRA_STATUS).orEmpty()
+                        listening = status != "HLASOVÝ MODUL VYPNUTÝ"
+                    }
+                }
             }
         }
+        val filter = IntentFilter().apply {
+            addAction(JarvisVoiceService.ACTION_COMMAND)
+            addAction(JarvisVoiceService.ACTION_WAKE)
+            addAction(JarvisVoiceService.ACTION_STATUS)
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            context.registerReceiver(receiver, filter)
+        }
+        onDispose { runCatching { context.unregisterReceiver(receiver) } }
     }
 
     MaterialTheme(colorScheme = darkColorScheme(primary = Cyan, background = Bg, surface = Panel, onBackground = Color.White, onSurface = Color.White)) {
@@ -766,9 +766,17 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                         aiReady = endpoint.isNotBlank() && key.isNotBlank() && model.isNotBlank(),
                         model = model,
                         onToggleVoice = {
-                            if (wakeMode) { wakeMode = false; listening = false }
-                            else if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) { wakeMode = true; listening = true }
-                            else micPermission.launch(Manifest.permission.RECORD_AUDIO)
+                            if (wakeMode) {
+                                wakeMode = false
+                                listening = false
+                                prefs.edit().putBoolean("voice_enabled", false).apply()
+                                context.stopService(Intent(context, JarvisVoiceService::class.java))
+                            } else if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                wakeMode = true
+                                listening = true
+                                prefs.edit().putBoolean("voice_enabled", true).apply()
+                                context.startForegroundService(Intent(context, JarvisVoiceService::class.java))
+                            } else micPermission.launch(Manifest.permission.RECORD_AUDIO)
                         },
                         onWorkspace = { showWorkspace = true },
                         onChat = { showChat = true },
