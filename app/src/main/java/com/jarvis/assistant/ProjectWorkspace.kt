@@ -222,7 +222,7 @@ button:active{background:#17455b}
 <div id="map"></div>
 <div class="hud">
  <div class="brand">J.A.R.V.I.S. / 3D GEOSPATIAL INTERFACE</div>
- <div class="controls"><input id="place" value="Slovensko" placeholder="Mesto, adresa alebo budova"><button onclick="searchPlace()">HĽADAŤ</button></div>
+ <div class="controls"><input id="place" value="Svit, Slovensko" placeholder="Mesto, adresa alebo budova"><button onclick="searchPlace()">HĽADAŤ</button></div>
  <div class="status" id="status">Načítavam 3D mapu sveta a mestskú geometriu…</div>
 </div>
 <div class="tag">LIVE 3D CITY • VECTOR MAP</div>
@@ -239,7 +239,7 @@ function status(s){statusEl.textContent=s}
 const map=new maplibregl.Map({
  container:'map',
  style:'https://tiles.openfreemap.org/styles/dark',
- center:[19.5,48.8],zoom:6.2,pitch:58,bearing:-18,
+ center:[20.206,49.060],zoom:13.6,pitch:58,bearing:-18,
  antialias:true,attributionControl:true
 });
 map.addControl(new maplibregl.NavigationControl({visualizePitch:true}),'bottom-right');
@@ -269,7 +269,7 @@ function toggle3D(){
  map.easeTo({pitch:threeD?60:0,bearing:threeD?-18:0,duration:900});
  status(threeD?'3D perspektíva aktívna':'2D mapa aktívna');
 }
-function resetView(){map.flyTo({center:[19.5,48.8],zoom:6.2,pitch:58,bearing:-18,duration:1200})}
+function resetView(){map.flyTo({center:[20.206,49.060],zoom:13.6,pitch:58,bearing:-18,duration:1200})}
 async function geocode(q){
  const u='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='+encodeURIComponent(q);
  const r=await fetch(u,{headers:{'Accept-Language':'sk'}});
