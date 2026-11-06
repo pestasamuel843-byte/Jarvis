@@ -37,6 +37,7 @@ class AppLockAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val pkg = event?.packageName?.toString() ?: return
         val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (isInputMethodPackage(pkg) || pkg == packageName) return
         if (pkg != lastForegroundPackage) {
             lastForegroundPackage?.let { unlockedPackages.remove(it) }
             lastForegroundPackage = pkg
@@ -92,9 +93,10 @@ class AppLockAccessibilityService : AccessibilityService() {
         root.addView(pin, LinearLayout.LayoutParams(-1, -2))
         root.addView(unlock, LinearLayout.LayoutParams(-1, -2))
         unlock.setOnClickListener {
-            val expected = getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_PIN_HASH, "").orEmpty()
-            val actual = sha256(pin.text.toString())
-            if (expected.isNotBlank() && MessageDigest.isEqual(expected.toByteArray(), actual.toByteArray())) {
+            val stored = getSharedPreferences(PREFS, MODE_PRIVATE)
+            val expected = stored.getString(KEY_PIN_HASH, "").orEmpty()
+            val salt = stored.getString(KEY_PIN_SALT, "").orEmpty()
+            if (AppLockPin.verify(pin.text.toString(), salt, expected)) {
                 unlockedPackages.add(pkg)
                 removeLock()
             } else {
@@ -130,15 +132,19 @@ class AppLockAccessibilityService : AccessibilityService() {
         super.onDestroy()
     }
 
-    private fun sha256(value: String): String =
-        MessageDigest.getInstance("SHA-256")
-            .digest(value.toByteArray(Charsets.UTF_8))
-            .joinToString("") { "%02x".format(it) }
+    private fun isInputMethodPackage(pkg: String): Boolean {
+        val current = android.provider.Settings.Secure.getString(
+            contentResolver,
+            android.provider.Settings.Secure.DEFAULT_INPUT_METHOD
+        ).orEmpty()
+        return current.substringBefore('/') == pkg
+    }
 
     companion object {
         const val PREFS = "jarvis_app_lock"
         const val KEY_ENABLED = "enabled"
         const val KEY_PIN_HASH = "pin_hash"
+        const val KEY_PIN_SALT = "pin_salt"
         const val KEY_PACKAGES = "packages"
 
         fun isEnabled(context: Context): Boolean {
