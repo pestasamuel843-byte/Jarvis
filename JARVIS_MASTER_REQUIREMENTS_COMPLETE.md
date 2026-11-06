@@ -257,6 +257,32 @@
 - Handle poor lighting, occlusion, pets, shadows, camera disconnection and false detections with confidence thresholds and cautious wording. Provide a quiet-hours / alert sensitivity setting.
 - The feature must be tested with the actual camera and real environment before being represented as reliable. A camera stream or simple motion detector alone is not a dependable person-recognition or arrival-time system.
 
+
+
+# 16A. Camera-based room and object scanning — explicit user workflow
+
+- User can pick up the tablet, open JARVIS scan mode, point its camera at a room or object, and move the tablet around it to capture the visible space from multiple angles.
+- JARVIS should guide the user with spoken prompts such as “posuň kameru doľava”, “ukáž ešte túto stenu” or “chýba mi pohľad na roh”.
+- Use an actual supported spatial-reconstruction pipeline (for example, ARCore Depth/scene APIs where the device supports them, or another validated photogrammetry/SLAM pipeline). Do not fake a 3D scan by placing generic boxes.
+- Reconstruct only geometry supported by captured images/depth data. Show confidence/measurement uncertainty; label estimated dimensions as estimates.
+- Detect and label visible surfaces and objects only where the model is sufficiently confident. Do not claim to see behind closed doors, inside objects, or around unseen corners.
+- Provide a navigable 3D result that can be rotated, measured where supported, saved, reopened and exported. Let the user correct/remove inaccurate objects by voice.
+- If the tablet camera or sensors cannot provide depth/scale, explain that exact measurements are unavailable and offer a photo-based approximate model clearly labelled as approximate.
+- Camera must be visibly active during scanning, processing should be local where feasible, and the user can pause/stop and delete the scan. Do not retain raw video by default.
+
+# 16B. Conversation Coach mode (user phrase may be configurable)
+
+- Add an optional mode for helping the user participate in important conversations. The user may choose a custom spoken activation phrase in settings; “režim špión” can be configured as a personal shortcut name, but it must not enable covert surveillance or hidden recording.
+- When enabled, JARVIS can provide short, private-to-the-user suggestions through a connected earbud/headset, such as relevant follow-up questions, ways to clarify a point, polite responses, reminders of details the user has chosen to remember, or a prompt when the user appears unsure what to say.
+- The mode must be based on a conversation that participants know is being assisted/analysed and have agreed to. Microphone/camera use must be clearly indicated; no hidden listening, secret recording, covert app-wide monitoring or undisclosed streaming.
+- Prefer on-device speech processing and transient context. Do not store audio or video by default. Do not send conversation content to cloud AI unless the user and participants have been appropriately informed and the processing is permitted.
+- JARVIS must not infer a person's private thoughts, honesty, personality, intentions, health, or trustworthiness from facial expressions, voice, or gestures. It may describe observable, non-sensitive facts cautiously (for example, “hovorí rýchlejšie” only when genuinely measurable) but must not present them as psychological conclusions.
+- The assistant should speak discreetly through the user's selected audio output at user-configurable intervals, with a quick “stíš”, “pauza” and “ukonči režim” command. It must not interrupt the conversation with long unsolicited commentary.
+- If the user asks for help because they do not know what to say, offer context-sensitive neutral prompts; never manipulate, deceive, pressure or impersonate the user.
+- If the user says they may be in immediate danger, prioritize simple safety guidance: help them move toward a safer public place or trusted person, offer to call a trusted contact/emergency services only with clear user confirmation where appropriate, and stop unnecessary analysis. Do not promise that camera-based danger prediction is reliable.
+- A locked-tablet activation phrase may work only if Android permits a user-visible, foreground microphone service and the required permissions are granted. If the OS blocks background microphone or wake-word operation, JARVIS must explain this and offer a safe fallback; it must not bypass the lock screen or Android privacy indicators.
+- Do not automatically unlock the tablet, inspect every app, bypass app security, or gain access to private app content. App integrations require explicit authorization and supported APIs.
+
 # 17. Camera and visual understanding
 
 - Camera access only when the user explicitly configures and enables a camera feature; staircase/veranda person-activity alerts are an explicit requested use case.
