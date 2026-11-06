@@ -199,42 +199,125 @@ private fun NavigationProjection() {
         pendingGeoCallback = null
     }
     val html = """
-<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<!doctype html><html lang="sk"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
 <style>
-*{box-sizing:border-box}body{margin:0;background:#07101a;color:#e7faff;font:14px Arial,sans-serif}
-.top{padding:12px;background:linear-gradient(135deg,#102b40,#07101a);border:1px solid #21495d;border-radius:14px}
-.brand{color:#4deBff;font-size:11px;letter-spacing:2px;font-weight:bold;margin-bottom:8px}
-input,button{width:100%;padding:11px;margin:4px 0;border-radius:8px;border:1px solid #2b5368;background:#0b1a28;color:#fff;font-size:14px}
-button{background:#123c50;color:#4deBff;font-weight:bold;border-color:#28748a}
-#map{height:260px;margin-top:10px;border-radius:12px;border:1px solid #24556a;overflow:hidden}
-.status{color:#9dbac9;font-size:12px;padding:8px 2px;line-height:1.4}
-.leaflet-container{background:#07101a}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050b13;color:#e8faff;font:14px system-ui}
+#map{position:absolute;inset:0}
+.hud{position:absolute;z-index:5;left:12px;right:12px;top:12px;padding:12px;border:1px solid #28718a;border-radius:14px;background:linear-gradient(135deg,rgba(5,24,38,.96),rgba(7,13,24,.84));box-shadow:0 8px 32px #0008;backdrop-filter:blur(12px)}
+.brand{font-size:10px;letter-spacing:2.4px;color:#4deBff;font-weight:700;margin-bottom:8px}
+.controls{display:flex;gap:7px}
+input,button{min-width:0;border:1px solid #28566b;border-radius:8px;background:#081b2a;color:#f1fcff;padding:10px;font-size:13px}
+input{flex:1;width:100%}button{color:#4deBff;font-weight:700}
+button:active{background:#17455b}
+.status{font-size:11px;color:#a6c4d2;margin-top:8px;line-height:1.35}
+.bottom{position:absolute;z-index:5;bottom:12px;left:12px;right:12px;display:flex;gap:7px;flex-wrap:wrap}
+.bottom button{background:rgba(5,22,35,.92);backdrop-filter:blur(8px)}
+.tag{position:absolute;z-index:4;right:14px;top:150px;color:#4deBff;font-size:9px;letter-spacing:2px;text-shadow:0 0 10px #00dfff}
+.maplibregl-ctrl-group{background:#081b2a!important;border:1px solid #286078!important}
+.maplibregl-ctrl button{background-color:transparent!important}
+.maplibregl-ctrl button span{filter:invert(1) sepia(1) saturate(5) hue-rotate(145deg)}
 </style></head><body>
-<div class="top"><div class="brand">J.A.R.V.I.S. / HOLOGRAFICKÁ MAPA</div>
-<input id="place" value="Komenského 17, Svit, Slovensko" placeholder="Vyhľadaj miesto, ulicu alebo budovu">
-<button onclick="showPlace()">ZOBRAZIŤ MIESTO NA MAPE</button>
-<button onclick="locate()">ZOBRAZIŤ MOJU POLOHU</button>
-<details><summary style="color:#4deBff;padding:9px;cursor:pointer">Voliteľne: vytvoriť trasu</summary>
-<input id="from" placeholder="Odkiaľ?">
-<input id="to" placeholder="Kam?">
-<button onclick="route()">VYKRESLIŤ TRASU</button></details>
-<div id="status" class="status">Posúvaj mapu a približuj ju prstami. Mapa je nastavená na Komenského 17, Svit. Presnú adresu overí vyhľadávanie podľa dostupných mapových údajov.</div></div>
 <div id="map"></div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<div class="hud">
+ <div class="brand">J.A.R.V.I.S. / 3D GEOSPATIAL INTERFACE</div>
+ <div class="controls"><input id="place" value="Slovensko" placeholder="Mesto, adresa alebo budova"><button onclick="searchPlace()">HĽADAŤ</button></div>
+ <div class="status" id="status">Načítavam 3D mapu sveta a mestskú geometriu…</div>
+</div>
+<div class="tag">LIVE 3D CITY • VECTOR MAP</div>
+<div class="bottom">
+ <button onclick="toggle3D()">3D POHĽAD</button>
+ <button onclick="locate()">MOJA POLOHA</button>
+ <button onclick="routeMode()">TRASA</button>
+ <button onclick="resetView()">RESET POHĽADU</button>
+</div>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script>
-const map=L.map('map',{zoomControl:true}).setView([49.0608,20.2067],16);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors © CARTO'}).addTo(map);
-let routeLayers=[],markers=[];\nconst homeMarker=L.marker([49.0608,20.2067]).addTo(map).bindPopup('Komenského 17, Svit — orientačný bod').openPopup();\nmap.on('click',e=>{status('Vybrané miesto: '+e.latlng.lat.toFixed(5)+', '+e.latlng.lng.toFixed(5)+' • zadaj tieto súradnice alebo vyhľadaj názov miesta.');});
-function status(s){document.getElementById('status').textContent=s}
-async function showPlace(){const q=document.getElementById('place').value.trim();if(!q){status('Zadaj názov miesta alebo adresu.');return}status('Vyhľadávam miesto…');try{const p=await geocode(q);map.setView([p[1],p[0]],16);markers.forEach(x=>map.removeLayer(x));markers=[L.marker([p[1],p[0]]).addTo(map).bindPopup(p[2]).openPopup()];status('Zobrazené: '+p[2])}catch(e){status('Miesto sa nepodarilo nájsť: '+e.message)}}
-async function geocode(q){const u='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='+encodeURIComponent(q);const r=await fetch(u,{headers:{'Accept-Language':'sk'}});if(!r.ok)throw Error('Vyhľadanie miesta zlyhalo');const a=await r.json();if(!a.length)throw Error('Miesto sa nenašlo: '+q);return [Number(a[0].lon),Number(a[0].lat),a[0].display_name]}
-async function route(){const a=document.getElementById('from').value.trim(),b=document.getElementById('to').value.trim();if(!a||!b){status('Vyplňte začiatok aj cieľ.');return}status('Vyhľadávam miesta a počítam trasu…');try{const [s,e]=await Promise.all([geocode(a),geocode(b)]);const u='https://router.project-osrm.org/route/v1/driving/'+s[0]+','+s[1]+';'+e[0]+','+e[1]+'?overview=full&geometries=geojson&alternatives=true&steps=true';const r=await fetch(u);if(!r.ok)throw Error('Služba trás momentálne neodpovedá');const d=await r.json();if(d.code!=='Ok'||!d.routes.length)throw Error('Trasu sa nepodarilo vypočítať');routeLayers.forEach(x=>map.removeLayer(x));markers.forEach(x=>map.removeLayer(x));routeLayers=[];markers=[];d.routes.forEach((rt,i)=>{const l=L.geoJSON(rt.geometry,{style:{color:i===0?'#4deBff':'#f4c95d',weight:i===0?6:4,opacity:i===0?0.95:0.65,dashArray:i===0?null:'8 8'}}).addTo(map);routeLayers.push(l)});markers.push(L.marker([s[1],s[0]]).addTo(map).bindPopup('Štart: '+s[2]));markers.push(L.marker([e[1],e[0]]).addTo(map).bindPopup('Cieľ: '+e[2]));map.fitBounds(routeLayers[0].getBounds(),{padding:[25,25]});const km=(d.routes[0].distance/1000).toFixed(1),mins=Math.round(d.routes[0].duration/60);status('TRASA VYKRESLENÁ • '+km+' km • približne '+mins+' min autom. Tyrkysová = odporúčaná trasa; žltá = alternatíva, ak je dostupná. Odhad OSRM, nie živá doprava. '+s[2]+' → '+e[2]);}catch(e){status('Nepodarilo sa: '+e.message+'. Skúste presnejšiu adresu alebo názov mesta.')}}
-function locate(){if(!navigator.geolocation){status('Poloha nie je dostupná v tomto zobrazení. Zadajte adresu ručne.');return}status('Zisťujem polohu…');navigator.geolocation.getCurrentPosition(async p=>{try{const r=await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat='+p.coords.latitude+'&lon='+p.coords.longitude);const d=await r.json();document.getElementById('place').value=d.display_name||p.coords.latitude+','+p.coords.longitude;map.setView([p.coords.latitude,p.coords.longitude],16);markers.forEach(x=>map.removeLayer(x));markers=[L.marker([p.coords.latitude,p.coords.longitude]).addTo(map).bindPopup('Vaša poloha').openPopup()];status('Mapa je vycentrovaná na vašu polohu.')}catch(e){status('Polohu sa nepodarilo preložiť na adresu. Zadajte ju ručne.')}},()=>status('Povolenie polohy nie je dostupné. Zadajte začiatok ručne.'),{enableHighAccuracy:false,timeout:10000})}
+const statusEl=document.getElementById('status');
+function status(s){statusEl.textContent=s}
+const map=new maplibregl.Map({
+ container:'map',
+ style:'https://tiles.openfreemap.org/styles/dark',
+ center:[19.5,48.8],zoom:6.2,pitch:58,bearing:-18,
+ antialias:true,attributionControl:true
+});
+map.addControl(new maplibregl.NavigationControl({visualizePitch:true}),'bottom-right');
+map.addControl(new maplibregl.ScaleControl({unit:'metric'}),'bottom-left');
+let marker=null,routeLayer=false,routeStart=null,threeD=true;
+map.on('load',()=>{
+ try{
+  const layers=map.getStyle().layers||[];
+  const label=layers.find(l=>l.type==='symbol'&&l.layout&&l.layout['text-field']);
+  map.addLayer({
+   id:'jarvis-3d-buildings',type:'fill-extrusion',source:'openmaptiles','source-layer':'building',
+   minzoom:13,
+   paint:{
+    'fill-extrusion-color':['interpolate',['linear'],['coalesce',['get','render_height'],['get','height'],8],0,'#15394d',30,'#17617a',90,'#2795ad',180,'#63d8e8'],
+    'fill-extrusion-height':['interpolate',['linear'],['zoom'],13,0,15,['coalesce',['get','render_height'],['get','height'],8]],
+    'fill-extrusion-base':['coalesce',['get','render_min_height'],['get','min_height'],0],
+    'fill-extrusion-opacity':0.88
+   }
+  },label?label.id:undefined);
+  status('3D mapa pripravená • naklonené mestá a extrudované budovy • potiahnutím otáčaj kameru');
+ }catch(e){status('Mapa je načítaná; 3D budovy nie sú v tomto výreze dostupné: '+e.message)}
+});
+map.on('error',e=>{if(e&&e.error)status('Mapové dáta sa načítavajú; skontroluj internetové pripojenie.')});
+function toggle3D(){
+ threeD=!threeD;
+ map.easeTo({pitch:threeD?60:0,bearing:threeD?-18:0,duration:900});
+ status(threeD?'3D perspektíva aktívna':'2D mapa aktívna');
+}
+function resetView(){map.flyTo({center:[19.5,48.8],zoom:6.2,pitch:58,bearing:-18,duration:1200})}
+async function geocode(q){
+ const u='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='+encodeURIComponent(q);
+ const r=await fetch(u,{headers:{'Accept-Language':'sk'}});
+ if(!r.ok)throw Error('Vyhľadávanie momentálne neodpovedá');
+ const a=await r.json();if(!a.length)throw Error('Miesto sa nenašlo');
+ return {center:[Number(a[0].lon),Number(a[0].lat)],name:a[0].display_name};
+}
+async function searchPlace(){
+ const q=document.getElementById('place').value.trim();if(!q)return;
+ status('Vyhľadávam: '+q);
+ try{
+  const p=await geocode(q);map.flyTo({center:p.center,zoom:16,pitch:62,bearing:-20,duration:1400});
+  if(marker)marker.remove();marker=new maplibregl.Marker({color:'#4deBff'}).setLngLat(p.center).setPopup(new maplibregl.Popup().setText(p.name)).addTo(map);
+  status('Zobrazené: '+p.name);
+ }catch(e){status(e.message)}
+}
+let choosingRoute=false;
+function routeMode(){choosingRoute=true;routeStart=null;status('Ťukni na mapu na začiatok trasy a potom na cieľ.')}
+map.on('click',async e=>{
+ if(!choosingRoute)return;
+ const point=[e.lngLat.lng,e.lngLat.lat];
+ if(!routeStart){routeStart=point;status('Začiatok uložený. Teraz vyber cieľ.');return}
+ choosingRoute=false;const start=routeStart,end=point;routeStart=null;
+ status('Vypočítavam trasu…');
+ try{
+  const url='https://router.project-osrm.org/route/v1/driving/'+start.join(',')+';'+end.join(',')+'?overview=full&geometries=geojson';
+  const r=await fetch(url);const d=await r.json();if(d.code!=='Ok')throw Error('Trasu sa nepodarilo vypočítať');
+  if(map.getSource('jarvis-route')){map.getSource('jarvis-route').setData(d.routes[0].geometry)}
+  else{
+   map.addSource('jarvis-route',{type:'geojson',data:d.routes[0].geometry});
+   map.addLayer({id:'jarvis-route-line',type:'line',source:'jarvis-route',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#4deBff','line-width':6,'line-opacity':.95}});
+  }
+  const km=(d.routes[0].distance/1000).toFixed(1),mins=Math.round(d.routes[0].duration/60);
+  status('TRASA VYKRESLENÁ • '+km+' km • približne '+mins+' min autom. Odhad bez živých dopravných dát.');
+ }catch(e){status(e.message)}
+});
+function locate(){
+ if(!navigator.geolocation){status('Poloha nie je dostupná.');return}
+ status('Zisťujem polohu…');
+ navigator.geolocation.getCurrentPosition(p=>{
+  const c=[p.coords.longitude,p.coords.latitude];map.flyTo({center:c,zoom:16,pitch:62,bearing:-20});
+  if(marker)marker.remove();marker=new maplibregl.Marker({color:'#4deBff'}).setLngLat(c).setPopup(new maplibregl.Popup().setText('Vaša poloha')).addTo(map);
+  status('Mapa vycentrovaná na vašu aktuálnu polohu.');
+ },()=>status('Povoľ prístup k polohe v Androide.'),{enableHighAccuracy:true,timeout:12000});
+}
 </script></body></html>
     """.trimIndent()
     AndroidView(
-        modifier = Modifier.fillMaxWidth().height(430.dp),
+        modifier = Modifier.fillMaxWidth().height(520.dp),
         factory = { ctx ->
             WebView(ctx).apply {
                 webViewClient = WebViewClient()
@@ -252,169 +335,11 @@ function locate(){if(!navigator.geolocation){status('Poloha nie je dostupná v t
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.setGeolocationEnabled(true)
-                setBackgroundColor(android.graphics.Color.rgb(7, 16, 26))
+                settings.loadWithOverviewMode = true
+                settings.useWideViewPort = true
+                setBackgroundColor(android.graphics.Color.rgb(5, 11, 19))
                 loadDataWithBaseURL("https://jarvis.local/", html, "text/html", "UTF-8", null)
             }
-        },
-        update = { }
+        }
     )
-}
-
-@Composable
-private fun WireframeScene(model: String, onModelChange: (String) -> Unit) {
-    var rotationY by remember { mutableFloatStateOf(0.55f) }
-    var rotationX by remember { mutableFloatStateOf(-0.35f) }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            listOf("KOCKA", "PYRAMÍDA", "DOM", "AUTO", "IZBA", "ULICA", "GUĽA").forEach { shape ->
-                TextButton(
-                    onClick = { onModelChange(shape) },
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp)
-                ) {
-                    Text(shape, color = if (model == shape) Color.White else WorkCyan, style = MaterialTheme.typography.labelSmall, letterSpacing = 0.8.sp)
-                }
-            }
-        }
-        Canvas(
-            Modifier.fillMaxWidth().height(280.dp)
-                .background(Color(0xFF07101A), RoundedCornerShape(12.dp))
-                .pointerInput(Unit) {
-                    detectDragGestures { change, drag ->
-                        change.consume()
-                        rotationY += drag.x * 0.012f
-                        rotationX = (rotationX + drag.y * 0.012f).coerceIn(-1.4f, 1.4f)
-                    }
-                }
-        ) {
-            val vertices: List<FloatArray>
-            val edges: List<Pair<Int, Int>>
-            when (model) {
-                "PYRAMÍDA" -> {
-                    vertices = listOf(
-                        floatArrayOf(-1f, -1f, -1f), floatArrayOf(1f, -1f, -1f),
-                        floatArrayOf(1f, -1f, 1f), floatArrayOf(-1f, -1f, 1f),
-                        floatArrayOf(0f, 1f, 0f)
-                    )
-                    edges = listOf(0 to 1, 1 to 2, 2 to 3, 3 to 0, 0 to 4, 1 to 4, 2 to 4, 3 to 4)
-                }
-                "DOM" -> {
-                    vertices = listOf(
-                        floatArrayOf(-1f, -1f, -0.8f), floatArrayOf(1f, -1f, -0.8f),
-                        floatArrayOf(1f, 0.25f, -0.8f), floatArrayOf(-1f, 0.25f, -0.8f),
-                        floatArrayOf(-1f, -1f, 0.8f), floatArrayOf(1f, -1f, 0.8f),
-                        floatArrayOf(1f, 0.25f, 0.8f), floatArrayOf(-1f, 0.25f, 0.8f),
-                        floatArrayOf(-1f, 0.25f, -0.8f), floatArrayOf(0f, 1f, -0.8f),
-                        floatArrayOf(1f, 0.25f, -0.8f), floatArrayOf(-1f, 0.25f, 0.8f),
-                        floatArrayOf(0f, 1f, 0.8f), floatArrayOf(1f, 0.25f, 0.8f)
-                    )
-                    edges = listOf(
-                        0 to 1, 1 to 2, 2 to 3, 3 to 0, 4 to 5, 5 to 6, 6 to 7, 7 to 4,
-                        0 to 4, 1 to 5, 2 to 6, 3 to 7,
-                        8 to 9, 9 to 10, 10 to 2, 11 to 12, 12 to 13, 13 to 6, 9 to 12
-                    )
-                }
-                "AUTO" -> {
-                    vertices = listOf(
-                        floatArrayOf(-1.3f,-0.35f,-0.55f), floatArrayOf(1.3f,-0.35f,-0.55f),
-                        floatArrayOf(1.3f,0.05f,-0.55f), floatArrayOf(0.75f,0.55f,-0.55f),
-                        floatArrayOf(-0.75f,0.55f,-0.55f), floatArrayOf(-1.3f,0.05f,-0.55f),
-                        floatArrayOf(-1.3f,-0.35f,0.55f), floatArrayOf(1.3f,-0.35f,0.55f),
-                        floatArrayOf(1.3f,0.05f,0.55f), floatArrayOf(0.75f,0.55f,0.55f),
-                        floatArrayOf(-0.75f,0.55f,0.55f), floatArrayOf(-1.3f,0.05f,0.55f),
-                        floatArrayOf(-0.8f,-0.35f,-0.7f), floatArrayOf(-0.8f,-0.35f,0.7f),
-                        floatArrayOf(0.8f,-0.35f,-0.7f), floatArrayOf(0.8f,-0.35f,0.7f)
-                    )
-                    edges = listOf(0 to 1,1 to 2,2 to 3,3 to 4,4 to 5,5 to 0,6 to 7,7 to 8,8 to 9,9 to 10,10 to 11,11 to 6,0 to 6,1 to 7,2 to 8,3 to 9,4 to 10,5 to 11,12 to 13,14 to 15)
-                }
-                "IZBA" -> {
-                    vertices = listOf(
-                        floatArrayOf(-1f,-0.8f,-1f),floatArrayOf(1f,-0.8f,-1f),
-                        floatArrayOf(1f,0.8f,-1f),floatArrayOf(-1f,0.8f,-1f),
-                        floatArrayOf(-1f,-0.8f,1f),floatArrayOf(1f,-0.8f,1f),
-                        floatArrayOf(1f,0.8f,1f),floatArrayOf(-1f,0.8f,1f),
-                        floatArrayOf(-0.45f,-0.8f,-1.01f),floatArrayOf(0.05f,-0.8f,-1.01f),
-                        floatArrayOf(0.05f,0.25f,-1.01f),floatArrayOf(-0.45f,0.25f,-1.01f),
-                        floatArrayOf(0.35f,0.15f,-1.01f),floatArrayOf(0.8f,0.15f,-1.01f),
-                        floatArrayOf(0.8f,0.55f,-1.01f),floatArrayOf(0.35f,0.55f,-1.01f)
-                    )
-                    edges = listOf(0 to 1,1 to 2,2 to 3,3 to 0,4 to 5,5 to 6,6 to 7,7 to 4,0 to 4,1 to 5,2 to 6,3 to 7,8 to 9,9 to 10,10 to 11,11 to 8,12 to 13,13 to 14,14 to 15,15 to 12)
-                }
-                "ULICA" -> {
-                    vertices = listOf(
-                        floatArrayOf(-1.4f,-0.7f,-0.5f),floatArrayOf(-0.8f,-0.7f,-0.5f),
-                        floatArrayOf(-0.8f,0.8f,-0.5f),floatArrayOf(-1.4f,0.8f,-0.5f),
-                        floatArrayOf(0.65f,-0.7f,-0.5f),floatArrayOf(1.25f,-0.7f,-0.5f),
-                        floatArrayOf(1.25f,0.8f,-0.5f),floatArrayOf(0.65f,0.8f,-0.5f),
-                        floatArrayOf(-1.4f,-0.7f,0.5f),floatArrayOf(-0.8f,-0.7f,0.5f),
-                        floatArrayOf(-0.8f,0.8f,0.5f),floatArrayOf(-1.4f,0.8f,0.5f),
-                        floatArrayOf(0.65f,-0.7f,0.5f),floatArrayOf(1.25f,-0.7f,0.5f),
-                        floatArrayOf(1.25f,0.8f,0.5f),floatArrayOf(0.65f,0.8f,0.5f),
-                        floatArrayOf(-0.3f,-0.65f,-0.4f),floatArrayOf(-0.05f,-0.65f,-0.4f),
-                        floatArrayOf(-0.05f,0.7f,-0.4f),floatArrayOf(-0.3f,0.7f,-0.4f),
-                        floatArrayOf(0.15f,-0.65f,0.4f),floatArrayOf(0.4f,-0.65f,0.4f),
-                        floatArrayOf(0.4f,0.7f,0.4f),floatArrayOf(0.15f,0.7f,0.4f)
-                    )
-                    edges = listOf(0 to 1,1 to 2,2 to 3,3 to 0,4 to 5,5 to 6,6 to 7,7 to 4,8 to 9,9 to 10,10 to 11,11 to 8,12 to 13,13 to 14,14 to 15,15 to 12,0 to 8,1 to 9,2 to 10,3 to 11,4 to 12,5 to 13,6 to 14,7 to 15,16 to 17,17 to 18,18 to 19,19 to 16,20 to 21,21 to 22,22 to 23,23 to 20)
-                }
-                "GUĽA" -> {
-                    val points = mutableListOf<FloatArray>()
-                    val lines = mutableListOf<Pair<Int, Int>>()
-                    val segments = 18
-                    for (ring in 0..5) {
-                        val latitude = (-Math.PI / 2.0 + Math.PI * ring / 5.0).toFloat()
-                        val radius = kotlin.math.cos(latitude)
-                        val y = kotlin.math.sin(latitude)
-                        val offset = points.size
-                        for (i in 0 until segments) {
-                            val angle = (2.0 * Math.PI * i / segments).toFloat()
-                            points.add(floatArrayOf(radius * kotlin.math.cos(angle), y, radius * kotlin.math.sin(angle)))
-                            lines.add(offset + i to offset + (i + 1) % segments)
-                            if (ring > 0) lines.add(offset + i to (offset - segments + i))
-                        }
-                    }
-                    vertices = points
-                    edges = lines
-                }
-                else -> {
-                    vertices = listOf(
-                        floatArrayOf(-1f, -1f, -1f), floatArrayOf(1f, -1f, -1f),
-                        floatArrayOf(1f, 1f, -1f), floatArrayOf(-1f, 1f, -1f),
-                        floatArrayOf(-1f, -1f, 1f), floatArrayOf(1f, -1f, 1f),
-                        floatArrayOf(1f, 1f, 1f), floatArrayOf(-1f, 1f, 1f)
-                    )
-                    edges = listOf(
-                        0 to 1, 1 to 2, 2 to 3, 3 to 0,
-                        4 to 5, 5 to 6, 6 to 7, 7 to 4,
-                        0 to 4, 1 to 5, 2 to 6, 3 to 7
-                    )
-                }
-            }
-            val projected = vertices.map { v ->
-                val x1 = v[0] * cos(rotationY) - v[2] * sin(rotationY)
-                val z1 = v[0] * sin(rotationY) + v[2] * cos(rotationY)
-                val y2 = v[1] * cos(rotationX) - z1 * sin(rotationX)
-                val z2 = v[1] * sin(rotationX) + z1 * cos(rotationX)
-                val perspective = 1.0f / (2.8f - z2 * 0.25f)
-                Offset(
-                    size.width / 2f + x1 * size.minDimension * 0.30f * perspective,
-                    size.height / 2f + y2 * size.minDimension * 0.30f * perspective
-                )
-            }
-            val gridColor = Color(0xFF183244)
-            var x = 0f
-            while (x < size.width) { drawLine(gridColor, Offset(x, 0f), Offset(x, size.height), 1f); x += 28.dp.toPx() }
-            var y = 0f
-            while (y < size.height) { drawLine(gridColor, Offset(0f, y), Offset(size.width, y), 1f); y += 28.dp.toPx() }
-            edges.forEach { (a, b) ->
-                if (a in projected.indices && b in projected.indices) {
-                    drawLine(Color(0xFF12394A), projected[a] + Offset(1.5.dp.toPx(), 2.dp.toPx()), projected[b] + Offset(1.5.dp.toPx(), 2.dp.toPx()), strokeWidth = 4.dp.toPx())
-                    drawLine(WorkCyan.copy(alpha = 0.88f), projected[a], projected[b], strokeWidth = 1.35.dp.toPx())
-                }
-            }
-            projected.forEach { point -> drawCircle(WorkCyan.copy(alpha = 0.85f), radius = 1.6.dp.toPx(), center = point) }
-            drawLine(WorkCyan.copy(alpha = 0.15f), Offset(size.width * 0.5f, 0f), Offset(size.width * 0.5f, size.height), 1.dp.toPx())
-            drawLine(WorkCyan.copy(alpha = 0.15f), Offset(0f, size.height * 0.5f), Offset(size.width, size.height * 0.5f), 1.dp.toPx())
-        }
-    }
 }
