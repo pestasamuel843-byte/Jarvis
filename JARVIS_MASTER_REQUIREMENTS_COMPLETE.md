@@ -28,6 +28,8 @@
 - Do not demand a long setup wizard. Make the core usable immediately where Android permits.
 - Settings should expose voice, AI provider, local model, privacy, permissions, accounts, memory, security, map and workspace controls.
 - User expects the assistant to know the user's preferences and project context. However, do not claim automatic access to every prior ChatGPT conversation. Only preload known, explicitly available facts or import data with the user's authorization. Provide review/edit/export/delete controls.
+- First-run personalization must be substantive: known preferences, active projects, voice/language preferences and user-approved personal context should be loaded into a private local profile before the first normal conversation. Do not display a blank “tell me about yourself” chatbot.
+- First-run profile should be reviewable and editable by voice. If a detail is uncertain or only a past idea, label it as such instead of treating it as fact.
 
 # 3. Personality and conversation
 
@@ -138,7 +140,6 @@
 - Show grades in graphs by subject and show improvement/worsening over time.
 - Include daily wellbeing/mood check-in and a trend graph based only on user-entered information; do not diagnose.
 - When a graph or topic is requested, zoom/focus on the relevant graph automatically.
-- Explain changes in plain Slovak.
 - Dashboard should show useful personal information without cluttering every item into boxes.
 - School timetable setup/editing was also discussed in the prototype.
 - No invented marks, mood scores or school schedule.
@@ -159,11 +160,18 @@
 - Support cars, buildings, rooms, devices, maps, streets, objects and other project concepts.
 - Voice editing examples: change car, add lights, add spoiler; modify dimensions/materials; undo/redo.
 - Actual editable objects, dimensions, materials, layers, selection, transform, save/load, undo/redo and export are desired.
-- 3D models should be genuinely editable, not only an image or a static random SVG.
 - 2D drawing and 3D preview should be available; code and preview/workspace should work together.
 - User described a split interface with chat on the left and workspace on the right, separated by a divider. In project mode, side panels should slide away or workspace should take over more of the screen.
 - Use a real 3D engine/scene where practical (Three.js/WebView or native equivalent were discussed), with a clear distinction between concept preview and full CAD functionality.
 - A wireframe primitive demo is not a finished 3D editor.
+- **NEW — voice-only project creation and editing is a core requirement:** when the user enters project mode, the assistant must accept spoken descriptions and carry out the project work itself. The user does not want to type prompts, code, dimensions or instructions, and does not want to click tools, menus, object handles or drawing controls to create or modify a project.
+- The expected workflow is: user says what to create/change → JARVIS interprets it → workspace updates visibly → JARVIS describes what it changed. Examples: “Navrhni športové auto”, “Daj mu spojler”, “Zmeň farbu na tmavomodrú”, “Pridaj LED svetlá”, “otoč ho”, “ukáž mi ho spredu”, “vráť poslednú zmenu”, “ulož projekt”.
+- JARVIS must handle follow-up edits in context without requiring the user to repeat the whole project description.
+- Voice commands must cover creating, selecting, moving, rotating, resizing, recoloring, adding/removing components, changing view, undo/redo, naming, saving, reopening and exporting projects wherever the underlying editor supports them.
+- No typing or clicking should be necessary for normal project creation and editing. Touch may remain as an optional fallback, but it must not be the expected workflow.
+- If a requested change is ambiguous, JARVIS should ask one short spoken clarification. For destructive or irreversible actions, it should ask for confirmation.
+- The workspace should show the result while the user speaks and keep a visible, uncluttered, full-screen project view. The assistant should not make the user operate a conventional desktop-style CAD interface.
+- The system must not pretend voice-only editing works until actual end-to-end commands have been implemented and tested.
 
 # 15. Visual design and animation
 
@@ -176,6 +184,12 @@
 - Map, personal dashboard, system telemetry, chat and workspace should fit into the experience.
 - Startup sequence: “Vitajte Samuel”, then JARVIS logo/core, then core shrinks/settles into dashboard.
 - Interface should feel like a working system, not a static picture.
+- **NEW — strict visual direction:** the app must look like a serious, premium, futuristic JARVIS command system, not a children's app, toy, cartoon, generic chatbot, colourful school app or ordinary Android dashboard.
+- Do not add decorative features, gamification, emoji-heavy panels, random cards, childish mascots, oversized rounded buttons or unrelated widgets. Show only the functions and information that serve the requirements in this specification.
+- Avoid a generic chat screen as the main experience. The central reactor/HUD and operational dashboard are the visual identity; conversation is integrated into the interface.
+- Use restrained dark surfaces, precise alignment, fine technical lines, subtle cyan/blue illumination, readable typography and deliberate motion. Keep effects polished rather than noisy.
+- In project mode, collapse or move aside irrelevant dashboard panels and give the editable 2D/3D workspace the available screen area. Keep a small voice/status indicator and conversational feedback visible.
+- Visual quality is an acceptance criterion: a technically working app with a childish or generic interface does not meet the user's request.
 
 # 16. Camera and visual understanding
 
@@ -216,6 +230,8 @@ These were mentioned as future ambitions, not necessarily launch blockers:
 - No secret camera/screen capture or covert recording.
 - No sending messages, purchases, deleting data or sharing private information without confirmation.
 - Do not label a simple prototype, wireframe, static graphic or incomplete source tree as a finished JARVIS.
+- Do not substitute typing and clicking for the requested voice-first project workflow.
+- Do not substitute a childish or generic UI for the requested cinematic, professional JARVIS dashboard.
 
 # 20. Known project state — not equivalent to completion
 
@@ -253,10 +269,11 @@ Known incomplete or unverified:
 10. Music presets and media playback tested with an actual supported service.
 11. Film pause/resume and permitted scene analysis tested with an actual supported player; no hidden capture.
 12. Map tiles, 3D buildings, search, route and location permission tested.
-13. Project workspace supports real editable objects, voice edits, undo/redo and save/export; otherwise clearly label prototype.
+13. Project workspace supports real editable objects, voice edits, undo/redo and save/export; normal project workflow must not require typing or clicking. Otherwise clearly label prototype.
 14. Personal memory review/edit/export/delete and local-first behavior tested.
 15. App lock, secret storage, permission controls and data deletion tested.
-16. No unsupported feature is represented as implemented. Publish a feature matrix: working, requires account/permission, prototype, not implemented.
+16. UI passes visual review for premium futuristic JARVIS styling; no childish, generic or unrelated UI elements.
+17. No unsupported feature is represented as implemented. Publish a feature matrix: working, requires account/permission, prototype, not implemented.
 
 ---
 
