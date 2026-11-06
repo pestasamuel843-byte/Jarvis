@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioManager
+import android.view.KeyEvent
 import android.net.Uri
 import android.provider.Settings
 import android.os.Bundle
@@ -463,6 +465,26 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     val answer = "Aplikáciu s názvom $requested sa mi nepodarilo nájsť, pane."
                     chat.add(Message(true, answer)); speak(answer)
                 }
+            }
+            text.contains("stopni film", true) || text.contains("pozastav film", true) || text.contains("pauzni film", true) || text == "pauza" || text == "pozastav" -> {
+                val sent = dispatchMediaKey(context, KeyEvent.KEYCODE_MEDIA_PAUSE)
+                val answer = if (sent) "Odoslal som príkaz na pozastavenie prehrávania, pane. Výsledok závisí od prehrávača." else "Príkaz na pozastavenie sa nepodarilo odoslať, pane."
+                chat.add(Message(true, answer)); speak(answer)
+            }
+            text.contains("pokračuj vo filme", true) || text.contains("pokračuj v prehrávaní", true) || text.contains("spusti prehrávanie", true) || text == "pokračuj" || text == "prehraj" -> {
+                val sent = dispatchMediaKey(context, KeyEvent.KEYCODE_MEDIA_PLAY)
+                val answer = if (sent) "Odoslal som príkaz na pokračovanie prehrávania, pane. Výsledok závisí od prehrávača." else "Príkaz na pokračovanie sa nepodarilo odoslať, pane."
+                chat.add(Message(true, answer)); speak(answer)
+            }
+            text.contains("ďalšia skladba", true) || text.contains("ďalšia epizóda", true) || text == "ďalej" || text == "preskoč" -> {
+                val sent = dispatchMediaKey(context, KeyEvent.KEYCODE_MEDIA_NEXT)
+                val answer = if (sent) "Odoslal som príkaz na ďalšiu položku, pane." else "Príkaz sa nepodarilo odoslať, pane."
+                chat.add(Message(true, answer)); speak(answer)
+            }
+            text.contains("predošlá skladba", true) || text.contains("predchádzajúca epizóda", true) || text == "predošlá" -> {
+                val sent = dispatchMediaKey(context, KeyEvent.KEYCODE_MEDIA_PREVIOUS)
+                val answer = if (sent) "Odoslal som príkaz na predchádzajúcu položku, pane." else "Príkaz sa nepodarilo odoslať, pane."
+                chat.add(Message(true, answer)); speak(answer)
             }
             text.contains("otvor youtube", true) || text.contains("spusti youtube", true) -> {
                 val answer = "Otváram YouTube, pane."
@@ -1358,6 +1380,19 @@ private class WakeWordLoop(
             })
         }.onFailure { scheduleRestart(600L) }
     }
+}
+
+/**
+ * Sends standard Android media-button events to the active media-key consumer.
+ * Whether playback changes depends on the foreground player and its media-session support.
+ */
+private fun dispatchMediaKey(context: Context, keyCode: Int): Boolean {
+    return runCatching {
+        val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        audio.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
+        audio.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, keyCode))
+        true
+    }.getOrDefault(false)
 }
 
 private fun testInternetConnection(): Boolean {
