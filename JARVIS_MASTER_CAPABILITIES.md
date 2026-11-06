@@ -52,3 +52,42 @@ This file is the product contract for the Android tablet app. It is not a claim 
 - Map: MapLibre/OpenFreeMap 3D extruded building layer, place search and optional routing.
 - Workspace: freehand sketch and predefined rotatable wireframe primitives.
 - Not yet delivered/verified: robust background wake word while locked, fully offline Slovak speech model, automatic live Instagram feed/messages, arbitrary editable 3D/CAD generation, full autonomous control of third-party apps, complete health-platform integration, final APK/device QA.
+
+
+## Ultimate build target — unrestricted scope
+
+The product target is a premium, cinematic tablet command system. The interface must feel like a live instrument panel, not a collection of ordinary Android cards.
+
+### Visual system
+- Full-screen landscape command deck with layered depth, fine grid, scan lines, orbital geometry, animated central reactor/core and state-driven light effects.
+- Distinct visible states: standby, wake-word detected, listening, reasoning, web research, mapping, speaking, offline and fault.
+- Floating telemetry for clock, battery, network, model state, microphone state and active task. Every indicator must reflect real app state; no fake sensor values or fake “online” claims.
+- Personal dashboard, command console, map/navigation and 3D project studio should feel like coordinated parts of one system.
+- Responsive tablet layout, readable typography, restrained cyan/blue light, subtle motion and no childish styling.
+
+### Intelligence architecture
+- Local model manager with separately downloadable model packages; support a compact model and a larger advanced model when a compatible LiteRT-LM package is verified.
+- Offline reasoning, memory retrieval, summarization and local command planning.
+- Optional online model provider for stronger reasoning and current web research. Clearly label which engine is active.
+- Tool/action layer: model proposes a structured action; Android app validates permissions and arguments; consequential actions require confirmation; result is reported only after Android confirms it.
+- Model downloads need checksum/size validation, cancellation, retry/resume, storage-space checks and clear progress.
+
+### 3D spatial and design systems
+- Map workspace: 3D extruded buildings, camera tilt/orbit, search, selected-place details, route overlays and user-controlled location permission.
+- Project studio: actual editable 3D scene objects, transform handles, dimensions, materials, layers, undo/redo, save/open/export and voice-directed edits.
+- A wireframe placeholder must never be presented as a finished 3D model or CAD editor.
+
+### Voice system
+- Explicitly enabled wake-word session with visible microphone indicator and immediate stop control.
+- Wake phrase: “Hej Jarvis”; one request is processed per wake cycle, then returns to wake detection while the app is active.
+- Slovak speech recognition and preferred Slovak male TTS voice when installed.
+- No covert recording, no hidden screen capture and no claim of reliable locked-screen listening until device testing confirms it.
+
+### Delivery gates
+1. Source changes compile in GitHub Actions.
+2. APK installs on the target Android tablet.
+3. Permissions, offline model download, voice loop, 3D map and project workspace are tested individually.
+4. UI is tested in tablet landscape and remains responsive.
+5. Only then publish an installable APK and call it ready.
+
+Current offline-model code adds a Qwen3 0.6B INT4 download path and LiteRT-LM integration, but the repository has not yet reported a successful CI build or device test. This is a prototype integration, not proof of a working offline AI release.
