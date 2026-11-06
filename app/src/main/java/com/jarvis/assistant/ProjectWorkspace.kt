@@ -141,7 +141,7 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
                 }
             }, enabled = sceneCommand.isNotBlank()) { Text("UPRAVIŤ") }
         }
-        WireframeScene(model = sceneModel, onModelChange = { sceneModel = it })
+        ThreeDSceneEditor(initialModel = sceneModel)
         Spacer(Modifier.height(12.dp))
         Text("SKETCH LAYER  /  2D NÁČRT • KRESLI PRSTOM", color = Color(0xFF9BAFC2), style = MaterialTheme.typography.labelSmall, letterSpacing = 0.7.sp)
         Spacer(Modifier.height(8.dp))
