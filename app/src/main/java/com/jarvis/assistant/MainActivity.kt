@@ -412,7 +412,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             text.startsWith("naviguj na ", true) || text.startsWith("navigácia na ", true) || text.startsWith("trasa na ", true) -> {
                 val destination = text.substringAfter(" na ", "").trim()
                 if (destination.isBlank()) {
-                    val answer = "Povedzte cieľ, napríklad: naviguj na Poprad, pane."
+                    val answer = "Povedzte cieľ, napríklad: naviguj do Svitu, pane."
                     chat.add(Message(true, answer)); speak(answer)
                 } else {
                     val answer = "Otváram navigáciu do: $destination, pane."
