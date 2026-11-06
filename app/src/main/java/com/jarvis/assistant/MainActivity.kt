@@ -334,7 +334,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 }
                 chat.add(Message(true, answer)); speak(answer)
             }
-            text.contains("vypni počúvanie", true) || text.contains("prestaň počúvať", true) || text.contains("vypni mikrofón", true) -> {
+            text.contains("vypni počúvanie", true) || text.contains("prestaň počúvať", true) || text.contains("vypni mikrofón", true) || text.contains("jarvis spi", true) || text.contains("ukonči rozhovor", true) || text.contains("ukonči konverzáciu", true) -> {
                 wakeMode = false
                 listening = false
                 val answer = "Hlasové počúvanie vypnuté, pane."
@@ -813,7 +813,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     }) { Text(if (wakeMode) "🎙" else "🎤", fontSize = 22.sp) }
                     Button(onClick = { handle(input) }, enabled = !busy, contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp)) { Text("➤", fontSize = 18.sp) }
                 }
-                Text(if (wakeMode) "MIKROFÓN AKTÍVNY • povedzte príkaz." else "MIKROFÓN VYPNUTÝ • stlačte 🎤, povedzte príkaz a JARVIS ho vypne.", color = Muted, fontSize = 10.sp)
+                Text(if (wakeMode) "HLASOVÁ RELÁCIA AKTÍVNA • ďalšie otázky bez opakovania Hey Jarvis • ukončite: Jarvis, spi." else "HLASOVÁ RELÁCIA VYPNUTÁ • stlačte 🎤 a povedzte Hey Jarvis.", color = Muted, fontSize = 10.sp)
                 }
                 // Persistent navigation makes every primary screen reachable in one tap.
                 Spacer(Modifier.height(8.dp))
