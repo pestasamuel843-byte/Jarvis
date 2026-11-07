@@ -83,6 +83,7 @@ private val Bg = Color(0xFF070B12)
 private val Panel = Color(0xFF101A27)
 private val Cyan = Color(0xFF4DEBFF)
 private val Muted = Color(0xFF9BAFC2)
+private const val MESSAGE_READ_PASSPHRASE = "ATLAS-731"
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = null
@@ -170,6 +171,8 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     var busy by remember { mutableStateOf(false) }
     var pendingReply by remember { mutableStateOf<PendingReply?>(null) }
     var pendingDestructiveAction by remember { mutableStateOf<String?>(null) }
+    var pendingProtectedReadCommand by remember { mutableStateOf<String?>(null) }
+    var messageReadAuthorized by remember { mutableStateOf(false) }
     var listening by remember { mutableStateOf(false) }
     var wakeMode by remember { mutableStateOf(prefs.getBoolean("voice_enabled", false)) }
     var appForeground by remember { mutableStateOf(true) }
@@ -239,6 +242,23 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     fun handle(raw: String) {
         val text = raw.trim().replace(Regex("(?i)^(?:(?:hej|hey)\\s+)?jarvis[,: ]*"), "").trim()
         if (text.isEmpty() || busy) return
+        val protectedRead = pendingProtectedReadCommand
+        if (protectedRead != null) {
+            val normalized = text.uppercase(Locale.ROOT).replace(Regex("[^A-Z0-9]"), "")
+            if (text.equals("zruš", true) || text.equals("zruš čítanie", true)) {
+                pendingProtectedReadCommand = null
+                val cancelled = "Čítanie správ som zrušil. K žiadnym správam som nepristúpil."
+                chat.add(Message(true, cancelled)); speak(cancelled)
+            } else if (normalized == "ATLAS731") {
+                pendingProtectedReadCommand = null
+                messageReadAuthorized = true
+                handle(protectedRead)
+            } else {
+                val retry = "Heslo nesúhlasí. Správy zostávajú zamknuté. Povedzte ATLAS-731 alebo zruš."
+                chat.add(Message(true, retry)); speak(retry)
+            }
+            return
+        }
         val waitingReply = pendingReply
         if (waitingReply != null && (text.equals("áno", true) || text.equals("potvrď", true) || text.equals("odošli", true) || text.equals("odoslať", true))) {
             pendingReply = null
@@ -822,6 +842,13 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 }
             }
             text.contains("prečítaj známky", true) || text.contains("známky z edupage", true) || text.contains("prečítaj edupage", true) || text.contains("prečítaj správy", true) || text.contains("čítaj správy", true) || text.contains("prečítaj emaily", true) || text.contains("prečítaj e-maily", true) || text.contains("nové správy", true) || text.contains("správy z messenger", true) || text.contains("správy z instagram", true) || text.contains("správy z facebook", true) || text.contains("správy z whatsapp", true) || text.contains("whatsapp správy", true) -> {
+                if (!messageReadAuthorized) {
+                    pendingProtectedReadCommand = text
+                    val prompt = "Pred čítaním správ potrebujem overenie. Povedzte prosím svoje potvrdzovacie heslo."
+                    chat.add(Message(true, prompt)); speak(prompt)
+                    return
+                }
+                messageReadAuthorized = false
                 val enabled = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners").orEmpty()
                     .contains(context.packageName + "/" + GmailNotificationListener::class.java.name)
                 if (!enabled) {
