@@ -708,7 +708,8 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     runCatching { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
                 } else {
                     val previews = runCatching { JSONArray(context.getSharedPreferences("jarvis_gmail", Context.MODE_PRIVATE).getString("previews", "[]")) }.getOrDefault(JSONArray())
-                    val filterApp = when {\n                        text.contains("známky", true) || text.contains("edupage", true) -> "EduPage"
+                    val filterApp = when {
+                        text.contains("známky", true) || text.contains("edupage", true) -> "EduPage"
                         text.contains("whatsapp", true) -> "WhatsApp"
                         text.contains("messenger", true) -> "Messenger"
                         text.contains("instagram", true) -> "Instagram"
