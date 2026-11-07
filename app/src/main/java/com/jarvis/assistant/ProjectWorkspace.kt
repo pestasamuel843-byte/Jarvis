@@ -51,6 +51,8 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
     var mapMode by remember { mutableStateOf(initialMapMode) }
     var sceneModel by remember { mutableStateOf("AUTO") }
     var sceneCommand by remember { mutableStateOf("") }
+    var sceneEditCommand by remember { mutableStateOf("") }
+    LaunchedEffect(voiceCommand) { if (voiceCommand.isNotBlank() && !mapMode) sceneEditCommand = voiceCommand }
     Column(
         Modifier.fillMaxWidth().background(Color(0xFF050A11), RoundedCornerShape(20.dp)).padding(12.dp)
     ) {
@@ -137,12 +139,13 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
                         q.contains("kock") || q.contains("kocka") -> "KOCKA"
                         else -> sceneModel
                     }
+                    sceneEditCommand = command
                     onRefine("Uprav aktívny projekt podľa tejto požiadavky: $command. Zachovaj existujúci kontext a opíš konkrétne zmeny. Ak požiadavka vyžaduje zmenu geometrie, uveď presné prvky, rozmery a umiestnenie.")
                     sceneCommand = ""
                 }
             }, enabled = sceneCommand.isNotBlank()) { Text("UPRAVIŤ") }
         }
-        ThreeDScene(model = sceneModel)
+        ThreeDScene(model = sceneModel, voiceCommand = sceneEditCommand)
         Spacer(Modifier.height(12.dp))
         Text("SKETCH LAYER  /  2D NÁČRT • KRESLI PRSTOM", color = Color(0xFF9BAFC2), style = MaterialTheme.typography.labelSmall, letterSpacing = 0.7.sp)
         Spacer(Modifier.height(8.dp))
@@ -435,7 +438,7 @@ private fun WireframeScene(model: String, onModelChange: (String) -> Unit) {
  * already routed through ProjectWorkspace.
  */
 @Composable
-private fun ThreeDScene(model: String) {
+private fun ThreeDScene(model: String, voiceCommand: String = "") {
     val html = remember {
         """
 <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
@@ -509,6 +512,7 @@ new ResizeObserver(()=>{const w=host.clientWidth,h=host.clientHeight;camera.aspe
         },
         update = { webView ->
             webView.evaluateJavascript("if(window.setJarvisModel)window.setJarvisModel(${JSONObject.quote(model)});", null)
+            if (voiceCommand.isNotBlank()) webView.evaluateJavascript("if(window.applyJarvisEdit)window.applyJarvisEdit(${JSONObject.quote(voiceCommand)});", null)
         }
     )
 }
