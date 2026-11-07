@@ -1,5 +1,8 @@
 package com.jarvis.assistant
 
+import android.app.RemoteInput
+import android.content.Intent
+import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import org.json.JSONArray
@@ -11,6 +14,56 @@ import org.json.JSONObject
  * app privacy controls or fetch full conversations from those services.
  */
 class GmailNotificationListener : NotificationListenerService() {
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        connectedInstance = this
+    }
+
+    override fun onListenerDisconnected() {
+        if (connectedInstance === this) connectedInstance = null
+        super.onListenerDisconnected()
+    }
+
+    private fun sendInlineReply(appName: String?, reply: String): Boolean {
+        val packages = mapOf(
+            "Gmail" to "com.google.android.gm",
+            "Messenger" to "com.facebook.orca",
+            "Instagram" to "com.instagram.android",
+            "Facebook" to "com.facebook.katana"
+        )
+        val targetPackage = packages[appName]
+        val notifications = runCatching { activeNotifications?.toList().orEmpty() }.getOrDefault(emptyList())
+            .filter { targetPackage == null || it.packageName == targetPackage }
+            .sortedByDescending { it.postTime }
+
+        for (sbn in notifications) {
+            val actions = sbn.notification.actions ?: continue
+            for (action in actions) {
+                val remoteInputs = action.remoteInputs ?: continue
+                val usableInputs = remoteInputs.filter { it.allowFreeFormInput }
+                if (usableInputs.isEmpty()) continue
+                val fillIn = Intent()
+                val results = Bundle()
+                usableInputs.forEach { results.putCharSequence(it.resultKey, reply) }
+                RemoteInput.addResultsToIntent(usableInputs.toTypedArray(), fillIn, results)
+                return runCatching {
+                    action.actionIntent.send(this, 0, fillIn)
+                    true
+                }.getOrDefault(false)
+            }
+        }
+        return false
+    }
+
+    companion object {
+        @Volatile private var connectedInstance: GmailNotificationListener? = null
+
+        fun sendReply(appName: String?, reply: String): Boolean {
+            if (reply.isBlank()) return false
+            return connectedInstance?.sendInlineReply(appName, reply) ?: false
+        }
+    }
+
     private val supportedApps = mapOf(
         "com.google.android.gm" to "Gmail",
         "com.facebook.orca" to "Messenger",
