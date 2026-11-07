@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="jarvis_app_lock_description">Uzamkne iba aplikácie, ktoré si používateľ výslovne vyberie hlasovým príkazom v JARVIS-e. Číta iba názov aktívnej aplikácie, nie obsah obrazovky.</string>
+</resources>
