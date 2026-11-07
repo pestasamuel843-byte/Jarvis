@@ -269,14 +269,14 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     }
                     pendingChange == "delete_last_note" -> {
                         val remaining = prefs.getString("notes", "").orEmpty().lines().filter { it.isNotBlank() }.dropLast(1)
-                        prefs.edit().putString("notes", remaining.joinToString("\\n")).apply()
+                        prefs.edit().putString("notes", remaining.joinToString("\n")).apply()
                         "Posledná poznámka bola odstránená."
                     }
                     pendingChange.startsWith("forget:") -> {
                         val query = pendingChange.substringAfter("forget:")
                         val remaining = prefs.getString("memories", "").orEmpty().lines()
                             .filter { it.isNotBlank() && !it.contains(query, ignoreCase = true) }
-                        prefs.edit().putString("memories", remaining.joinToString("\\n")).apply()
+                        prefs.edit().putString("memories", remaining.joinToString("\n")).apply()
                         "Z pamäte boli odstránené položky zodpovedajúce zadaniu."
                     }
                     else -> "Neznámu zmenu som nevykonal."
@@ -323,7 +323,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             val period = scheduleSetupIndex % 8 + 1
             val saved = prefs.getString("school_timetable", "").orEmpty().lines().filter { it.isNotBlank() }.toMutableList()
             if (!text.equals("voľno", true) && !text.equals("preskoč", true) && !text.equals("ďalej", true)) saved.add("$day | $period. hodina | $text")
-            prefs.edit().putString("school_timetable", saved.joinToString("\\n")).apply()
+            prefs.edit().putString("school_timetable", saved.joinToString("\n")).apply()
             scheduleSetupIndex++
             if (scheduleSetupIndex >= 40) {
                 scheduleSetupIndex = -1
@@ -368,7 +368,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     showProgress = true
                     chat.add(Message(true, "Analyzujem iba vaše uložené záznamy. Nebudem dopĺňať chýbajúce údaje ani robiť zdravotné diagnózy."))
                     scope.launch {
-                        val contextData = "ZÁZNAMY POUŽÍVATEĽA (dátum | typ | hodnota | detail):\\n$progress"
+                        val contextData = "ZÁZNAMY POUŽÍVATEĽA (dátum | typ | hodnota | detail):\n$progress"
                         val request = "Vyhodnoť tieto osobné školské a denné záznamy. Rozdeľ známky a denné hodnotenia, uveď iba doložené trendy, upozorni na malý počet údajov a navrhni najviac tri realistické ďalšie kroky. Neurčuj diagnózy a nevymýšľaj chýbajúce hodnoty."
                         val answer = askAiWithOfflineFallback(context, endpoint, key, model, chat.toList().takeLast(20) + Message(false, request), contextData)
                         chat.add(Message(true, answer))
@@ -384,7 +384,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 val date = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(Date())
                 val entries = prefs.getString("progress_data", "").orEmpty().lines().filter { it.isNotBlank() }.toMutableList()
                 entries.add("$date | ZNÁMKA | $subject | $grade")
-                prefs.edit().putString("progress_data", entries.takeLast(120).joinToString("\\n")).apply()
+                prefs.edit().putString("progress_data", entries.takeLast(120).joinToString("\n")).apply()
                 val answer = "Zapísal som známku $grade z predmetu $subject do osobného prehľadu. Údaj je uložený lokálne v tablete."
                 chat.add(Message(true, answer)); speak(answer)
             }
@@ -539,7 +539,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                         it.startsWith("NAUČENÝ POSTUP:", true) &&
                             it.substringAfter(':').trim().substringBefore(" — ").equals(procedure.title, true)
                     } + JarvisIntelligence.encodeProcedure(procedure)
-                    prefs.edit().putString("memories", updated.takeLast(100).joinToString("\\n")).apply()
+                    prefs.edit().putString("memories", updated.takeLast(100).joinToString("\n")).apply()
                     val answer = "Postup „${procedure.title}“ som uložil. Neskôr povedzte: použi postup ${procedure.title}. Uložil som textový návod, nie automatický skript."
                     chat.add(Message(true, answer)); speak(answer)
                 }
@@ -550,7 +550,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 val answer = if (procedure == null) {
                     "Postup „$query“ som v pamäti nenašiel. Najprv ma ho nauč príkazom: nauč sa postup Názov: kroky."
                 } else {
-                    "Našiel som postup „${procedure.title}“:\\n${procedure.steps}\\n\\nToto je uložený návod. Jednotlivé kroky vykonám iba vtedy, ak ich aplikácia podporuje a má potrebné oprávnenia."
+                    "Našiel som postup „${procedure.title}“:\n${procedure.steps}\\n\\nToto je uložený návod. Jednotlivé kroky vykonám iba vtedy, ak ich aplikácia podporuje a má potrebné oprávnenia."
                 }
                 chat.add(Message(true, answer)); speak(answer)
             }
