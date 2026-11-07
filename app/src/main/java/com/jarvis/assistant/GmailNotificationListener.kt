@@ -29,7 +29,7 @@ class GmailNotificationListener : NotificationListenerService() {
             "Gmail" to "com.google.android.gm",
             "Messenger" to "com.facebook.orca",
             "Instagram" to "com.instagram.android",
-            "Facebook" to "com.facebook.katana"
+            "Facebook" to "com.facebook.katana",\n            "WhatsApp" to "com.whatsapp",\n            "EduPage" to "air.org.edupage",\n            "EduPage Alt" to "air.org.edupagealt"
         )
         val targetPackage = packages[appName]
         return runCatching { activeNotifications?.toList().orEmpty() }
@@ -44,7 +44,7 @@ class GmailNotificationListener : NotificationListenerService() {
             "Gmail" to "com.google.android.gm",
             "Messenger" to "com.facebook.orca",
             "Instagram" to "com.instagram.android",
-            "Facebook" to "com.facebook.katana"
+            "Facebook" to "com.facebook.katana",\n            "WhatsApp" to "com.whatsapp",\n            "EduPage" to "air.org.edupage",\n            "EduPage Alt" to "air.org.edupagealt"
         )
         val targetPackage = packages[appName]
         val notifications = runCatching { activeNotifications?.toList().orEmpty() }.getOrDefault(emptyList())
@@ -86,7 +86,7 @@ class GmailNotificationListener : NotificationListenerService() {
         "com.google.android.gm" to "Gmail",
         "com.facebook.orca" to "Messenger",
         "com.instagram.android" to "Instagram",
-        "com.facebook.katana" to "Facebook"
+        "com.facebook.katana" to "Facebook",\n        "com.whatsapp" to "WhatsApp",\n        "air.org.edupage" to "EduPage",\n        "air.org.edupagealt" to "EduPage"
     )
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
