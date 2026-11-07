@@ -604,23 +604,34 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     else context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://mail.google.com/")))
                 }.onFailure { Toast.makeText(context, "Gmail sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
             }
-            text.contains("prečítaj správy", true) || text.contains("čítaj správy", true) || text.contains("prečítaj emaily", true) || text.contains("prečítaj e-maily", true) || text.contains("nové správy", true) -> {
+            text.contains("prečítaj správy", true) || text.contains("čítaj správy", true) || text.contains("prečítaj emaily", true) || text.contains("prečítaj e-maily", true) || text.contains("nové správy", true) || text.contains("správy z messenger", true) || text.contains("správy z instagram", true) || text.contains("správy z facebook", true) -> {
                 val enabled = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners").orEmpty()
                     .contains(context.packageName + "/" + GmailNotificationListener::class.java.name)
                 if (!enabled) {
-                    val message = "Na čítanie náhľadov Gmail správ povoľte JARVISu prístup k oznámeniam. Otváram systémové nastavenie. Potom mi povedzte: Hej Jarvis, prečítaj správy."
+                    val message = "Na čítanie náhľadov správ z Gmailu, Messengeru, Instagramu a Facebooku povoľte JARVISu prístup k oznámeniam Androidu. Otváram systémové nastavenie. Potom povedzte: Hej Jarvis, prečítaj správy."
                     chat.add(Message(true, message)); speak(message)
                     runCatching { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
                 } else {
                     val previews = runCatching { JSONArray(context.getSharedPreferences("jarvis_gmail", Context.MODE_PRIVATE).getString("previews", "[]")) }.getOrDefault(JSONArray())
+                    val filterApp = when {
+                        text.contains("messenger", true) -> "Messenger"
+                        text.contains("instagram", true) -> "Instagram"
+                        text.contains("facebook", true) -> "Facebook"
+                        text.contains("gmail", true) || text.contains("email", true) || text.contains("e-mail", true) -> "Gmail"
+                        else -> ""
+                    }
                     val messages = (0 until previews.length()).mapNotNull { i ->
                         val item = previews.optJSONObject(i) ?: return@mapNotNull null
+                        val app = item.optString("app", "Gmail")
+                        if (filterApp.isNotBlank() && app != filterApp) return@mapNotNull null
                         val title = item.optString("title").trim()
                         val body = item.optString("text").trim()
-                        if (title.isBlank() && body.isBlank()) null else listOf(title, body).filter { it.isNotBlank() }.joinToString(". ")
+                        if (title.isBlank() && body.isBlank()) null else "$app. " + listOf(title, body).filter { it.isNotBlank() }.joinToString(". ")
                     }
-                    val answer = if (messages.isEmpty()) "V oznámeniach zatiaľ nemám žiadne náhľady Gmail správ. Zapnite upozornenia na nové správy v Gmaili."
-                        else "Náhľady posledných Gmail oznámení: " + messages.take(5).joinToString(". Ďalšia správa: ")
+                    val answer = if (messages.isEmpty()) {
+                        if (filterApp.isBlank()) "Zatiaľ nemám nové náhľady správ. Skontrolujte, či sú upozornenia zapnuté v príslušných aplikáciách."
+                        else "V oznámeniach zatiaľ nemám náhľady z aplikácie $filterApp. Skontrolujte jej upozornenia."
+                    } else "Náhľady posledných správ: " + messages.take(8).joinToString(". Ďalšia správa: ")
                     chat.add(Message(true, answer)); speak(answer)
                 }
             }
