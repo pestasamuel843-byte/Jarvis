@@ -34,7 +34,7 @@ class OfflineBrain(private val context: Context) {
     private val modelFile: File
         get() = File(context.filesDir, MODEL_FILE)
 
-    fun isInstalled(): Boolean = modelFile.exists() && modelFile.length() > 250L * 1024L * 1024L
+    fun isInstalled(): Boolean = modelFile.exists() && modelFile.length() >= 300L * 1024L * 1024L
 
     suspend fun download(onProgress: (Int) -> Unit = {}): Unit = withContext(Dispatchers.IO) {
         if (modelFile.exists() && modelFile.length() >= 250L * 1024L * 1024L) {
