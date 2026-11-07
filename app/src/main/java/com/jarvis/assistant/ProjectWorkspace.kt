@@ -227,7 +227,7 @@ button:active{background:#17455b}
 </div>
 <div class="tag">LIVE 3D CITY • VECTOR MAP</div>
 <div class="bottom">
- <button onclick="toggle3D()">3D POHĽAD</button>
+ <button onclick="toggle3D()">3D POHĽAD</button><button onclick="toggleGlobe()">GLOBUS</button><button onclick="toggleSatellite()">SATELIT</button>
  <button onclick="locate()">MOJA POLOHA</button>
  <button onclick="routeMode()">TRASA</button>
  <button onclick="resetView()">RESET POHĽADU</button>
@@ -240,13 +240,15 @@ const map=new maplibregl.Map({
  container:'map',
  style:'https://tiles.openfreemap.org/styles/dark',
  center:[20.206,49.060],zoom:13.6,pitch:58,bearing:-18,
- antialias:true,attributionControl:true
+ antialias:true,attributionControl:true,projection:{type:'globe'}
 });
 map.addControl(new maplibregl.NavigationControl({visualizePitch:true}),'bottom-right');
 map.addControl(new maplibregl.ScaleControl({unit:'metric'}),'bottom-left');
 let marker=null,routeLayer=false,routeStart=null,threeD=true;
 map.on('load',()=>{
  try{
+  map.addSource('jarvis-satellite',{type:'raster',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],tileSize:256,attribution:'Imagery © Esri, Maxar, Earthstar Geographics and GIS User Community'});
+  map.addLayer({id:'jarvis-satellite-layer',type:'raster',source:'jarvis-satellite',layout:{visibility:'none'},paint:{'raster-opacity':1}});
   const layers=map.getStyle().layers||[];
   const label=layers.find(l=>l.type==='symbol'&&l.layout&&l.layout['text-field']);
   if(!map.getSource('openfreemap')) map.addSource('openfreemap',{type:'vector',url:'https://tiles.openfreemap.org/planet'});
@@ -264,6 +266,8 @@ map.on('load',()=>{
  }catch(e){status('Mapa je načítaná; 3D budovy nie sú v tomto výreze dostupné: '+e.message)}
 });
 map.on('error',e=>{if(e&&e.error)status('Mapové dáta sa načítavajú; skontroluj internetové pripojenie.')});
+function toggleGlobe(){const globe=map.getProjection().type!=='globe';map.setProjection({type:globe?'globe':'mercator'});status(globe?'Pohľad na zemeguľu aktivovaný':'Plochá projekcia mapy aktivovaná')}
+function toggleSatellite(){const visible=map.getLayoutProperty('jarvis-satellite-layer','visibility')!=='visible';map.setLayoutProperty('jarvis-satellite-layer','visibility',visible?'visible':'none');status(visible?'Satelitná vrstva zapnutá • Esri imagery':'Vektorová mapa zapnutá')}
 function toggle3D(){
  threeD=!threeD;
  map.easeTo({pitch:threeD?60:0,bearing:threeD?-18:0,duration:900});
