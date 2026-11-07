@@ -25,7 +25,7 @@ class OfflineBrain(private val context: Context) {
         const val MODEL_FILE = "qwen3_0.6b_nothink_q4_block32_ekv1280.litertlm"
         const val MODEL_URL =
             "https://huggingface.co/litert-community/Qwen3-0.6B-int4/resolve/main/$MODEL_FILE"
-        const val MODEL_SIZE_LABEL = "približne 330 MB"
+        const val MODEL_SIZE_LABEL = "približne 347 MB"
     }
 
     private val modelFile: File
@@ -43,15 +43,17 @@ class OfflineBrain(private val context: Context) {
         try {
             connection = (URL(MODEL_URL).openConnection() as HttpURLConnection).apply {
                 connectTimeout = 20000
-                readTimeout = 60000
+                readTimeout = 120000
                 instanceFollowRedirects = true
                 setRequestProperty("User-Agent", "JARVIS-Android")
+                setRequestProperty("Accept-Encoding", "identity")
             }
             connection.connect()
             if (connection.responseCode !in 200..299) {
                 throw IllegalStateException("Model server returned HTTP ${connection.responseCode}")
             }
             val total = connection.contentLengthLong
+            onProgress(0)
             connection.inputStream.use { input ->
                 FileOutputStream(temp).use { output ->
                     val buffer = ByteArray(1024 * 1024)
@@ -61,7 +63,8 @@ class OfflineBrain(private val context: Context) {
                         if (count < 0) break
                         output.write(buffer, 0, count)
                         copied += count
-                        if (total > 0) onProgress(((copied * 100) / total).toInt().coerceIn(0, 99))
+                        val denominator = if (total > 0L) total else 347L * 1024L * 1024L
+                        onProgress(((copied * 100) / denominator).toInt().coerceIn(0, 99))
                     }
                     output.fd.sync()
                 }
