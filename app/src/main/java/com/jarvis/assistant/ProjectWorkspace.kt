@@ -520,6 +520,12 @@ new ResizeObserver(()=>{const w=host.clientWidth,h=host.clientHeight;camera.aspe
             .background(Color(0xFF07101A), RoundedCornerShape(12.dp)),
         factory = { ctx ->
             WebView(ctx).apply {
+                webViewClient = object : WebViewClient() {
+                    override fun onPageFinished(view: WebView, url: String) {
+                        view.evaluateJavascript("if(window.setJarvisModel)window.setJarvisModel(${JSONObject.quote(model)});", null)
+                        if (voiceCommand.isNotBlank()) view.evaluateJavascript("if(window.applyJarvisEdit)window.applyJarvisEdit(${JSONObject.quote(voiceCommand)});", null)
+                    }
+                }
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.allowFileAccess = false
