@@ -9,6 +9,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.MessageDigest
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.ConversationConfig
@@ -25,7 +26,9 @@ class OfflineBrain(private val context: Context) {
         const val MODEL_FILE = "qwen3_0.6b_nothink_q4_block32_ekv1280.litertlm"
         const val MODEL_URL =
             "https://huggingface.co/litert-community/Qwen3-0.6B-int4/resolve/main/$MODEL_FILE"
-        const val MODEL_SIZE_LABEL = "približne 347 MB"
+        const val MODEL_SIZE_LABEL = "347 MB"
+        private const val MODEL_SHA256 = "2df6821ec12702dafd33915e7a1a1adc7c4b053f3672fd9555dfaf3a114c4139"
+        private const val EXPECTED_BYTES = 347L * 1024L * 1024L
     }
 
     private val modelFile: File
@@ -34,55 +37,68 @@ class OfflineBrain(private val context: Context) {
     fun isInstalled(): Boolean = modelFile.exists() && modelFile.length() > 250L * 1024L * 1024L
 
     suspend fun download(onProgress: (Int) -> Unit = {}): Unit = withContext(Dispatchers.IO) {
-        if (isInstalled()) {
-            onProgress(100)
-            return@withContext
+        if (modelFile.exists() && modelFile.length() >= 250L * 1024L * 1024L) {
+            if (sha256(modelFile) == MODEL_SHA256) { onProgress(100); return@withContext }
+            modelFile.delete()
         }
         val temp = File(context.filesDir, "$MODEL_FILE.part")
         var connection: HttpURLConnection? = null
         try {
+            val alreadyDownloaded = temp.length()
             connection = (URL(MODEL_URL).openConnection() as HttpURLConnection).apply {
-                connectTimeout = 20000
-                readTimeout = 120000
+                connectTimeout = 30000
+                readTimeout = 300000
                 instanceFollowRedirects = true
-                setRequestProperty("User-Agent", "JARVIS-Android")
+                setRequestProperty("User-Agent", "JARVIS-Android/2.0")
                 setRequestProperty("Accept-Encoding", "identity")
+                if (alreadyDownloaded > 0L) setRequestProperty("Range", "bytes=$alreadyDownloaded-")
             }
             connection.connect()
-            if (connection.responseCode !in 200..299) {
-                throw IllegalStateException("Model server returned HTTP ${connection.responseCode}")
+            val code = connection.responseCode
+            val append = alreadyDownloaded > 0L && code == HttpURLConnection.HTTP_PARTIAL
+            if (code != HttpURLConnection.HTTP_OK && code != HttpURLConnection.HTTP_PARTIAL) {
+                throw IllegalStateException("Server modelu vrátil HTTP $code")
             }
-            val total = connection.contentLengthLong
-            onProgress(0)
+            if (!append && alreadyDownloaded > 0L) temp.delete()
+            val initialBytes = if (append) alreadyDownloaded else 0L
+            val responseLength = connection.contentLengthLong
+            val totalBytes = if (responseLength > 0L) initialBytes + responseLength else EXPECTED_BYTES
+            onProgress(((initialBytes * 100L) / EXPECTED_BYTES).toInt().coerceIn(0, 99))
             connection.inputStream.use { input ->
-                FileOutputStream(temp).use { output ->
-                    val buffer = ByteArray(1024 * 1024)
-                    var copied = 0L
+                FileOutputStream(temp, append).use { output ->
+                    val buffer = ByteArray(256 * 1024)
+                    var copied = initialBytes
+                    var lastReported = -1
                     while (true) {
                         val count = input.read(buffer)
                         if (count < 0) break
                         output.write(buffer, 0, count)
                         copied += count
-                        val denominator = if (total > 0L) total else 347L * 1024L * 1024L
-                        onProgress(((copied * 100) / denominator).toInt().coerceIn(0, 99))
+                        val percent = ((copied * 100L) / maxOf(totalBytes, EXPECTED_BYTES)).toInt().coerceIn(0, 99)
+                        if (percent != lastReported) { lastReported = percent; onProgress(percent) }
                     }
                     output.fd.sync()
                 }
             }
-            if (temp.length() < 250L * 1024L * 1024L) {
-                throw IllegalStateException("Downloaded model is incomplete")
+            if (temp.length() < 300L * 1024L * 1024L) {
+                throw IllegalStateException("Súbor je neúplný (${temp.length() / (1024L * 1024L)} MB z približne 347 MB). Skúste pokračovať v sťahovaní.")
             }
-            if (!temp.renameTo(modelFile)) {
-                temp.copyTo(modelFile, overwrite = true)
+            if (!sha256(temp).equals(MODEL_SHA256, ignoreCase = true)) {
                 temp.delete()
+                throw IllegalStateException("Kontrola SHA-256 zlyhala. Súbor nebol nainštalovaný; skúste stiahnuť znova.")
             }
+            if (!temp.renameTo(modelFile)) { temp.copyTo(modelFile, overwrite = true); temp.delete() }
             onProgress(100)
-        } catch (error: Exception) {
-            temp.delete()
-            throw error
-        } finally {
-            connection?.disconnect()
+        } finally { connection?.disconnect() }
+    }
+
+    private fun sha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().buffered().use { input ->
+            val buffer = ByteArray(1024 * 1024)
+            while (true) { val count = input.read(buffer); if (count < 0) break; digest.update(buffer, 0, count) }
         }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     /**
