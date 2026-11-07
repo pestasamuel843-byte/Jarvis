@@ -143,7 +143,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         speechOutputActive = true
         if (JarvisVoiceService.isRunning) startService(Intent(this, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_PAUSE))
         val result = engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis")
-        if (result == TextToSpeech.ERROR) speechOutputActive = false
+        if (result == TextToSpeech.ERROR) {
+            speechOutputActive = false
+            if (JarvisVoiceService.isRunning) {
+                startService(Intent(this, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME))
+            }
+        }
     }
     override fun onDestroy() {
         tts?.stop()
