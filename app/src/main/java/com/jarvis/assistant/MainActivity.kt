@@ -130,10 +130,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
             if (selectedVoice != null) {
                 engine.voice = selectedVoice
+                getSharedPreferences("jarvis", MODE_PRIVATE).edit().putString("tts_voice_status", selectedVoice.name).apply()
                 android.util.Log.i("JARVIS-TTS", "Selected explicitly male Slovak voice: ${selectedVoice.name}")
             } else {
                 // Do not silently claim that Lukáš is installed. The Android engine's
                 // default Slovak voice remains in use until a verified male voice is available.
+                getSharedPreferences("jarvis", MODE_PRIVATE).edit().putString("tts_voice_status", "NO_VERIFIED_MALE_SLOVAK_VOICE").apply()
                 android.util.Log.e("JARVIS-TTS", "No explicitly identifiable male Slovak voice installed on this device.")
             }
         }
@@ -889,7 +891,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     val answer = if (brain.isInstalled()) {
                         runCatching { brain.answer(text) }.getOrElse { "Pane, offline AI model sa nepodarilo spustiť: ${it.message ?: "neznáma chyba"}" }
                     } else {
-                        "Pane, lokálne príkazy fungujú. Ak chcete aj konverzačnú AI bez API kľúča, otvorte Nastavenia a stiahnite Offline AI mozog (približne 330 MB)."
+                        "Pane, lokálne príkazy fungujú. Ak chcete aj konverzačnú AI bez API kľúča, otvorte Nastavenia a stiahnite Offline AI mozog (347 MB)."
                     }
                     chat.add(Message(true, answer)); speak(answer); busy = false
                 }
@@ -1222,6 +1224,19 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 title = { Text("Nastavenia JARVIS") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("HLASOVÝ VÝSTUP", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        val installedVoice = prefs.getString("tts_voice_status", "NEOVERENÝ / EŠTE NEINICIALIZOVANÝ").orEmpty()
+                        Text(
+                            if (installedVoice == "NO_VERIFIED_MALE_SLOVAK_VOICE")
+                                "Nenašiel som nainštalovaný overiteľný mužský slovenský hlas. JARVIS preto nemôže sľúbiť hlas Lukáš, kým ho Android TTS nemá k dispozícii."
+                            else "Aktuálny hlasový profil: $installedVoice",
+                            color = Muted, fontSize = 11.sp
+                        )
+                        TextButton(onClick = {
+                            runCatching { context.startActivity(Intent(Settings.ACTION_TEXT_TO_SPEECH_SETTINGS)) }
+                                .onFailure { context.startActivity(Intent(Settings.ACTION_SETTINGS)) }
+                        }) { Text("OTVORIŤ NASTAVENIA HLASU ANDROIDU", color = Cyan) }
+                        Divider(color = Color(0xFF24465A))
                         Text("OFFLINE AI MOZOG", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         Text("Stiahne jazykový model Qwen3 INT4 (347 MB). Je to offline textový mozog, nie hlasový balík. Rozpoznávanie reči a hlas Lukáš sa nastavujú samostatne v systéme Android.", color = Muted, fontSize = 11.sp)
                         Button(
