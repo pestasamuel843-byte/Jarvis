@@ -732,6 +732,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     val appNames = messages.map { it.substringBefore("|") }.distinct()
                     val opening = when {
                         messages.isEmpty() -> ""
+                        filterApp == "EduPage" -> "V oznámeniach EduPage mám " + messages.size + " záznamov. Toto nie je úplný výpis elektronickej žiackej knižky."
                         messages.size == 1 -> "Našiel som jednu novú správu."
                         appNames.size > 1 -> "Prišli správy z " + appNames.joinToString(" aj ") + " — spolu " + messages.size + "."
                         else -> "Mám " + messages.size + " správ z " + (appNames.firstOrNull() ?: "oznámení") + "."
