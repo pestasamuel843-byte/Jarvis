@@ -40,7 +40,7 @@ object LiveWeather {
                 71, 73, 75, 77 -> "sneženie"
                 80, 81, 82 -> "prehánky"
                 85, 86 -> "snehové prehánky"
-                izzle -> "búrka"
+                95, 96, 99 -> "búrka"
                 else -> "stav sa nepodarilo určiť"
             }
             val temp = current.optDouble("temperature_2m", Double.NaN)
