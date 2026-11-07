@@ -455,7 +455,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 chat.add(Message(true, answer)); speak(answer)
             }
             text.startsWith("zapamätaj si ", true) || text.startsWith("pamätaj si ", true) || text.startsWith("nauč sa ", true) -> {
-                val fact = text.substringAfter(' ').substringAfter(' ').trim()
+                val fact = JarvisIntelligence.memoryEntryFromCommand(text)
                 val old = prefs.getString("memories", "").orEmpty()
                 val updated = (old.lines().filter { it.isNotBlank() } + fact).distinct().takeLast(100).joinToString("\n")
                 prefs.edit().putString("memories", updated).apply()
@@ -1736,6 +1736,8 @@ private fun askAi(endpoint: String, key: String, model: String, history: List<Me
         val webContext = if (lastUserQuery.isNotBlank() && shouldSearchWeb(lastUserQuery)) searchWeb(lastUserQuery) else ""
         val systemPrompt = """
 Si JARVIS, pokročilý slovenský AI asistent s prirodzenou konverzačnou inteligenciou.
+
+${JarvisIntelligence.SYSTEM_PROMPT_EXTENSION}
 
 PSYCHOLOGICKÁ PODPORA A EMOCIONÁLNA INTELIGENCIA:
 - Pri rozhovoroch o smútku, strachu, strese, osamelosti, konfliktoch, rodine, priateľstvách alebo psychickej záťaži automaticky prejdi do citlivého režimu. V tomto režime nepoužívaj humor, iróniu ani podpichovanie.
