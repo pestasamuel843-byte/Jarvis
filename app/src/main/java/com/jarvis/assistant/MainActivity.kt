@@ -115,24 +115,26 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 override fun onError(utteranceId: String?) { speechOutputActive = false; startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
                 override fun onError(utteranceId: String?, errorCode: Int) { speechOutputActive = false; startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
             })
-            // Prefer Slovak male voice, especially Lukáš / Neural when the installed TTS engine exposes it.
-            // The classic Microsoft Edge "sk-SK-LukasNeural" voice is not guaranteed to be available
-            // through Android TextToSpeech; this selects the closest installed Slovak voice.
+            // Never match "male" inside "female". Also do not treat the generic word
+            // "neural" as proof of a male voice: many Neural voices are female.
             val slovakVoices = engine.voices?.filter { it.locale.language == "sk" }.orEmpty()
-            val lukasVoice = slovakVoices.firstOrNull {
-                val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
-                name.contains("lukas") || name.contains("lukáš") || name.contains("neural")
+            fun voiceName(voice: android.speech.tts.Voice) =
+                (voice.name + " " + voice.locale.displayName).lowercase(Locale.ROOT)
+            val selectedVoice = slovakVoices.firstOrNull {
+                val name = voiceName(it)
+                !name.contains("female") && (name.contains("lukas") || name.contains("lukáš"))
+            } ?: slovakVoices.firstOrNull {
+                val name = voiceName(it)
+                !name.contains("female") &&
+                    Regex("(^|[^a-z])male([^a-z]|$)").containsMatchIn(name)
             }
-            val maleSlovak = slovakVoices.firstOrNull {
-                val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
-                name.contains("male") || name.contains("masculine") || name.contains("man") || name.contains("muž") || name.contains("muz")
-            }
-            val selectedVoice = lukasVoice ?: maleSlovak
             if (selectedVoice != null) {
                 engine.voice = selectedVoice
-                android.util.Log.i("JARVIS-TTS", "Selected Slovak voice: ${selectedVoice.name}")
+                android.util.Log.i("JARVIS-TTS", "Selected explicitly male Slovak voice: ${selectedVoice.name}")
             } else {
-                android.util.Log.w("JARVIS-TTS", "No identifiable Slovak male/Lukas voice installed; using Android default Slovak voice. Install/select a Slovak male voice in Android Text-to-speech settings.")
+                // Do not silently claim that Lukáš is installed. The Android engine's
+                // default Slovak voice remains in use until a verified male voice is available.
+                android.util.Log.e("JARVIS-TTS", "No explicitly identifiable male Slovak voice installed on this device.")
             }
         }
     }
@@ -1221,7 +1223,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("OFFLINE AI MOZOG", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text("Stiahne model Qwen3 INT4 (približne 330 MB). Potom bude lokálna AI fungovať bez API kľúča a bez internetu.", color = Muted, fontSize = 11.sp)
+                        Text("Stiahne jazykový model Qwen3 INT4 (347 MB). Je to offline textový mozog, nie hlasový balík. Rozpoznávanie reči a hlas Lukáš sa nastavujú samostatne v systéme Android.", color = Muted, fontSize = 11.sp)
                         Button(
                             onClick = {
                                 apiTesting = true
@@ -1229,11 +1231,11 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                                 scope.launch {
                                     try {
                                         OfflineBrain(context).download { percent ->
-                                            apiTestResult = "Sťahujem offline AI model: $percent %"
+                                            scope.launch(Dispatchers.Main.immediate) { apiTestResult = "Sťahujem offline AI model: $percent %" }
                                         }
-                                        apiTestResult = "Offline AI model je stiahnutý."
+                                        apiTestResult = "Offline AI model je stiahnutý a overený."
                                     } catch (error: Exception) {
-                                        apiTestResult = "Stiahnutie modelu zlyhalo: ${error.message ?: "neznáma chyba"}"
+                                        apiTestResult = "Stiahnutie modelu zlyhalo: ${error.message ?: "neznáma chyba"}. Nedokončené dáta zostali na pokračovanie."
                                     } finally {
                                         apiTesting = false
                                     }
