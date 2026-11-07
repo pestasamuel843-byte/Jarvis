@@ -604,6 +604,51 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     else context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://mail.google.com/")))
                 }.onFailure { Toast.makeText(context, "Gmail sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
             }
+            text.startsWith("zamkni ") || text.startsWith("uzamkni ") || text.startsWith("zamkni aplikáciu ") || text.startsWith("zamkni aplikaciu ") || text.startsWith("zamkni apku ") -> {
+                val requested = text
+                    .removePrefix("zamkni aplikáciu ").removePrefix("zamkni aplikaciu ")
+                    .removePrefix("zamkni apku ").removePrefix("uzamkni ").removePrefix("zamkni ")
+                    .trim()
+                val installed = context.packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
+                val match = installed.firstOrNull { app ->
+                    val label = context.packageManager.getApplicationLabel(app).toString()
+                    label.equals(requested, true) || label.contains(requested, true) ||
+                        app.packageName.contains(requested, true)
+                }
+                if (match == null || requested.isBlank()) {
+                    val answer = "Pane, aplikáciu som nenašiel. Povedzte jej presný názov, napríklad: zamkni Instagram."
+                    chat.add(Message(true, answer)); speak(answer)
+                } else {
+                    val lockPrefs = context.getSharedPreferences("jarvis_app_lock", Context.MODE_PRIVATE)
+                    val selected = lockPrefs.getStringSet("protected_packages", emptySet()).orEmpty().toMutableSet()
+                    selected.add(match.packageName)
+                    lockPrefs.edit().putStringSet("protected_packages", selected).apply()
+                    val enabled = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
+                        .contains(context.packageName + "/" + JarvisAppLockService::class.java.name)
+                    val label = context.packageManager.getApplicationLabel(match).toString()
+                    val answer = if (enabled) "Aplikácia $label je pridaná do zoznamu uzamknutých aplikácií. Pri ďalšom otvorení si vyžiada JARVIS PIN."
+                        else "Aplikáciu $label som pridal do zoznamu. Na aktiváciu uzamykania povoľte službu JARVIS v nastaveniach Prístupnosti Androidu. Bez tohto povolenia aplikácia ešte nie je uzamknutá."
+                    chat.add(Message(true, answer)); speak(answer)
+                    if (!enabled) runCatching { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+                }
+            }
+            text.startsWith("odomkni ") || text.startsWith("odstráň zámok ") -> {
+                val requested = text.removePrefix("odomkni ").removePrefix("odstráň zámok ").trim()
+                val lockPrefs = context.getSharedPreferences("jarvis_app_lock", Context.MODE_PRIVATE)
+                val selected = lockPrefs.getStringSet("protected_packages", emptySet()).orEmpty().toMutableSet()
+                val target = context.packageManager.getInstalledApplications(PackageManager.GET_META_DATA).firstOrNull { app ->
+                    val label = context.packageManager.getApplicationLabel(app).toString()
+                    label.equals(requested, true) || label.contains(requested, true) || app.packageName.contains(requested, true)
+                }
+                if (target != null && selected.remove(target.packageName)) {
+                    lockPrefs.edit().putStringSet("protected_packages", selected).apply()
+                    val answer = "Zámok aplikácie " + context.packageManager.getApplicationLabel(target) + " som odstránil, pane."
+                    chat.add(Message(true, answer)); speak(answer)
+                } else {
+                    val answer = "Takú uzamknutú aplikáciu som v zozname nenašiel."
+                    chat.add(Message(true, answer)); speak(answer)
+                }
+            }
             text.contains("prečítaj správy", true) || text.contains("čítaj správy", true) || text.contains("prečítaj emaily", true) || text.contains("prečítaj e-maily", true) || text.contains("nové správy", true) || text.contains("správy z messenger", true) || text.contains("správy z instagram", true) || text.contains("správy z facebook", true) -> {
                 val enabled = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners").orEmpty()
                     .contains(context.packageName + "/" + GmailNotificationListener::class.java.name)
