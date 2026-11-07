@@ -10,6 +10,8 @@ Native Android prototype written in Kotlin and Jetpack Compose. It does not requ
 - Voice commands can be paused/resumed from the conversation, and recent chat history is stored locally on the device.
 - Local commands: time, date, battery percentage, open YouTube, Android Settings, camera, Google search, create/list/delete notes, remember/forget preferences, clear chat history, arithmetic, set an alarm in the Clock app, create a calendar reminder, open an installed app by its visible name, dial a number (user confirms the call), timer via the Clock app, Wi-Fi settings/status, maps/navigation, browser, calculator (if installed), and open ChatGPT in the browser.
 - AI conversation through a configurable OpenAI-compatible Chat Completions endpoint, with recent conversation context.
+- Notification previews for Gmail, Messenger, Instagram, Facebook, WhatsApp, and EduPage through Android NotificationListener access. WhatsApp quick replies are sent only when Android exposes a reply action and only after explicit confirmation.
+- Voice commands to read the latest notification previews by app, including EduPage grade alerts.
 - Project workspace: AI-generated project brief, rotatable wireframe 3D primitives (cube, pyramid, house, sphere), finger-drawn canvas, and locally saved sketch.
 - Interactive 3D city map workspace using MapLibre and OpenFreeMap vector tiles, with extruded building shapes, place search, zoom/rotation/tilt, optional current location, and optional route drawing. Map tiles, search, location, and routes require internet and relevant permissions.
 - API endpoint, model, and key settings; the key is not committed to the repository.
@@ -23,6 +25,10 @@ Native Android prototype written in Kotlin and Jetpack Compose. It does not requ
 4. Install `app-debug.apk` on the Android tablet. Android may ask to allow installation from the browser or file manager.
 
 The APK is available only after the workflow succeeds. A green run is required before installation. The latest successful build is linked from the repository's Actions page; download the `JARVIS-debug-APK` artifact and extract the ZIP.
+
+## Notification integrations
+
+Open Android Settings from the notification-access prompt and explicitly enable JARVIS under notification access. Allow notifications for the source apps as well. Android and each source app control which message/grade preview text is visible. WhatsApp quick reply works only when its notification exposes a compatible reply action. For privacy, notification text is stored locally in JARVIS preferences.
 
 ## AI setup
 
@@ -40,7 +46,8 @@ This is still an early prototype, not the full autonomous assistant described in
 - The offline 3D design view provides several rotatable wireframe primitives, not arbitrary AI-generated 3D models or a full CAD editor. The drawing canvas is a freehand sketch pad and saves locally.
 - The 3D map extrudes mapped building footprints; it is not a complete photorealistic 3D city, AR overlay, or live traffic system. Map tiles and public geocoding/routing services require internet and have coverage/usage limits.
 - AI project responses are displayed as text; the app does not yet compile generated source code or turn arbitrary prompts into complete interactive diagrams or 3D scenes. The 3D preview remains a small set of predefined wireframe primitives.
-- The app cannot freely control all other apps, send messages without confirmation, or bypass Android permissions/background restrictions.
+- The app cannot freely control all other apps, send messages without confirmation, or bypass Android permissions/background restrictions. Message reading is limited to notification previews exposed by each app; it is not full inbox access.
+- EduPage integration currently reads available notification previews only. It does not log into the school account or retrieve the complete gradebook, averages, or historical grades. No EduPage password should be entered into JARVIS.
 - The API key and recent chat history are stored in app preferences on the device. The key is not included in source control, but a production release should use encrypted storage or a secure backend.
 - Build success does not substitute for installing and testing the app on the target tablet.
 
