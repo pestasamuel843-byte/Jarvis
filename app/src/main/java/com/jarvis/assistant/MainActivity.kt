@@ -739,14 +739,14 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     }
                     val answer = if (messages.isEmpty()) {
                         if (filterApp.isBlank()) "Pane, zatiaľ tu nemám nové náhľady správ. Buď je pokoj, alebo si všetci dávajú načas."
-                        else "Pane, v oznámeniach zatiaľ nemám náhľady z aplikácie $filterApp. Možno je tam dnes nezvyčajné ticho."
+                        else if (filterApp == "EduPage") "V oznámeniach EduPage zatiaľ nemám nové údaje o známkach. Oznámenia nemusia obsahovať celý elektronický klasifikačný záznam." else "Pane, v oznámeniach zatiaľ nemám náhľady z aplikácie $filterApp. Možno je tam dnes nezvyčajné ticho."
                     } else {
                         val spokenMessages = messages.take(8).mapIndexed { index, entry ->
                             val parts = entry.split("|", limit = 3)
                             val app = parts.getOrElse(0) { "Aplikácia" }
                             val sender = parts.getOrElse(1) { "Neznámy odosielateľ" }
                             val body = parts.getOrElse(2) { "" }
-                            val lead = when (index) {
+                            val lead = if (app == "EduPage") "Oznámenie EduPage." else when (index) {
                                 0 -> "Ozval sa vám niekto cez $app. Odosielateľ: $sender."
                                 1 -> "A máme tu ďalšiu správu. $sender píše cez $app."
                                 else -> "Ďalej sa ozval $sender."
