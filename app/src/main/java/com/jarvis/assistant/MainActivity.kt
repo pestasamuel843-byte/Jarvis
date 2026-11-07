@@ -248,8 +248,8 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
         if (waitingReply != null && (text.equals("áno", true) || text.equals("potvrď", true) || text.equals("odošli", true) || text.equals("odoslať", true))) {
             pendingReply = null
             val sent = GmailNotificationListener.sendReply(waitingReply.appName, waitingReply.sender, waitingReply.text)
-            val answer = if (sent) "Správa bola odoslaná cez rýchlu odpoveď oznámenia, pane."
-                else "Oznámenie neposkytuje použiteľné tlačidlo rýchlej odpovede alebo už nie je aktívne. Správu som neodoslal. Otvorte príslušnú konverzáciu v aplikácii a odošlite ju tam."
+            val answer = if (sent) "Odpoveď som odovzdal aplikácii cez rýchlu odpoveď oznámenia, pane. Potvrdenie doručenia od danej služby nemám."
+                else "Oznámenie neposkytuje použiteľnú rýchlu odpoveď alebo už nie je aktívne. Správu som neodoslal. Otvorte príslušnú konverzáciu v aplikácii."
             chat.add(Message(true, answer)); speak(answer)
             return
         }
@@ -731,8 +731,10 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                         text.contains("gmail", true) || text.contains("email", true) || text.contains("e-mail", true) -> "Gmail"
                         else -> ""
                     }
+                    val recentCutoff = System.currentTimeMillis() - 7L * 24L * 60L * 60L * 1000L
                     val messages = (0 until previews.length()).mapNotNull { i ->
                         val item = previews.optJSONObject(i) ?: return@mapNotNull null
+                        if (item.optLong("time", 0L) < recentCutoff) return@mapNotNull null
                         val app = item.optString("app", "Gmail")
                         if (filterApp.isNotBlank() && app != filterApp) return@mapNotNull null
                         val title = item.optString("title").trim()
