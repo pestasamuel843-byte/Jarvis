@@ -17,10 +17,8 @@ import java.util.Locale
 
 /**
  * Visible, user-enabled foreground microphone service.
- *
- * Android's platform recognizer is restarted after each utterance because SpeechRecognizer
- * is a one-session API. The service itself remains alive across Activity/Compose navigation
- * and screen changes while its ongoing notification is visible.
+ * SpeechRecognizer is a one-utterance API, so normal end-of-speech/time-out
+ * results are restarted quickly. Longer recovery delays are reserved for real errors.
  */
 class JarvisVoiceService : Service() {
     private val handler = Handler(Looper.getMainLooper())
@@ -53,7 +51,7 @@ class JarvisVoiceService : Service() {
             }
             ACTION_RESUME -> {
                 pausedForSpeech = false
-                scheduleRestart(350L)
+                scheduleRestart(250L)
             }
             else -> {
                 stopped = false
@@ -66,7 +64,7 @@ class JarvisVoiceService : Service() {
     private fun createRecognizer(preferOnDevice: Boolean = true) {
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             sendStatus("ROZPOZNÁVANIE REČI NIE JE DOSTUPNÉ")
-            scheduleRestart(5000L)
+            scheduleRestart(3000L)
             return
         }
         runCatching {
@@ -95,14 +93,14 @@ class JarvisVoiceService : Service() {
                         when (error) {
                             SpeechRecognizer.ERROR_NO_MATCH,
                             SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {
-                                // These are normal idle-listening outcomes. Keep the recognizer instance;
-                                // destroying it here creates a rapid start/stop loop and repeated system tones.
-                                consecutiveErrors = (consecutiveErrors + 1).coerceAtMost(6)
-                                scheduleRestart((900L + consecutiveErrors * 250L).coerceAtMost(2400L))
+                                // Silence is normal, not a fault. Do not increase the delay
+                                // after every quiet interval: that caused multi-second dead air.
+                                consecutiveErrors = 0
+                                scheduleRestart(300L)
                             }
                             SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> {
                                 consecutiveErrors++
-                                recreateAndRestart(1600L)
+                                recreateAndRestart(700L)
                             }
                             SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> {
                                 sendStatus("MIKROFÓN NEMÁ POVOLENIE")
@@ -113,15 +111,15 @@ class JarvisVoiceService : Service() {
                                 if (usingOnDeviceRecognizer && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                                     sendStatus("SLOVENSKÝ OFFLINE BALÍK NIE JE DOSTUPNÝ • SKÚŠAM SYSTÉMOVÉ ROZPOZNÁVANIE")
                                     createRecognizer(preferOnDevice = false)
-                                    scheduleRestart(1200L)
+                                    scheduleRestart(500L)
                                 } else {
                                     consecutiveErrors++
-                                    recreateAndRestart(2500L)
+                                    recreateAndRestart(1800L)
                                 }
                             }
                             else -> {
-                                consecutiveErrors = (consecutiveErrors + 1).coerceAtMost(6)
-                                recreateAndRestart((1200L + consecutiveErrors * 500L).coerceAtMost(4200L))
+                                consecutiveErrors = (consecutiveErrors + 1).coerceAtMost(5)
+                                recreateAndRestart((900L + consecutiveErrors * 300L).coerceAtMost(2400L))
                             }
                         }
                     }
@@ -133,13 +131,13 @@ class JarvisVoiceService : Service() {
                             ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                             ?.firstOrNull().orEmpty().trim()
                         processPhrase(phrase)
-                        scheduleRestart(if (sessionActive) 220L else 420L)
+                        scheduleRestart(if (sessionActive) 250L else 350L)
                     }
                 })
             }
         }.onFailure {
             sendStatus("CHYBA MIKROFÓNU: ${it.message ?: "neznáma chyba"}")
-            scheduleRestart(1500L)
+            scheduleRestart(1200L)
         }
     }
 
@@ -151,20 +149,14 @@ class JarvisVoiceService : Service() {
 
         val wake = Regex("^(?:(?:hej|hey) )?jarvis\\b[ ,:]*", RegexOption.IGNORE_CASE)
         val match = wake.find(normalized)
-        val isWakePhrase = match != null
-
-        if (isWakePhrase) {
-            val remainder = normalized.substring(match!!.range.last + 1).trim()
+        if (match != null) {
+            val remainder = normalized.substring(match.range.last + 1).trim()
             sessionActive = true
             sendStatus("KONVERZÁCIA AKTÍVNA")
-            if (remainder.isBlank()) {
-                sendCommandBroadcast(ACTION_WAKE, "")
-            } else {
-                dispatchCommand(remainder)
-            }
+            if (remainder.isBlank()) sendCommandBroadcast(ACTION_WAKE, "")
+            else dispatchCommand(remainder)
             return
         }
-
         if (sessionActive) dispatchCommand(phrase)
     }
 
@@ -216,12 +208,12 @@ class JarvisVoiceService : Service() {
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, "sk-SK")
-                // Prefer a downloaded offline language pack where the installed recognition service supports it.
                 putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
-                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1400L)
-                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 850L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1200L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 700L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1000L)
             }
             recognizer?.startListening(intent)
             listening = true
