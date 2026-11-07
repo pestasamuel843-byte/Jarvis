@@ -1242,7 +1242,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                             color = Muted, fontSize = 11.sp
                         )
                         TextButton(onClick = {
-                            runCatching { context.startActivity(Intent(Settings.ACTION_TEXT_TO_SPEECH_SETTINGS)) }
+                            runCatching { context.startActivity(Intent("com.android.settings.TTS_SETTINGS")) }
                                 .onFailure { context.startActivity(Intent(Settings.ACTION_SETTINGS)) }
                         }) { Text("OTVORIŤ NASTAVENIA HLASU ANDROIDU", color = Cyan) }
                         Divider(color = Color(0xFF24465A))
