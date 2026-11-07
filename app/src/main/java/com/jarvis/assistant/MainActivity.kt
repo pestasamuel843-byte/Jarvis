@@ -86,6 +86,8 @@ private val Muted = Color(0xFF9BAFC2)
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = null
+    private var ttsReady = false
+    private var pendingSpeech: String? = null
     @Volatile private var speechOutputActive = false
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -105,6 +107,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             val engine = tts ?: return
+            ttsReady = true
             engine.language = Locale("sk", "SK")
             engine.setSpeechRate(0.96f)
             engine.setPitch(1.0f)
@@ -115,29 +118,37 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 override fun onError(utteranceId: String?) { speechOutputActive = false; startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
                 override fun onError(utteranceId: String?, errorCode: Int) { speechOutputActive = false; startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
             })
-            // Prefer Slovak male voice, especially Lukáš / Neural when the installed TTS engine exposes it.
-            // The classic Microsoft Edge "sk-SK-LukasNeural" voice is not guaranteed to be available
-            // through Android TextToSpeech; this selects the closest installed Slovak voice.
+            // Never match "male" inside "female". Also do not treat the generic word
+            // "neural" as proof of a male voice: many Neural voices are female.
             val slovakVoices = engine.voices?.filter { it.locale.language == "sk" }.orEmpty()
-            val lukasVoice = slovakVoices.firstOrNull {
-                val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
-                name.contains("lukas") || name.contains("lukáš") || name.contains("neural")
+            fun voiceName(voice: android.speech.tts.Voice) =
+                (voice.name + " " + voice.locale.displayName).lowercase(Locale.ROOT)
+            val selectedVoice = slovakVoices.firstOrNull {
+                val name = voiceName(it)
+                !name.contains("female") && (name.contains("lukas") || name.contains("lukáš"))
+            } ?: slovakVoices.firstOrNull {
+                val name = voiceName(it)
+                !name.contains("female") &&
+                    Regex("(^|[^a-z])male([^a-z]|$)").containsMatchIn(name)
             }
-            val maleSlovak = slovakVoices.firstOrNull {
-                val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
-                name.contains("male") || name.contains("masculine") || name.contains("man") || name.contains("muž") || name.contains("muz")
-            }
-            val selectedVoice = lukasVoice ?: maleSlovak
             if (selectedVoice != null) {
                 engine.voice = selectedVoice
-                android.util.Log.i("JARVIS-TTS", "Selected Slovak voice: ${selectedVoice.name}")
+                getSharedPreferences("jarvis", MODE_PRIVATE).edit().putString("tts_voice_status", selectedVoice.name).apply()
+                android.util.Log.i("JARVIS-TTS", "Selected explicitly male Slovak voice: ${selectedVoice.name}")
             } else {
-                android.util.Log.w("JARVIS-TTS", "No identifiable Slovak male/Lukas voice installed; using Android default Slovak voice. Install/select a Slovak male voice in Android Text-to-speech settings.")
+                // Do not silently claim that Lukáš is installed. The Android engine's
+                // default Slovak voice remains in use until a verified male voice is available.
+                getSharedPreferences("jarvis", MODE_PRIVATE).edit().putString("tts_voice_status", "NO_VERIFIED_MALE_SLOVAK_VOICE").apply()
+                android.util.Log.e("JARVIS-TTS", "No explicitly identifiable male Slovak voice installed on this device.")
             }
+            pendingSpeech?.let { queued -> pendingSpeech = null; speak(queued) }
+        } else {
+            android.util.Log.e("JARVIS-TTS", "TextToSpeech initialization failed: $status")
         }
     }
     private fun speak(text: String) {
         val engine = tts ?: return
+        if (!ttsReady) { pendingSpeech = text; return }
         // Mark speech synchronously so the microphone loop cannot hear JARVIS speaking.
         speechOutputActive = true
         if (JarvisVoiceService.isRunning) startService(Intent(this, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_PAUSE))
@@ -244,8 +255,8 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
         if (waitingReply != null && (text.equals("áno", true) || text.equals("potvrď", true) || text.equals("odošli", true) || text.equals("odoslať", true))) {
             pendingReply = null
             val sent = GmailNotificationListener.sendReply(waitingReply.appName, waitingReply.sender, waitingReply.text)
-            val answer = if (sent) "Správa bola odoslaná cez rýchlu odpoveď oznámenia, pane."
-                else "Oznámenie neposkytuje použiteľné tlačidlo rýchlej odpovede alebo už nie je aktívne. Správu som neodoslal. Otvorte príslušnú konverzáciu v aplikácii a odošlite ju tam."
+            val answer = if (sent) "Odpoveď som odovzdal aplikácii cez rýchlu odpoveď oznámenia, pane. Potvrdenie doručenia od danej služby nemám."
+                else "Oznámenie neposkytuje použiteľnú rýchlu odpoveď alebo už nie je aktívne. Správu som neodoslal. Otvorte príslušnú konverzáciu v aplikácii."
             chat.add(Message(true, answer)); speak(answer)
             return
         }
@@ -727,8 +738,10 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                         text.contains("gmail", true) || text.contains("email", true) || text.contains("e-mail", true) -> "Gmail"
                         else -> ""
                     }
+                    val recentCutoff = System.currentTimeMillis() - 7L * 24L * 60L * 60L * 1000L
                     val messages = (0 until previews.length()).mapNotNull { i ->
                         val item = previews.optJSONObject(i) ?: return@mapNotNull null
+                        if (item.optLong("time", 0L) < recentCutoff) return@mapNotNull null
                         val app = item.optString("app", "Gmail")
                         if (filterApp.isNotBlank() && app != filterApp) return@mapNotNull null
                         val title = item.optString("title").trim()
@@ -887,7 +900,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     val answer = if (brain.isInstalled()) {
                         runCatching { brain.answer(text) }.getOrElse { "Pane, offline AI model sa nepodarilo spustiť: ${it.message ?: "neznáma chyba"}" }
                     } else {
-                        "Pane, lokálne príkazy fungujú. Ak chcete aj konverzačnú AI bez API kľúča, otvorte Nastavenia a stiahnite Offline AI mozog (približne 330 MB)."
+                        "Pane, lokálne príkazy fungujú. Ak chcete aj konverzačnú AI bez API kľúča, otvorte Nastavenia a stiahnite Offline AI mozog (347 MB)."
                     }
                     chat.add(Message(true, answer)); speak(answer); busy = false
                 }
@@ -918,7 +931,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             wakeMode = true
             listening = true
             prefs.edit().putBoolean("voice_enabled", true).apply()
-            context.startForegroundService(Intent(context, JarvisVoiceService::class.java))
+            context.startForegroundService(Intent(context, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_PAUSE))
             if (firstRunSetupRequested) {
                 firstRunSetupRequested = false
                 prefs.edit().putBoolean("first_run_completed", true).apply()
@@ -1200,7 +1213,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                             prefs.edit().putBoolean("first_run_completed", true).putBoolean("voice_enabled", true).apply()
                             scheduleSetupIndex = 0
                             wakeMode = true
-                            context.startForegroundService(Intent(context, JarvisVoiceService::class.java))
+                            context.startForegroundService(Intent(context, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_PAUSE))
                             chat.add(Message(true, prompt))
                             speak(prompt)
                         } else {
@@ -1220,8 +1233,21 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 title = { Text("Nastavenia JARVIS") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("HLASOVÝ VÝSTUP", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        val installedVoice = prefs.getString("tts_voice_status", "NEOVERENÝ / EŠTE NEINICIALIZOVANÝ").orEmpty()
+                        Text(
+                            if (installedVoice == "NO_VERIFIED_MALE_SLOVAK_VOICE")
+                                "Nenašiel som nainštalovaný overiteľný mužský slovenský hlas. JARVIS preto nemôže sľúbiť hlas Lukáš, kým ho Android TTS nemá k dispozícii."
+                            else "Aktuálny hlasový profil: $installedVoice",
+                            color = Muted, fontSize = 11.sp
+                        )
+                        TextButton(onClick = {
+                            runCatching { context.startActivity(Intent("com.android.settings.TTS_SETTINGS")) }
+                                .onFailure { context.startActivity(Intent(Settings.ACTION_SETTINGS)) }
+                        }) { Text("OTVORIŤ NASTAVENIA HLASU ANDROIDU", color = Cyan) }
+                        Divider(color = Color(0xFF24465A))
                         Text("OFFLINE AI MOZOG", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text("Stiahne model Qwen3 INT4 (približne 330 MB). Potom bude lokálna AI fungovať bez API kľúča a bez internetu.", color = Muted, fontSize = 11.sp)
+                        Text("Stiahne jazykový model Qwen3 INT4 (347 MB). Je to offline textový mozog, nie hlasový balík. Rozpoznávanie reči a hlas Lukáš sa nastavujú samostatne v systéme Android.", color = Muted, fontSize = 11.sp)
                         Button(
                             onClick = {
                                 apiTesting = true
@@ -1229,11 +1255,11 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                                 scope.launch {
                                     try {
                                         OfflineBrain(context).download { percent ->
-                                            apiTestResult = "Sťahujem offline AI model: $percent %"
+                                            scope.launch(Dispatchers.Main.immediate) { apiTestResult = "Sťahujem offline AI model: $percent %" }
                                         }
-                                        apiTestResult = "Offline AI model je stiahnutý."
+                                        apiTestResult = "Offline AI model je stiahnutý a overený."
                                     } catch (error: Exception) {
-                                        apiTestResult = "Stiahnutie modelu zlyhalo: ${error.message ?: "neznáma chyba"}"
+                                        apiTestResult = "Stiahnutie modelu zlyhalo: ${error.message ?: "neznáma chyba"}. Nedokončené dáta zostali na pokračovanie."
                                     } finally {
                                         apiTesting = false
                                     }

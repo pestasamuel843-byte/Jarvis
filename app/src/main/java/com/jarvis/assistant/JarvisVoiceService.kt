@@ -63,7 +63,7 @@ class JarvisVoiceService : Service() {
         return START_STICKY
     }
 
-    private fun createRecognizer(preferOnDevice: Boolean = true) {
+    private fun createRecognizer(preferOnDevice: Boolean = false) {
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             sendStatus("ROZPOZNÁVANIE REČI NIE JE DOSTUPNÉ")
             scheduleRestart(5000L)
@@ -97,8 +97,9 @@ class JarvisVoiceService : Service() {
                             SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {
                                 // These are normal idle-listening outcomes. Keep the recognizer instance;
                                 // destroying it here creates a rapid start/stop loop and repeated system tones.
-                                consecutiveErrors = (consecutiveErrors + 1).coerceAtMost(6)
-                                scheduleRestart((900L + consecutiveErrors * 250L).coerceAtMost(2400L))
+                                // Silence/no-match is expected during hands-free standby.
+                                // Do not increase the backoff counter for normal idle listening.
+                                scheduleRestart(if (error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) 350L else 700L)
                             }
                             SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> {
                                 consecutiveErrors++
@@ -216,12 +217,13 @@ class JarvisVoiceService : Service() {
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, "sk-SK")
-                // Prefer a downloaded offline language pack where the installed recognition service supports it.
-                putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+                // Use the device's normal Slovak recognition provider. Forcing offline mode
+                // caused language-unavailable loops on tablets without a Slovak offline pack.
+                putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1400L)
-                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 850L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 4000L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2200L)
             }
             recognizer?.startListening(intent)
             listening = true
