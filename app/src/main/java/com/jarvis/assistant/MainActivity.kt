@@ -1147,6 +1147,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                             } else micPermission.launch(Manifest.permission.RECORD_AUDIO)
                         },
                         onWorkspace = { showWorkspace = true },
+                        onMaps = { lastWorkspaceRequest = "mapu"; showWorkspace = true },
                         onChat = { showChat = true },
                         onSettings = { settings = true }
                     )
@@ -1442,7 +1443,7 @@ private data class JarvisTask(val title: String, val done: Boolean)
 @Composable
 private fun JarvisDashboard(
  modifier: Modifier, wakeMode: Boolean, busy: Boolean, aiReady: Boolean, model: String,
- onToggleVoice: () -> Unit, onWorkspace: () -> Unit, onChat: () -> Unit, onSettings: () -> Unit
+ onToggleVoice: () -> Unit, onWorkspace: () -> Unit, onMaps: () -> Unit, onChat: () -> Unit, onSettings: () -> Unit
 ) {
     val context = LocalContext.current
     val transition = rememberInfiniteTransition(label = "cinematic_hud")
@@ -1542,6 +1543,7 @@ private fun JarvisDashboard(
                     onToggleVoice = onToggleVoice,
                     onChat = onChat,
                     onWorkspace = onWorkspace,
+                    onMaps = onMaps,
                     onSettings = onSettings
                 )
             }
@@ -1572,6 +1574,7 @@ private fun PersonalDashboardSidePanel(
     onToggleVoice: () -> Unit,
     onChat: () -> Unit,
     onWorkspace: () -> Unit,
+    onMaps: () -> Unit,
     onSettings: () -> Unit
 ) {
     val context = LocalContext.current
@@ -1620,6 +1623,16 @@ private fun PersonalDashboardSidePanel(
             DashboardAction("⬡", "PROJEKT", Modifier.weight(1f), onWorkspace)
             DashboardAction("⚙", "NASTAVENIA", Modifier.weight(1f), onSettings)
         }
+        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            DashboardAction("⌖", "3D MAPY", Modifier.weight(1f), onMaps)
+            DashboardAction("▶", "VIDEÁ", Modifier.weight(1f)) {
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com"))) }
+            }
+            DashboardAction("▣", "OBCHOD", Modifier.weight(1f)) {
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.alza.sk"))) }
+            }
+        }
+        Text("EXTERNÉ SLUŽBY • MAPY V PRACOVNOM PRIESTORE • VIDEO A OBCHOD SA OTVÁRAJÚ ONLINE", color = Muted, fontSize = 6.sp, letterSpacing = .4.sp)
         Text(if (busy) "JARVIS PRACUJE…" else if (aiReady) "AI ENGINE ONLINE" else "AI ENGINE NEKONFIGUROVANÝ", color = if (busy) Color(0xFFFFBD68) else if (aiReady) Color(0xFF69F0AE) else Muted, fontSize = 7.sp)
     }
 }
