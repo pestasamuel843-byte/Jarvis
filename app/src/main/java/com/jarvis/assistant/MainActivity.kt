@@ -626,12 +626,35 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                         if (filterApp.isNotBlank() && app != filterApp) return@mapNotNull null
                         val title = item.optString("title").trim()
                         val body = item.optString("text").trim()
-                        if (title.isBlank() && body.isBlank()) null else "$app. " + listOf(title, body).filter { it.isNotBlank() }.joinToString(". ")
+                        if (title.isBlank() && body.isBlank()) null else {
+                            val sender = title.ifBlank { "Neznámy odosielateľ" }
+                            val content = body.ifBlank { "V oznámení nie je zobrazený text správy." }
+                            "$app|$sender|$content"
+                        }
                     }
+                    val banter = listOf(
+                        "Pane, vyzerá to, že dnes máte celkom rušný inbox.",
+                        "Tak, pane, poďme zistiť, kto sa vám ozval.",
+                        "Pane, správy sa vám dnes veru nehromadia samy."
+                    ).random()
                     val answer = if (messages.isEmpty()) {
-                        if (filterApp.isBlank()) "Zatiaľ nemám nové náhľady správ. Skontrolujte, či sú upozornenia zapnuté v príslušných aplikáciách."
-                        else "V oznámeniach zatiaľ nemám náhľady z aplikácie $filterApp. Skontrolujte jej upozornenia."
-                    } else "Náhľady posledných správ: " + messages.take(8).joinToString(". Ďalšia správa: ")
+                        if (filterApp.isBlank()) "Pane, zatiaľ tu nemám nové náhľady správ. Buď je pokoj, alebo si všetci dávajú načas."
+                        else "Pane, v oznámeniach zatiaľ nemám náhľady z aplikácie $filterApp. Možno je tam dnes nezvyčajné ticho."
+                    } else {
+                        val spokenMessages = messages.take(8).mapIndexed { index, entry ->
+                            val parts = entry.split("|", limit = 3)
+                            val app = parts.getOrElse(0) { "Aplikácia" }
+                            val sender = parts.getOrElse(1) { "Neznámy odosielateľ" }
+                            val body = parts.getOrElse(2) { "" }
+                            val lead = when (index) {
+                                0 -> "Ozval sa vám niekto cez $app. Odosielateľ: $sender."
+                                1 -> "A máme tu ďalšiu správu. $sender píše cez $app."
+                                else -> "Ďalej sa ozval $sender."
+                            }
+                            "$lead $body"
+                        }
+                        banter + " " + spokenMessages.joinToString(" Ďalšia správa. ")
+                    }
                     chat.add(Message(true, answer)); speak(answer)
                 }
             }
@@ -1582,7 +1605,7 @@ private fun askAi(endpoint: String, key: String, model: String, history: List<Me
         val lastUserQuery = history.lastOrNull { !it.jarvis }?.text.orEmpty()
         val webContext = if (lastUserQuery.isNotBlank() && shouldSearchWeb(lastUserQuery)) searchWeb(lastUserQuery) else ""
         val systemPrompt = """
-Si JARVIS, pokročilý slovenský AI asistent. Používateľa oslovuj „pane“. Odpovedaj po slovensky, prirodzene, presne a priamo.
+Si JARVIS, pokročilý slovenský AI asistent. Používateľa oslovuj „pane“. Odpovedaj po slovensky, prirodzene, presne a priamo. Máš osobnosť pohotového, inteligentného a mierne vtipného komorníka: občas pridaj krátku situačnú poznámku alebo jemný žart, najmä pri bežných správach a každodenných situáciách. Neopakuj stále rovnaké frázy, nepreháňaj humor a nikdy si nevymýšľaj obsah správ ani úmysly odosielateľa. Pri čítaní správ najprv prirodzene uveď, kto sa ozval a cez ktorú aplikáciu, potom verne prečítaj dostupný text. Citlivé, vážne alebo osobné správy čítaj vecne a bez žartov.
 Tvoje hlavné úlohy v rámci schopností aplikácie:
 - Hlasový asistent: rozumej prirodzenej slovenčine, krátkym príkazom aj neformálnemu vyjadrovaniu. Odpovedaj stručne a s vykaním.
 - Osobný organizér: pomáhaj s poznámkami, školským rozvrhom, známkami, dennými záznamami a plánovaním; nikdy si nevymýšľaj osobné ani zdravotné údaje.
