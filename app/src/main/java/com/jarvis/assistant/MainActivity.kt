@@ -301,6 +301,14 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
         showChat = true
         input = ""
         chat.add(Message(false, text))
+        // Agent tool routing: parse a natural-language request into one or more Android actions.
+        // The router returns null when the request needs conversational AI instead.
+        val agentResult = JarvisAgent.execute(context, text)
+        if (agentResult != null) {
+            chat.add(Message(true, agentResult))
+            speak(agentResult)
+            return
+        }
         when {
             text.contains("nastav rozvrh", true) || text.contains("pridaj rozvrh", true) || text == "rozvrh" || text.contains("rozvrh školy", true) -> {
                 scheduleSetupIndex = 0
