@@ -30,6 +30,7 @@ class JarvisVoiceService : Service() {
     private var sessionActive = false
     private var pausedForSpeech = false
     private var restartQueued = false
+    private var usingOnDeviceRecognizer = false
 
     override fun onCreate() {
         super.onCreate()
@@ -61,7 +62,7 @@ class JarvisVoiceService : Service() {
         return START_STICKY
     }
 
-    private fun createRecognizer() {
+    private fun createRecognizer(preferOnDevice: Boolean = true) {
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             sendStatus("ROZPOZNÁVANIE REČI NIE JE DOSTUPNÉ")
             scheduleRestart(5000L)
@@ -69,7 +70,13 @@ class JarvisVoiceService : Service() {
         }
         runCatching {
             recognizer?.destroy()
-            recognizer = SpeechRecognizer.createSpeechRecognizer(this).also { speech ->
+            usingOnDeviceRecognizer = preferOnDevice && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                SpeechRecognizer.isOnDeviceRecognitionAvailable(this)
+            recognizer = if (usingOnDeviceRecognizer) {
+                SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
+            } else {
+                SpeechRecognizer.createSpeechRecognizer(this)
+            }.also { speech ->
                 speech.setRecognitionListener(object : RecognitionListener {
                     override fun onReadyForSpeech(params: Bundle?) {
                         listening = true
@@ -84,6 +91,14 @@ class JarvisVoiceService : Service() {
 
                     override fun onError(error: Int) {
                         listening = false
+                        // If Android has no Slovak offline speech pack, fall back to its regular recognizer.
+                        if (usingOnDeviceRecognizer && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                            (error == SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED ||
+                                error == SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE)) {
+                            createRecognizer(preferOnDevice = false)
+                            scheduleRestart(300L)
+                            return
+                        }
                         val delay = when (error) {
                             SpeechRecognizer.ERROR_NO_MATCH,
                             SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 300L
@@ -183,7 +198,8 @@ class JarvisVoiceService : Service() {
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, "sk-SK")
-                putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
+                // Prefer a downloaded offline language pack where the installed recognition service supports it.
+                putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
                 putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1400L)
