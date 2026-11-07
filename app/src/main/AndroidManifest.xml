@@ -40,6 +40,10 @@
             android:name=".JarvisVoiceService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
+        <receiver
+            android:name=".JarvisReminderReceiver"
+            android:enabled="true"
+            android:exported="false" />
         <service
             android:name=".JarvisAppLockService"
             android:label="JARVIS – Uzamykanie aplikácií"

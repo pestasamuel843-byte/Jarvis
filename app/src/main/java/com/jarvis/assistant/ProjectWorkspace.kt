@@ -227,7 +227,7 @@ button:active{background:#17455b}
 </div>
 <div class="tag">LIVE 3D CITY • VECTOR MAP</div>
 <div class="bottom">
- <button onclick="toggle3D()">3D POHĽAD</button>
+ <button onclick="toggle3D()">3D POHĽAD</button><button onclick="toggleGlobe()">GLOBUS</button><button onclick="toggleSatellite()">SATELIT</button>
  <button onclick="locate()">MOJA POLOHA</button>
  <button onclick="routeMode()">TRASA</button>
  <button onclick="resetView()">RESET POHĽADU</button>
@@ -240,13 +240,15 @@ const map=new maplibregl.Map({
  container:'map',
  style:'https://tiles.openfreemap.org/styles/dark',
  center:[20.206,49.060],zoom:13.6,pitch:58,bearing:-18,
- antialias:true,attributionControl:true
+ antialias:true,attributionControl:true,projection:{type:'globe'}
 });
 map.addControl(new maplibregl.NavigationControl({visualizePitch:true}),'bottom-right');
 map.addControl(new maplibregl.ScaleControl({unit:'metric'}),'bottom-left');
 let marker=null,routeLayer=false,routeStart=null,threeD=true;
 map.on('load',()=>{
  try{
+  map.addSource('jarvis-satellite',{type:'raster',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],tileSize:256,attribution:'Imagery © Esri, Maxar, Earthstar Geographics and GIS User Community'});
+  map.addLayer({id:'jarvis-satellite-layer',type:'raster',source:'jarvis-satellite',layout:{visibility:'none'},paint:{'raster-opacity':1}});
   const layers=map.getStyle().layers||[];
   const label=layers.find(l=>l.type==='symbol'&&l.layout&&l.layout['text-field']);
   if(!map.getSource('openfreemap')) map.addSource('openfreemap',{type:'vector',url:'https://tiles.openfreemap.org/planet'});
@@ -264,6 +266,8 @@ map.on('load',()=>{
  }catch(e){status('Mapa je načítaná; 3D budovy nie sú v tomto výreze dostupné: '+e.message)}
 });
 map.on('error',e=>{if(e&&e.error)status('Mapové dáta sa načítavajú; skontroluj internetové pripojenie.')});
+function toggleGlobe(){const globe=map.getProjection().type!=='globe';map.setProjection({type:globe?'globe':'mercator'});status(globe?'Pohľad na zemeguľu aktivovaný':'Plochá projekcia mapy aktivovaná')}
+function toggleSatellite(){const visible=map.getLayoutProperty('jarvis-satellite-layer','visibility')!=='visible';map.setLayoutProperty('jarvis-satellite-layer','visibility',visible?'visible':'none');status(visible?'Satelitná vrstva zapnutá • Esri imagery':'Vektorová mapa zapnutá')}
 function toggle3D(){
  threeD=!threeD;
  map.easeTo({pitch:threeD?60:0,bearing:threeD?-18:0,duration:900});
@@ -348,44 +352,80 @@ function locate(){
 
 @Composable
 private fun WireframeScene(model: String, onModelChange: (String) -> Unit) {
-    var rotation by remember { mutableFloatStateOf(0.45f) }
+    val html = remember {
+        """
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#07101a;color:#eafaff;font:13px system-ui}
+#view{position:absolute;inset:0}#tools{position:absolute;z-index:3;left:8px;right:8px;top:8px;display:flex;gap:5px;flex-wrap:wrap}
+button{background:#0b2434;border:1px solid #236079;color:#4deBff;border-radius:7px;padding:8px 10px;font-weight:650}
+#status{position:absolute;z-index:3;bottom:8px;left:8px;padding:6px 9px;border-radius:7px;background:#06111ddd;color:#9cc4d2;font-size:10px}
+</style></head><body><div id="view"></div>
+<div id="tools">
+<button onclick="setShape('KOCKA')">Kocka</button><button onclick="setShape('GUĽA')">Guľa</button><button onclick="setShape('PYRAMÍDA')">Kužeľ</button><button onclick="setShape('DOM')">Dom</button><button onclick="setShape('AUTO')">Auto</button>
+<button onclick="addCube()">+ Objekt</button><button onclick="duplicateSelected()">Duplikovať</button><button onclick="removeSelected()">Odstrániť</button><button onclick="moveSelected(-.25,0,0)">X−</button><button onclick="moveSelected(.25,0,0)">X+</button><button onclick="moveSelected(0,.25,0)">Y+</button><button onclick="moveSelected(0,0,.25)">Z+</button><button onclick="rotateSelected()">↻ 15°</button><button onclick="scaleSelected(.1)">Zväčšiť</button><button onclick="scaleSelected(-.1)">Zmenšiť</button><button onclick="resetCamera()">Reset kamery</button><button onclick="saveScene()">Uložiť</button><button onclick="loadScene()">Načítať</button><button onclick="exportScene()">Export JSON</button>
+</div><div id="status">3D VIEWPORT • potiahnutím otáčaj, dvoma prstami približuj</div>
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+const host=document.getElementById('view');
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x07101a);
+scene.add(new THREE.HemisphereLight(0x9beeff,0x102033,2.0));
+const key=new THREE.DirectionalLight(0x9beeff,2.6);key.position.set(5,8,6);scene.add(key);
+const camera=new THREE.PerspectiveCamera(45,1,.1,1000);camera.position.set(5,4,7);
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,2));host.appendChild(renderer.domElement);
+const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.target.set(0,1,0);
+const grid=new THREE.GridHelper(20,40,0x236079,0x153246);scene.add(grid);
+const objects=[];let selected=null;
+const mat=()=>new THREE.MeshStandardMaterial({color:0x4deBff,metalness:.55,roughness:.28,emissive:0x07303a});
+function add(geometry,x=0,y=1,z=0){const mesh=new THREE.Mesh(geometry,mat());mesh.position.set(x,y,z);scene.add(mesh);objects.push(mesh);selected=mesh;document.getElementById('status').textContent='Objektov: '+objects.length+' • vybraný objekt';return mesh}
+function clear(){for(const o of objects){scene.remove(o);o.geometry.dispose();o.material.dispose()}objects.length=0;selected=null}
+window.setShape=(name)=>{clear();if(name==='GUĽA')add(new THREE.SphereGeometry(1,48,32));else if(name==='PYRAMÍDA')add(new THREE.ConeGeometry(1,2,4));else if(name==='DOM'){add(new THREE.BoxGeometry(2,1.5,2),0,.75,0);const roof=add(new THREE.ConeGeometry(1.55,.9,4),0,1.95,0);roof.rotation.y=Math.PI/4;}else if(name==='AUTO'){add(new THREE.BoxGeometry(3,.65,1.4),0,.75,0);add(new THREE.BoxGeometry(1.5,.65,1.15),-.15,1.35,0);for(const x of [-1,1])for(const z of [-.62,.62]){const w=add(new THREE.CylinderGeometry(.34,.34,.18,24),x,.35,z);w.rotation.x=Math.PI/2;w.material.color.set(0x172b3a)}}else if(name==='ULICA'){add(new THREE.BoxGeometry(18,.12,5),0,.06,0).material.color.set(0x263b4a);for(let x=-7;x<=7;x+=2.5){const mark=add(new THREE.BoxGeometry(1,.025,.12),x,.13,0);mark.material.color.set(0xb5eaf4)}for(const x of [-6,6]){const building=add(new THREE.BoxGeometry(3,3,3),x,1.5,-4);building.material.color.set(0x17617a)}}else add(new THREE.BoxGeometry(2,2,2));};
+window.addCube=()=>add(new THREE.BoxGeometry(1,1,1),(Math.random()-.5)*2,1,(Math.random()-.5)*2);
+window.removeSelected=()=>{if(!selected)return;scene.remove(selected);objects.splice(objects.indexOf(selected),1);selected.geometry.dispose();selected.material.dispose();selected=null;document.getElementById('status').textContent='Objekt odstránený • zostáva '+objects.length};
+window.duplicateSelected=()=>{if(!selected){document.getElementById('status').textContent='Najprv vyber objekt';return}const copy=new THREE.Mesh(selected.geometry.clone(),selected.material.clone());copy.position.copy(selected.position).add(new THREE.Vector3(.6,0,.6));copy.rotation.copy(selected.rotation);copy.scale.copy(selected.scale);scene.add(copy);objects.push(copy);selected=copy;document.getElementById('status').textContent='Objekt duplikovaný • spolu '+objects.length};
+window.moveSelected=(x,y,z)=>{if(!selected){document.getElementById('status').textContent='Najprv vyber objekt';return}selected.position.add(new THREE.Vector3(x,y,z));document.getElementById('status').textContent='Poloha: '+selected.position.toArray().map(v=>v.toFixed(2)).join(', ')};
+window.rotateSelected=()=>{if(!selected){document.getElementById('status').textContent='Najprv vyber objekt';return}selected.rotation.y+=Math.PI/12;document.getElementById('status').textContent='Otočenie: '+(selected.rotation.y*180/Math.PI).toFixed(0)+'°'};
+window.scaleSelected=(delta)=>{if(!selected){document.getElementById('status').textContent='Najprv vyber objekt';return}const factor=delta>0?1.1:.9;selected.scale.multiplyScalar(factor);document.getElementById('status').textContent='Mierka: '+selected.scale.x.toFixed(2)};
+window.resetCamera=()=>{camera.position.set(5,4,7);controls.target.set(0,1,0);controls.update()};
+function sceneData(){return {format:'jarvis-scene-v1',savedAt:new Date().toISOString(),objects:objects.map(o=>({geometry:o.geometry.type,parameters:o.geometry.parameters,position:o.position.toArray(),rotation:o.rotation.toArray(),scale:o.scale.toArray(),color:'#'+o.material.color.getHexString()}))}}
+window.saveScene=()=>{try{localStorage.setItem('jarvis-scene',JSON.stringify(sceneData()));document.getElementById('status').textContent='Scéna uložená lokálne v tomto tablete • '+objects.length+' objektov'}catch(e){document.getElementById('status').textContent='Uloženie zlyhalo: '+e.message}};
+window.loadScene=()=>{try{const raw=localStorage.getItem('jarvis-scene');if(!raw)throw Error('Zatiaľ nie je uložená scéna');const data=JSON.parse(raw);if(data.format!=='jarvis-scene-v1'||!Array.isArray(data.objects))throw Error('Neplatný formát projektu');clear();for(const o of data.objects){let g;const p=o.parameters||{};switch(o.geometry){case 'BoxGeometry':g=new THREE.BoxGeometry(p.width||1,p.height||1,p.depth||1);break;case 'SphereGeometry':g=new THREE.SphereGeometry(p.radius||1,p.widthSegments||32,p.heightSegments||16);break;case 'ConeGeometry':g=new THREE.ConeGeometry(p.radius||1,p.height||2,p.radialSegments||8);break;case 'CylinderGeometry':g=new THREE.CylinderGeometry(p.radiusTop||1,p.radiusBottom||1,p.height||1,p.radialSegments||8);break;default:continue}const m=add(g);m.position.fromArray(o.position||[0,1,0]);m.rotation.set(...(o.rotation||[0,0,0]));m.scale.fromArray(o.scale||[1,1,1]);m.material.color.set(o.color||'#4deBff')}document.getElementById('status').textContent='Načítaná scéna • '+objects.length+' objektov'}catch(e){document.getElementById('status').textContent='Načítanie zlyhalo: '+e.message}};
+window.exportScene=()=>{const data=JSON.stringify(sceneData(),null,2);let panel=document.getElementById('scene-export');if(!panel){panel=document.createElement('textarea');panel.id='scene-export';panel.style='position:absolute;z-index:10;left:8px;right:8px;bottom:40px;width:calc(100% - 16px);height:110px;background:#071a29;color:#dffaff;border:1px solid #4deBff;border-radius:8px;padding:8px;font:10px monospace';panel.title='Export JSON – podržte a skopírujte';document.body.appendChild(panel)}panel.value=data;panel.focus();panel.select();document.getElementById('status').textContent='JSON export pripravený na skopírovanie • GLB/STL export zatiaľ nie je dostupný'};
+const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
+renderer.domElement.addEventListener('pointerdown',e=>{const r=renderer.domElement.getBoundingClientRect();pointer.x=((e.clientX-r.left)/r.width)*2-1;pointer.y=-((e.clientY-r.top)/r.height)*2+1;raycaster.setFromCamera(pointer,camera);const hit=raycaster.intersectObjects(objects)[0];if(hit){selected=hit.object;selected.material.emissive.set(0x07505c)}});
+function resize(){const w=host.clientWidth,h=host.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
+new ResizeObserver(resize).observe(host);resize();window.setShape('KOCKA');
+function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera)}animate();
+</script></body></html>
+        """.trimIndent()
+    }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-            listOf("KOCKA", "PYRAMÍDA", "DOM", "AUTO", "ULICA", "GUĽA").forEach { shape ->
-                TextButton(onClick = { onModelChange(shape) }, contentPadding = PaddingValues(horizontal = 3.dp, vertical = 2.dp)) {
-                    Text(shape, color = if (model == shape) Color.White else WorkCyan, fontSize = 9.sp)
+        Text("3D EDITOR • výber objektov, posun, otočenie, mierka a duplikovanie", color = WorkCyan, fontSize = 10.sp)
+        AndroidView(
+            modifier = Modifier.fillMaxWidth().height(340.dp).background(Color(0xFF07101A), RoundedCornerShape(12.dp)),
+            factory = { ctx ->
+                WebView(ctx).apply {
+                    webViewClient = WebViewClient()
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    settings.allowContentAccess = false
+                    settings.allowFileAccess = false
+                    settings.loadWithOverviewMode = true
+                    settings.useWideViewPort = true
+                    setBackgroundColor(android.graphics.Color.rgb(7,16,26))
+                    loadDataWithBaseURL("https://jarvis.local/", html, "text/html", "UTF-8", null)
+                }
+            },
+            update = { view ->
+                val safeModel = model.replace("'", "").replace("\\", "")
+                if (view.tag != safeModel) {
+                    view.tag = safeModel
+                    view.evaluateJavascript("window.setShape && window.setShape('$safeModel')", null)
                 }
             }
-        }
-        Canvas(
-            Modifier.fillMaxWidth().height(240.dp)
-                .background(Color(0xFF07101A), RoundedCornerShape(12.dp))
-                .pointerInput(Unit) {
-                    detectDragGestures { change, drag ->
-                        change.consume()
-                        rotation += drag.x * 0.01f
-                    }
-                }
-        ) {
-            val vertices = listOf(
-                floatArrayOf(-1f,-1f,-1f), floatArrayOf(1f,-1f,-1f),
-                floatArrayOf(1f,1f,-1f), floatArrayOf(-1f,1f,-1f),
-                floatArrayOf(-1f,-1f,1f), floatArrayOf(1f,-1f,1f),
-                floatArrayOf(1f,1f,1f), floatArrayOf(-1f,1f,1f)
-            )
-            val edges = listOf(0 to 1,1 to 2,2 to 3,3 to 0,4 to 5,5 to 6,6 to 7,7 to 4,0 to 4,1 to 5,2 to 6,3 to 7)
-            val points = vertices.map { v ->
-                val x = v[0] * cos(rotation) - v[2] * sin(rotation)
-                val z = v[0] * sin(rotation) + v[2] * cos(rotation)
-                Offset(size.width/2f + x*size.minDimension*.27f, size.height/2f + (v[1] + z*.22f)*size.minDimension*.27f)
-            }
-            var x = 0f
-            while (x < size.width) { drawLine(Color(0xFF153246), Offset(x,0f), Offset(x,size.height), .7.dp.toPx()); x += 28.dp.toPx() }
-            var y = 0f
-            while (y < size.height) { drawLine(Color(0xFF153246), Offset(0f,y), Offset(size.width,y), .7.dp.toPx()); y += 28.dp.toPx() }
-            edges.forEach { (a,b) -> drawLine(WorkCyan.copy(alpha=.9f), points[a], points[b], 2.dp.toPx()) }
-            points.forEach { drawCircle(WorkCyan, 3.dp.toPx(), it) }
-        }
-        Text("MODEL: $model • POTIAHNI PRE OTOČENIE", color = Color(0xFF9BAFC2), fontSize = 9.sp)
+        )
+        Text("Model: $model • základné úpravy geometrie sú aktívne. Scény možno uložiť a načítať lokálne; export je zatiaľ JSON. Presné CAD rozmery, mesh editovanie a GLB/STL export nie sú implementované.", color = Color(0xFF9BAFC2), fontSize = 9.sp)
     }
 }

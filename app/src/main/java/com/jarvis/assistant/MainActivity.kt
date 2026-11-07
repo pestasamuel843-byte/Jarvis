@@ -83,6 +83,7 @@ private val Bg = Color(0xFF070B12)
 private val Panel = Color(0xFF101A27)
 private val Cyan = Color(0xFF4DEBFF)
 private val Muted = Color(0xFF9BAFC2)
+private const val MESSAGE_READ_PASSPHRASE = "ATLAS-731"
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = null
@@ -142,7 +143,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         speechOutputActive = true
         if (JarvisVoiceService.isRunning) startService(Intent(this, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_PAUSE))
         val result = engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis")
-        if (result == TextToSpeech.ERROR) speechOutputActive = false
+        if (result == TextToSpeech.ERROR) {
+            speechOutputActive = false
+            if (JarvisVoiceService.isRunning) {
+                startService(Intent(this, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME))
+            }
+        }
     }
     override fun onDestroy() {
         tts?.stop()
@@ -169,6 +175,9 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     var apiTesting by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var pendingReply by remember { mutableStateOf<PendingReply?>(null) }
+    var pendingDestructiveAction by remember { mutableStateOf<String?>(null) }
+    var pendingProtectedReadCommand by remember { mutableStateOf<String?>(null) }
+    var messageReadAuthorized by remember { mutableStateOf(false) }
     var listening by remember { mutableStateOf(false) }
     var wakeMode by remember { mutableStateOf(prefs.getBoolean("voice_enabled", false)) }
     var appForeground by remember { mutableStateOf(true) }
@@ -238,6 +247,23 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     fun handle(raw: String) {
         val text = raw.trim().replace(Regex("(?i)^(?:(?:hej|hey)\\s+)?jarvis[,: ]*"), "").trim()
         if (text.isEmpty() || busy) return
+        val protectedRead = pendingProtectedReadCommand
+        if (protectedRead != null) {
+            val normalized = text.uppercase(Locale.ROOT).replace(Regex("[^A-Z0-9]"), "")
+            if (text.equals("zruš", true) || text.equals("zruš čítanie", true)) {
+                pendingProtectedReadCommand = null
+                val cancelled = "Čítanie správ som zrušil. K žiadnym správam som nepristúpil."
+                chat.add(Message(true, cancelled)); speak(cancelled)
+            } else if (normalized == MESSAGE_READ_PASSPHRASE.uppercase(Locale.ROOT).replace(Regex("[^A-Z0-9]"), "")) {
+                pendingProtectedReadCommand = null
+                messageReadAuthorized = true
+                handle(protectedRead)
+            } else {
+                val retry = "Heslo nesúhlasí. Správy zostávajú zamknuté. Skúste znova alebo povedzte zruš."
+                chat.add(Message(true, retry)); speak(retry)
+            }
+            return
+        }
         val waitingReply = pendingReply
         if (waitingReply != null && (text.equals("áno", true) || text.equals("potvrď", true) || text.equals("odošli", true) || text.equals("odoslať", true))) {
             pendingReply = null
@@ -251,6 +277,45 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             pendingReply = null
             val answer = "Odoslanie som zrušil. Správa zostala neodoslaná."
             chat.add(Message(true, answer)); speak(answer)
+            return
+        }
+        val pendingChange = pendingDestructiveAction
+        if (pendingChange != null) {
+            if (text.equals("áno", true) || text.equals("potvrď", true) || text.equals("potvrdzujem", true)) {
+                pendingDestructiveAction = null
+                val result = when {
+                    pendingChange == "clear_history" -> {
+                        chat.clear()
+                        "História konverzácie bola vymazaná."
+                    }
+                    pendingChange == "clear_notes" -> {
+                        prefs.edit().remove("notes").apply()
+                        "Všetky poznámky boli vymazané."
+                    }
+                    pendingChange == "delete_last_note" -> {
+                        val remaining = prefs.getString("notes", "").orEmpty().lines().filter { it.isNotBlank() }.dropLast(1)
+                        prefs.edit().putString("notes", remaining.joinToString("\n")).apply()
+                        "Posledná poznámka bola odstránená."
+                    }
+                    pendingChange.startsWith("forget:") -> {
+                        val query = pendingChange.substringAfter("forget:")
+                        val remaining = prefs.getString("memories", "").orEmpty().lines()
+                            .filter { it.isNotBlank() && !it.contains(query, ignoreCase = true) }
+                        prefs.edit().putString("memories", remaining.joinToString("\n")).apply()
+                        "Z pamäte boli odstránené položky zodpovedajúce zadaniu."
+                    }
+                    else -> "Neznámu zmenu som nevykonal."
+                }
+                chat.add(Message(true, result + ""))
+                speak(result)
+            } else if (text.equals("nie", true) || text.equals("zruš", true) || text.equals("zruš zmenu", true)) {
+                pendingDestructiveAction = null
+                val result = "Zmenu som zrušil. Údaje zostali nezmenené."
+                chat.add(Message(true, result)); speak(result)
+            } else {
+                val result = "Čakám na potvrdenie. Povedzte áno alebo zruš."
+                chat.add(Message(true, result)); speak(result)
+            }
             return
         }
         val replyMatch = Regex("(?i)^(?:odpíš|odpovedz|pošli správu)(?: na (instagram|messenger|facebook|whatsapp)| cez (gmail))?[, ]+(.+)$").find(text)
@@ -283,7 +348,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             val period = scheduleSetupIndex % 8 + 1
             val saved = prefs.getString("school_timetable", "").orEmpty().lines().filter { it.isNotBlank() }.toMutableList()
             if (!text.equals("voľno", true) && !text.equals("preskoč", true) && !text.equals("ďalej", true)) saved.add("$day | $period. hodina | $text")
-            prefs.edit().putString("school_timetable", saved.joinToString("\\n")).apply()
+            prefs.edit().putString("school_timetable", saved.joinToString("\n")).apply()
             scheduleSetupIndex++
             if (scheduleSetupIndex >= 40) {
                 scheduleSetupIndex = -1
@@ -312,6 +377,40 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             text.contains("ukáž rozvrh", true) || text.contains("môj rozvrh", true) -> {
                 val timetable = prefs.getString("school_timetable", "").orEmpty()
                 val answer = if (timetable.isBlank()) "Pane, rozvrh ešte nie je nastavený. Povedzte: nastav rozvrh." else "Váš uložený rozvrh: " + timetable.replace("\\n", ". ")
+                chat.add(Message(true, answer)); speak(answer)
+            }
+            text.contains("analyzuj môj pokrok", true) || text.contains("zhodnoť môj týždeň", true) || text.contains("analyzuj moje výsledky", true) -> {
+                val progress = prefs.getString("progress_data", "").orEmpty()
+                if (progress.isBlank()) {
+                    val answer = "Zatiaľ nemám dostatok záznamov na analýzu. Môžete mi priebežne diktovať známky, napríklad: zapíš známku z matematiky 2, a vyplniť denné hodnotenie."
+                    chat.add(Message(true, answer)); speak(answer)
+                } else if (key.isBlank() && !OfflineBrain(context).isInstalled()) {
+                    val answer = "Záznamy mám uložené, ale na ich inteligentnú analýzu potrebujem pripojenú online AI alebo nainštalovaný offline model. Grafy môžem zobraziť aj teraz."
+                    showProgress = true
+                    chat.add(Message(true, answer)); speak(answer)
+                } else {
+                    busy = true
+                    showProgress = true
+                    chat.add(Message(true, "Analyzujem iba vaše uložené záznamy. Nebudem dopĺňať chýbajúce údaje ani robiť zdravotné diagnózy."))
+                    scope.launch {
+                        val contextData = "ZÁZNAMY POUŽÍVATEĽA (dátum | typ | hodnota | detail):\n$progress"
+                        val request = "Vyhodnoť tieto osobné školské a denné záznamy. Rozdeľ známky a denné hodnotenia, uveď iba doložené trendy, upozorni na malý počet údajov a navrhni najviac tri realistické ďalšie kroky. Neurčuj diagnózy a nevymýšľaj chýbajúce hodnoty."
+                        val answer = askAiWithOfflineFallback(context, endpoint, key, model, chat.toList().takeLast(20) + Message(false, request), contextData)
+                        chat.add(Message(true, answer))
+                        speak("Analýza záznamov je pripravená.")
+                        busy = false
+                    }
+                }
+            }
+            Regex("(?i)^(?:(?:zapíš|zapis|pridaj|ulož|uloz)\\s+)?známk[au] z (.+?)\\s+([1-5])$").find(text) != null -> {
+                val match = Regex("(?i)^(?:(?:zapíš|zapis|pridaj|ulož|uloz)\\s+)?známk[au] z (.+?)\\s+([1-5])$").find(text)!!
+                val subject = match.groupValues[1].trim().take(60)
+                val grade = match.groupValues[2].toInt()
+                val date = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(Date())
+                val entries = prefs.getString("progress_data", "").orEmpty().lines().filter { it.isNotBlank() }.toMutableList()
+                entries.add("$date | ZNÁMKA | $subject | $grade")
+                prefs.edit().putString("progress_data", entries.takeLast(120).joinToString("\n")).apply()
+                val answer = "Zapísal som známku $grade z predmetu $subject do osobného prehľadu. Údaj je uložený lokálne v tablete."
                 chat.add(Message(true, answer)); speak(answer)
             }
             text.contains("graf", true) || text.contains("známk", true) || text.contains("zlepšil", true) || text.contains("zhoršil", true) || text.contains("mentáln", true) || text.contains("ako som sa mal", true) || text.contains("zdrav", true) || text.contains("osobný prehľad", true) -> {
@@ -444,8 +543,8 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 }
             }
             text.contains("vymaž históriu", true) || text.contains("vymaž konverzáciu", true) -> {
-                chat.clear()
-                val answer = "Históriu konverzácie som vymazal, pane."
+                pendingDestructiveAction = "clear_history"
+                val answer = "Chcete vymazať uloženú históriu konverzácie? Táto zmena sa nedá vrátiť. Potvrďte slovom áno alebo povedzte zruš."
                 chat.add(Message(true, answer)); speak(answer)
             }
             text.contains("batéria", true) || text.contains("stav batérie", true) -> {
@@ -454,8 +553,34 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 val answer = if (percent >= 0) "Batéria má $percent percent, pane." else "Stav batérie sa nepodarilo zistiť."
                 chat.add(Message(true, answer)); speak(answer)
             }
+            text.startsWith("nauč sa postup", true) -> {
+                val procedure = JarvisIntelligence.parseProcedureCommand(text)
+                if (procedure == null) {
+                    val answer = "Postup zadajte v tvare: nauč sa postup Názov: krok 1, krok 2, krok 3."
+                    chat.add(Message(true, answer)); speak(answer)
+                } else {
+                    val old = prefs.getString("memories", "").orEmpty().lines().filter { it.isNotBlank() }
+                    val updated = old.filterNot {
+                        it.startsWith("NAUČENÝ POSTUP:", true) &&
+                            it.substringAfter(':').trim().substringBefore(" — ").equals(procedure.title, true)
+                    } + JarvisIntelligence.encodeProcedure(procedure)
+                    prefs.edit().putString("memories", updated.takeLast(100).joinToString("\n")).apply()
+                    val answer = "Postup „${procedure.title}“ som uložil. Neskôr povedzte: použi postup ${procedure.title}. Uložil som textový návod, nie automatický skript."
+                    chat.add(Message(true, answer)); speak(answer)
+                }
+            }
+            text.startsWith("použi postup ", true) || text.startsWith("pouzi postup ", true) -> {
+                val query = text.substringAfter(' ').substringAfter(' ').trim()
+                val procedure = JarvisIntelligence.findProcedure(prefs.getString("memories", "").orEmpty(), query)
+                val answer = if (procedure == null) {
+                    "Postup „$query“ som v pamäti nenašiel. Najprv ma ho nauč príkazom: nauč sa postup Názov: kroky."
+                } else {
+                    "Našiel som postup „${procedure.title}“:\n${procedure.steps}\\n\\nToto je uložený návod. Jednotlivé kroky vykonám iba vtedy, ak ich aplikácia podporuje a má potrebné oprávnenia."
+                }
+                chat.add(Message(true, answer)); speak(answer)
+            }
             text.startsWith("zapamätaj si ", true) || text.startsWith("pamätaj si ", true) || text.startsWith("nauč sa ", true) -> {
-                val fact = text.substringAfter(' ').substringAfter(' ').trim()
+                val fact = JarvisIntelligence.memoryEntryFromCommand(text)
                 val old = prefs.getString("memories", "").orEmpty()
                 val updated = (old.lines().filter { it.isNotBlank() } + fact).distinct().takeLast(100).joinToString("\n")
                 prefs.edit().putString("memories", updated).apply()
@@ -469,10 +594,8 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             }
             text.startsWith("zabudni ", true) -> {
                 val query = text.substringAfter(' ').trim()
-                val old = prefs.getString("memories", "").orEmpty()
-                val remaining = old.lines().filter { it.isNotBlank() && !it.contains(query, ignoreCase = true) }
-                prefs.edit().putString("memories", remaining.joinToString("\\n")).apply()
-                val answer = "Odstránil som z pamäti položky zodpovedajúce zadaniu, pane."
+                pendingDestructiveAction = "forget:$query"
+                val answer = "Chcete odstrániť z pamäte položky obsahujúce „$query“? Potvrďte slovom áno alebo povedzte zruš."
                 chat.add(Message(true, answer)); speak(answer)
             }
             text.contains("ukáž poznámky", true) || text.contains("moje poznámky", true) || text == "poznámky" -> {
@@ -481,14 +604,13 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 chat.add(Message(true, answer)); speak(if (notes.isBlank()) answer else "Zobrazil som vaše poznámky, pane.")
             }
             text == "vymaž poznámky" || text == "vymaž všetky poznámky" || text == "zmaž poznámky" -> {
-                prefs.edit().remove("notes").apply()
-                val answer = "Všetky lokálne poznámky som vymazal, pane."
+                pendingDestructiveAction = "clear_notes"
+                val answer = "Chcete vymazať všetky uložené poznámky? Potvrďte slovom áno alebo povedzte zruš."
                 chat.add(Message(true, answer)); speak(answer)
             }
             text.startsWith("vymaž poslednú poznámku", true) || text.startsWith("zmaž poslednú poznámku", true) -> {
-                val remaining = prefs.getString("notes", "").orEmpty().lines().filter { it.isNotBlank() }.dropLast(1)
-                prefs.edit().putString("notes", remaining.joinToString("\\n")).apply()
-                val answer = if (remaining.isEmpty()) "Zoznam poznámok je teraz prázdny, pane." else "Poslednú poznámku som odstránil, pane."
+                pendingDestructiveAction = "delete_last_note"
+                val answer = "Chcete odstrániť poslednú uloženú poznámku? Potvrďte slovom áno alebo povedzte zruš."
                 chat.add(Message(true, answer)); speak(answer)
             }
             text.startsWith("naviguj na ", true) || text.startsWith("navigácia na ", true) || text.startsWith("trasa na ", true) -> {
@@ -600,6 +722,31 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                         .onFailure { Toast.makeText(context, "Vytáčanie sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
                 }
             }
+            text.startsWith("pripomeň mi ", true) && Regex("(?i)^pripomeň mi (.+?) o (\\d{1,2})[:.](\\d{2})$").matches(text) -> {
+                val match = Regex("(?i)^pripomeň mi (.+?) o (\\d{1,2})[:.](\\d{2})$").find(text)!!
+                val title = match.groupValues[1].trim()
+                val hour = match.groupValues[2].toInt()
+                val minute = match.groupValues[3].toInt()
+                if (hour !in 0..23 || minute !in 0..59) {
+                    val answer = "Čas pripomienky nie je platný. Použite napríklad: pripomeň mi učenie o 18:30."
+                    chat.add(Message(true, answer)); speak(answer)
+                } else {
+                    val scheduledAt = JarvisReminders.schedule(context, title, hour, minute)
+                    val time = SimpleDateFormat("HH:mm", Locale("sk", "SK")).format(Date(scheduledAt))
+                    val date = SimpleDateFormat("d. M. yyyy", Locale("sk", "SK")).format(Date(scheduledAt))
+                    val notificationsAllowed = android.os.Build.VERSION.SDK_INT < 33 ||
+                        context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+                    val answer = if (notificationsAllowed) {
+                        "Pripomienku „$title“ som naplánoval na $date o $time. Android ju môže pri úspore batérie doručiť s oneskorením."
+                    } else {
+                        "Pripomienku „$title“ som naplánoval na $date o $time, ale oznámenia JARVISu nie sú povolené. Otváram nastavenia oznámení, aby ste ich mohli zapnúť."
+                    }
+                    chat.add(Message(true, answer)); speak(answer)
+                    if (!notificationsAllowed) runCatching {
+                        context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
+                    }
+                }
+            }
             text.startsWith("pripomeň mi ", true) || text.startsWith("pripomeň ", true) || text.startsWith("vytvor udalosť ", true) -> {
                 val title = text.substringAfter(' ').substringAfter(' ').trim().ifBlank { "Pripomienka od JARVIS" }
                 val answer = "Otváram kalendár na vytvorenie pripomienky: $title. Skontrolujte dátum a uložte ju, pane."
@@ -700,6 +847,13 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 }
             }
             text.contains("prečítaj známky", true) || text.contains("známky z edupage", true) || text.contains("prečítaj edupage", true) || text.contains("prečítaj správy", true) || text.contains("čítaj správy", true) || text.contains("prečítaj emaily", true) || text.contains("prečítaj e-maily", true) || text.contains("nové správy", true) || text.contains("správy z messenger", true) || text.contains("správy z instagram", true) || text.contains("správy z facebook", true) || text.contains("správy z whatsapp", true) || text.contains("whatsapp správy", true) -> {
+                if (!messageReadAuthorized) {
+                    pendingProtectedReadCommand = text
+                    val prompt = "Pred čítaním správ potrebujem overenie. Povedzte prosím svoje potvrdzovacie heslo."
+                    chat.add(Message(true, prompt)); speak(prompt)
+                    return
+                }
+                messageReadAuthorized = false
                 val enabled = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners").orEmpty()
                     .contains(context.packageName + "/" + GmailNotificationListener::class.java.name)
                 if (!enabled) {
@@ -998,6 +1152,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                             } else micPermission.launch(Manifest.permission.RECORD_AUDIO)
                         },
                         onWorkspace = { showWorkspace = true },
+                        onMaps = { lastWorkspaceRequest = "mapu"; showWorkspace = true },
                         onChat = { showChat = true },
                         onSettings = { settings = true }
                     )
@@ -1293,7 +1448,7 @@ private data class JarvisTask(val title: String, val done: Boolean)
 @Composable
 private fun JarvisDashboard(
  modifier: Modifier, wakeMode: Boolean, busy: Boolean, aiReady: Boolean, model: String,
- onToggleVoice: () -> Unit, onWorkspace: () -> Unit, onChat: () -> Unit, onSettings: () -> Unit
+ onToggleVoice: () -> Unit, onWorkspace: () -> Unit, onMaps: () -> Unit, onChat: () -> Unit, onSettings: () -> Unit
 ) {
     val context = LocalContext.current
     val transition = rememberInfiniteTransition(label = "cinematic_hud")
@@ -1393,6 +1548,7 @@ private fun JarvisDashboard(
                     onToggleVoice = onToggleVoice,
                     onChat = onChat,
                     onWorkspace = onWorkspace,
+                    onMaps = onMaps,
                     onSettings = onSettings
                 )
             }
@@ -1423,6 +1579,7 @@ private fun PersonalDashboardSidePanel(
     onToggleVoice: () -> Unit,
     onChat: () -> Unit,
     onWorkspace: () -> Unit,
+    onMaps: () -> Unit,
     onSettings: () -> Unit
 ) {
     val context = LocalContext.current
@@ -1436,20 +1593,27 @@ private fun PersonalDashboardSidePanel(
             verticalArrangement = Arrangement.spacedBy(7.dp)
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("INSTAGRAM  /  FEED", color = Cyan, fontSize = 9.sp, letterSpacing = 1.1.sp)
-                Text("EXTERNÝ ÚČET", color = Muted, fontSize = 7.sp)
+                Text("ONLINE SERVICES", color = Cyan, fontSize = 9.sp, letterSpacing = 1.1.sp)
+                Text("QUICK ACCESS", color = Muted, fontSize = 7.sp)
             }
-            Box(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(7.dp)).background(Color(0xFF07121D)), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("◎", color = Cyan, fontSize = 30.sp)
-                    Text("POSLEDNÉ PRÍSPEVKY", color = Color.White, fontSize = 9.sp, letterSpacing = 1.sp)
-                    Text("Instagram zatiaľ nie je pripojený", color = Muted, fontSize = 8.sp)
-                    Text("Po pripojení účtu sa tu môže zobraziť dostupný obsah.", color = Muted, fontSize = 7.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Text("Komunikácia, médiá a nákupy", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                DashboardAction("◎", "INSTAGRAM", Modifier.weight(1f)) {
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.instagram.com/"))) }
+                }
+                DashboardAction("✉", "MESSENGER", Modifier.weight(1f)) {
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.messenger.com/"))) }
                 }
             }
-            DashboardAction("◎", "OTVORIŤ INSTAGRAM", Modifier.fillMaxWidth()) {
-                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.instagram.com/"))) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                DashboardAction("▶", "YOUTUBE", Modifier.weight(1f)) {
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/"))) }
+                }
+                DashboardAction("▣", "OBCHOD", Modifier.weight(1f)) {
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.alza.sk/"))) }
+                }
             }
+            Text("Otvárajú sa oficiálne weby/aplikácie. Priame čítanie inboxov a automatické nákupy nie sú týmto pripojené.", color = Muted, fontSize = 7.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
         Column(
             Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(10.dp))
@@ -1471,6 +1635,16 @@ private fun PersonalDashboardSidePanel(
             DashboardAction("⬡", "PROJEKT", Modifier.weight(1f), onWorkspace)
             DashboardAction("⚙", "NASTAVENIA", Modifier.weight(1f), onSettings)
         }
+        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            DashboardAction("⌖", "3D MAPY", Modifier.weight(1f), onMaps)
+            DashboardAction("▶", "VIDEÁ", Modifier.weight(1f)) {
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com"))) }
+            }
+            DashboardAction("▣", "OBCHOD", Modifier.weight(1f)) {
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.alza.sk"))) }
+            }
+        }
+        Text("EXTERNÉ SLUŽBY • MAPY V PRACOVNOM PRIESTORE • VIDEO A OBCHOD SA OTVÁRAJÚ ONLINE", color = Muted, fontSize = 6.sp, letterSpacing = .4.sp)
         Text(if (busy) "JARVIS PRACUJE…" else if (aiReady) "AI ENGINE ONLINE" else "AI ENGINE NEKONFIGUROVANÝ", color = if (busy) Color(0xFFFFBD68) else if (aiReady) Color(0xFF69F0AE) else Muted, fontSize = 7.sp)
     }
 }
@@ -1736,6 +1910,8 @@ private fun askAi(endpoint: String, key: String, model: String, history: List<Me
         val webContext = if (lastUserQuery.isNotBlank() && shouldSearchWeb(lastUserQuery)) searchWeb(lastUserQuery) else ""
         val systemPrompt = """
 Si JARVIS, pokročilý slovenský AI asistent s prirodzenou konverzačnou inteligenciou.
+
+${JarvisIntelligence.SYSTEM_PROMPT_EXTENSION}
 
 PSYCHOLOGICKÁ PODPORA A EMOCIONÁLNA INTELIGENCIA:
 - Pri rozhovoroch o smútku, strachu, strese, osamelosti, konfliktoch, rodine, priateľstvách alebo psychickej záťaži automaticky prejdi do citlivého režimu. V tomto režime nepoužívaj humor, iróniu ani podpichovanie.
