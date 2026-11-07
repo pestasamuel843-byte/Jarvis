@@ -28,6 +28,10 @@ The APK is available only after the workflow succeeds. A green run is required b
 
 Open Settings inside JARVIS and paste a valid **Google Gemini API key** into the API-key field, then save. The default endpoint is Google's OpenAI-compatible Gemini endpoint and the default model is `gemini-2.5-flash`, so the intended basic setup requires only the Gemini API key. Create/manage a key through Google AI Studio: https://aistudio.google.com/apikey. Availability, quotas, and pricing are controlled by Google and may change. Test the connection in JARVIS settings before relying on it. Never commit tokens to GitHub or send them in chat. Advanced settings are available if you deliberately use a different OpenAI-compatible provider.
 
+## Psychological support mode
+
+The AI system prompt now includes a dedicated, context-sensitive support approach for conversations about stress, sadness, relationships, family conflict, and emotional difficulties. It prioritizes listening, validation, careful questions, practical coping steps, and a calm tone. It explicitly prohibits pretending to be a licensed psychologist or making clinical diagnoses. For self-harm, suicide, violence, or immediate danger, it directs the assistant to encourage immediate help from a trusted adult or qualified professional and emergency services (112/155 in Slovakia). This is an AI conversation guideline, not a substitute for professional mental-health care.
+
 ## Current limitations — important
 
 This is still an early prototype, not the full autonomous assistant described in the original brief. The latest source includes additional local voice commands, but each feature still needs testing on the target tablet.
