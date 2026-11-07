@@ -348,44 +348,69 @@ function locate(){
 
 @Composable
 private fun WireframeScene(model: String, onModelChange: (String) -> Unit) {
-    var rotation by remember { mutableFloatStateOf(0.45f) }
+    val html = remember {
+        """
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#07101a;color:#eafaff;font:13px system-ui}
+#view{position:absolute;inset:0}#tools{position:absolute;z-index:3;left:8px;right:8px;top:8px;display:flex;gap:5px;flex-wrap:wrap}
+button{background:#0b2434;border:1px solid #236079;color:#4deBff;border-radius:7px;padding:8px 10px;font-weight:650}
+#status{position:absolute;z-index:3;bottom:8px;left:8px;padding:6px 9px;border-radius:7px;background:#06111ddd;color:#9cc4d2;font-size:10px}
+</style></head><body><div id="view"></div>
+<div id="tools">
+<button onclick="setShape('KOCKA')">Kocka</button><button onclick="setShape('GUĽA')">Guľa</button><button onclick="setShape('PYRAMÍDA')">Kužeľ</button><button onclick="setShape('DOM')">Dom</button><button onclick="setShape('AUTO')">Auto</button>
+<button onclick="addCube()">+ Objekt</button><button onclick="removeSelected()">Odstrániť</button><button onclick="resetCamera()">Reset</button>
+</div><div id="status">3D VIEWPORT • potiahnutím otáčaj, dvoma prstami približuj</div>
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+const host=document.getElementById('view');
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x07101a);
+scene.add(new THREE.HemisphereLight(0x9beeff,0x102033,2.0));
+const key=new THREE.DirectionalLight(0x9beeff,2.6);key.position.set(5,8,6);scene.add(key);
+const camera=new THREE.PerspectiveCamera(45,1,.1,1000);camera.position.set(5,4,7);
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,2));host.appendChild(renderer.domElement);
+const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.target.set(0,1,0);
+const grid=new THREE.GridHelper(20,40,0x236079,0x153246);scene.add(grid);
+const objects=[];let selected=null;
+const mat=()=>new THREE.MeshStandardMaterial({color:0x4deBff,metalness:.55,roughness:.28,emissive:0x07303a});
+function add(geometry,x=0,y=1,z=0){const mesh=new THREE.Mesh(geometry,mat());mesh.position.set(x,y,z);scene.add(mesh);objects.push(mesh);selected=mesh;document.getElementById('status').textContent='Objektov: '+objects.length+' • vybraný objekt';return mesh}
+function clear(){for(const o of objects){scene.remove(o);o.geometry.dispose();o.material.dispose()}objects.length=0;selected=null}
+window.setShape=(name)=>{clear();if(name==='GUĽA')add(new THREE.SphereGeometry(1,48,32));else if(name==='PYRAMÍDA')add(new THREE.ConeGeometry(1,2,4));else if(name==='DOM'){add(new THREE.BoxGeometry(2,1.5,2),0,.75,0);const roof=add(new THREE.ConeGeometry(1.55,.9,4),0,1.95,0);roof.rotation.y=Math.PI/4;}else if(name==='AUTO'){add(new THREE.BoxGeometry(3,.65,1.4),0,.75,0);add(new THREE.BoxGeometry(1.5,.65,1.15),-.15,1.35,0);for(const x of [-1,1])for(const z of [-.62,.62]){const w=add(new THREE.CylinderGeometry(.34,.34,.18,24),x,.35,z);w.rotation.x=Math.PI/2;w.material.color.set(0x172b3a)}}else add(new THREE.BoxGeometry(2,2,2));};
+window.addCube=()=>add(new THREE.BoxGeometry(1,1,1),(Math.random()-.5)*2,1,(Math.random()-.5)*2);
+window.removeSelected=()=>{if(!selected)return;scene.remove(selected);objects.splice(objects.indexOf(selected),1);selected.geometry.dispose();selected.material.dispose();selected=null;document.getElementById('status').textContent='Objekt odstránený • zostáva '+objects.length};
+window.resetCamera=()=>{camera.position.set(5,4,7);controls.target.set(0,1,0);controls.update()};
+const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
+renderer.domElement.addEventListener('pointerdown',e=>{const r=renderer.domElement.getBoundingClientRect();pointer.x=((e.clientX-r.left)/r.width)*2-1;pointer.y=-((e.clientY-r.top)/r.height)*2+1;raycaster.setFromCamera(pointer,camera);const hit=raycaster.intersectObjects(objects)[0];if(hit){selected=hit.object;selected.material.emissive.set(0x07505c)}});
+function resize(){const w=host.clientWidth,h=host.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
+new ResizeObserver(resize).observe(host);resize();window.setShape('KOCKA');
+function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera)}animate();
+</script></body></html>
+        """.trimIndent()
+    }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-            listOf("KOCKA", "PYRAMÍDA", "DOM", "AUTO", "ULICA", "GUĽA").forEach { shape ->
-                TextButton(onClick = { onModelChange(shape) }, contentPadding = PaddingValues(horizontal = 3.dp, vertical = 2.dp)) {
-                    Text(shape, color = if (model == shape) Color.White else WorkCyan, fontSize = 9.sp)
+        Text("PLNOHODNOTNÝ 3D VIEWPORT • otočenie, priblíženie a práca so základnými objektmi", color = WorkCyan, fontSize = 10.sp)
+        AndroidView(
+            modifier = Modifier.fillMaxWidth().height(340.dp).background(Color(0xFF07101A), RoundedCornerShape(12.dp)),
+            factory = { ctx ->
+                WebView(ctx).apply {
+                    webViewClient = WebViewClient()
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    settings.allowContentAccess = false
+                    settings.allowFileAccess = false
+                    settings.loadWithOverviewMode = true
+                    settings.useWideViewPort = true
+                    setBackgroundColor(android.graphics.Color.rgb(7,16,26))
+                    loadDataWithBaseURL("https://jarvis.local/", html, "text/html", "UTF-8", null)
                 }
+            },
+            update = { view ->
+                val safeModel = model.replace("'", "").replace("\\", "")
+                view.evaluateJavascript("window.setShape && window.setShape('$safeModel')", null)
             }
-        }
-        Canvas(
-            Modifier.fillMaxWidth().height(240.dp)
-                .background(Color(0xFF07101A), RoundedCornerShape(12.dp))
-                .pointerInput(Unit) {
-                    detectDragGestures { change, drag ->
-                        change.consume()
-                        rotation += drag.x * 0.01f
-                    }
-                }
-        ) {
-            val vertices = listOf(
-                floatArrayOf(-1f,-1f,-1f), floatArrayOf(1f,-1f,-1f),
-                floatArrayOf(1f,1f,-1f), floatArrayOf(-1f,1f,-1f),
-                floatArrayOf(-1f,-1f,1f), floatArrayOf(1f,-1f,1f),
-                floatArrayOf(1f,1f,1f), floatArrayOf(-1f,1f,1f)
-            )
-            val edges = listOf(0 to 1,1 to 2,2 to 3,3 to 0,4 to 5,5 to 6,6 to 7,7 to 4,0 to 4,1 to 5,2 to 6,3 to 7)
-            val points = vertices.map { v ->
-                val x = v[0] * cos(rotation) - v[2] * sin(rotation)
-                val z = v[0] * sin(rotation) + v[2] * cos(rotation)
-                Offset(size.width/2f + x*size.minDimension*.27f, size.height/2f + (v[1] + z*.22f)*size.minDimension*.27f)
-            }
-            var x = 0f
-            while (x < size.width) { drawLine(Color(0xFF153246), Offset(x,0f), Offset(x,size.height), .7.dp.toPx()); x += 28.dp.toPx() }
-            var y = 0f
-            while (y < size.height) { drawLine(Color(0xFF153246), Offset(0f,y), Offset(size.width,y), .7.dp.toPx()); y += 28.dp.toPx() }
-            edges.forEach { (a,b) -> drawLine(WorkCyan.copy(alpha=.9f), points[a], points[b], 2.dp.toPx()) }
-            points.forEach { drawCircle(WorkCyan, 3.dp.toPx(), it) }
-        }
-        Text("MODEL: $model • POTIAHNI PRE OTOČENIE", color = Color(0xFF9BAFC2), fontSize = 9.sp)
+        )
+        Text("Model: $model • ďalšie úpravy cez hlasové alebo textové pokyny zatiaľ menia opis projektu; pokročilé CAD nástroje a export modelov ešte nie sú hotové.", color = Color(0xFF9BAFC2), fontSize = 9.sp)
     }
 }
