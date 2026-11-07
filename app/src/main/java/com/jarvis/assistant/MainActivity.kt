@@ -421,7 +421,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 val answer = "Rozumiem, pane. Ukončujem rozhovor a vraciam sa do pohotovostného režimu. Mikrofón zostáva pripravený na „Hej Jarvis“. A nebojte sa, dramatický odchod si nechám na filmové finále."
                 chat.add(Message(true, answer)); speak(answer)
             }
-            text.contains("vypni počúvanie", true) || text.contains("prestaň počúvať", true) || text.contains("vypni mikrofón", true) || text.contains("jarvis spi") -> {
+            text.contains("vypni počúvanie", true) || text.contains("prestaň počúvať", true) || text.contains("vypni mikrofón", true) || text.contains("jarvis spi", true) -> {
                 wakeMode = false
                 listening = false
                 prefs.edit().putBoolean("voice_enabled", false).apply()
