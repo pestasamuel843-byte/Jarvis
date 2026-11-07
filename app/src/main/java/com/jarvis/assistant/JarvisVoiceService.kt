@@ -72,11 +72,11 @@ class JarvisVoiceService : Service() {
             recognizer?.destroy()
             usingOnDeviceRecognizer = preferOnDevice && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
                 SpeechRecognizer.isOnDeviceRecognitionAvailable(this)
-            recognizer = if (usingOnDeviceRecognizer) {
+            recognizer = (if (usingOnDeviceRecognizer) {
                 SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
             } else {
                 SpeechRecognizer.createSpeechRecognizer(this)
-            }.also { speech ->
+            }).also { speech ->
                 speech.setRecognitionListener(object : RecognitionListener {
                     override fun onReadyForSpeech(params: Bundle?) {
                         listening = true
