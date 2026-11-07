@@ -460,9 +460,29 @@ const grid=new THREE.GridHelper(16,32,0x1b6078,0x123044);grid.position.y=-1.2;sc
 const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.06;controls.target.set(0,0,0);
 const material=new THREE.MeshStandardMaterial({color:0x1685a4,metalness:.68,roughness:.28});
 const edgeMaterial=new THREE.LineBasicMaterial({color:0x65edff,transparent:true,opacity:.7});
-let object=null;
+let object=null;let editGroup=null;let lastVoiceEdit='';
+window.applyJarvisEdit=function(raw){
+ const q=(raw||'').toLocaleLowerCase('sk');
+ if(!object||!q.trim()||q===lastVoiceEdit)return;
+ lastVoiceEdit=q;
+ if(editGroup){object.remove(editGroup);editGroup.traverse(o=>{if(o.geometry)o.geometry.dispose()});}
+ editGroup=new THREE.Group();object.add(editGroup);
+ const metal=new THREE.MeshStandardMaterial({color:0x9cefff,metalness:.85,roughness:.18});
+ if(q.includes('červen')) object.traverse(o=>{if(o.isMesh&&o.material&&o.material.color&&o.material.color.getHex()===0x1685a4)o.material.color.set(0xb52c42);});
+ if(q.includes('modr')) object.traverse(o=>{if(o.isMesh&&o.material&&o.material.color&&o.material.color.getHex()===0x1685a4)o.material.color.set(0x176fc1);});
+ if(q.includes('spoiler')||q.includes('krídlo')||q.includes('kridlo')){
+  const wing=new THREE.Mesh(new THREE.BoxGeometry(1.65,.09,.32),metal);wing.position.set(-1.12,.72,0);editGroup.add(wing);
+  for(const z of [-.48,.48]){const support=new THREE.Mesh(new THREE.BoxGeometry(.08,.32,.08),metal);support.position.set(-1.12,.53,z);editGroup.add(support);}
+ }
+ if(q.includes('svetl')||q.includes('reflektor')||q.includes('led')){
+  for(const z of [-.48,.48]){const lamp=new THREE.Mesh(new THREE.BoxGeometry(.12,.18,.32),new THREE.MeshStandardMaterial({color:0xd8fbff,emissive:0x54dfff,emissiveIntensity:2}));lamp.position.set(1.57,.02,z);editGroup.add(lamp);}
+ }
+ if(q.includes('disk')||q.includes('ráfik')||q.includes('rafik')) object.traverse(o=>{if(o.isMesh&&o.geometry&&o.geometry.type==='CylinderGeometry'){const rim=new THREE.Mesh(new THREE.TorusGeometry(.22,.045,10,28),metal);rim.rotation.y=Math.PI/2;rim.position.copy(o.position);editGroup.add(rim);}});
+ document.getElementById('hud').textContent='JARVIS • VOICE EDIT • '+raw.slice(0,45);
+};
 function addEdges(mesh){const edges=new THREE.EdgesGeometry(mesh.geometry);mesh.add(new THREE.LineSegments(edges,edgeMaterial));}
 function build(name){
+ lastVoiceEdit='';
  if(object){scene.remove(object);object.traverse(o=>{if(o.geometry)o.geometry.dispose()});}
  object=new THREE.Group();scene.add(object);
  let mesh;
