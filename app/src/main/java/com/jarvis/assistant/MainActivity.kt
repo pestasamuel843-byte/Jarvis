@@ -1,6 +1,7 @@
 package com.jarvis.assistant
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
 import android.content.BroadcastReceiver
 import android.content.IntentFilter
@@ -68,6 +69,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanningOptions
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -196,6 +200,38 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             }
             if (isEmpty()) add(Message(true, "Dobrý deň, pane. JARVIS je pripravený. Systémy sú online."))
         }
+    }
+    val documentScanner = remember {
+        val options = GmsDocumentScanningOptions.Builder()
+            .setGalleryImportAllowed(true)
+            .setPageLimit(20)
+            .setResultFormats(GmsDocumentScanningOptions.RESULT_FORMAT_JPEG, GmsDocumentScanningOptions.RESULT_FORMAT_PDF)
+            .setScannerMode(GmsDocumentScanningOptions.SCANNER_MODE_FULL)
+            .build()
+        GmsDocumentScanning.getClient(options)
+    }
+    val documentScanLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val scan = GmsDocumentScanningResult.fromActivityResultIntent(result.data)
+            val pages = scan?.pages?.size ?: 0
+            val pdf = scan?.pdf?.uri
+            val message = if (pages > 0) "Dokument bol naskenovaný. Počet strán: $pages." +
+                (if (pdf != null) " PDF je pripravené na otvorenie." else "")
+                else "Skenovanie sa dokončilo, ale výsledok sa nepodarilo načítať."
+            chat.add(Message(true, message)); speak(message)
+            if (pdf != null) runCatching { context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(pdf, "application/pdf").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)) }
+        } else {
+            val message = "Skenovanie bolo zrušené."
+            chat.add(Message(true, message)); speak(message)
+        }
+    }
+    fun startDocumentScan() {
+        documentScanner.getStartScanIntent(context as Activity)
+            .addOnSuccessListener { sender -> documentScanLauncher.launch(androidx.activity.result.IntentSenderRequest.Builder(sender).build()) }
+            .addOnFailureListener {
+                val message = "Skener sa nepodarilo spustiť. Skontrolujte Google Play služby a internet."
+                chat.add(Message(true, message)); speak(message)
+            }
     }
     fun handle(raw: String) {
         val text = raw.trim().replace(Regex("(?i)^(?:(?:hej|hey)\\s+)?jarvis[,: ]*"), "").trim()
