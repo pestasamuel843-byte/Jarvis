@@ -115,13 +115,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 override fun onError(utteranceId: String?) { speechOutputActive = false; startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
                 override fun onError(utteranceId: String?, errorCode: Int) { speechOutputActive = false; startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
             })
-            // Prefer Slovak male voice, especially Lukáš / Neural when the installed TTS engine exposes it.
-            // The classic Microsoft Edge "sk-SK-LukasNeural" voice is not guaranteed to be available
-            // through Android TextToSpeech; this selects the closest installed Slovak voice.
+            // Never treat the word "neural" as evidence of a male voice: that selected
+            // a female Slovak voice on some Android TTS engines.
             val slovakVoices = engine.voices?.filter { it.locale.language == "sk" }.orEmpty()
             val lukasVoice = slovakVoices.firstOrNull {
                 val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
-                name.contains("lukas") || name.contains("lukáš") || name.contains("neural")
+                name.contains("lukas") || name.contains("lukáš")
             }
             val maleSlovak = slovakVoices.firstOrNull {
                 val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
@@ -202,7 +201,10 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     if (savedText.isNotBlank()) add(Message(item.optBoolean("jarvis", true), savedText))
                 }
             }
-            if (isEmpty()) add(Message(true, "Dobrý deň, pane. JARVIS je pripravený. Systémy sú online."))
+            if (isEmpty() && !prefs.getBoolean("welcome_message_shown", false)) {
+                add(Message(true, "Dobrý deň, pane. JARVIS je pripravený. Systémy sú online."))
+                prefs.edit().putBoolean("welcome_message_shown", true).apply()
+            }
         }
     }
     val documentScanner = remember {
