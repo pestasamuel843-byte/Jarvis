@@ -142,7 +142,7 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
                 }
             }, enabled = sceneCommand.isNotBlank()) { Text("UPRAVIŤ") }
         }
-        WireframeScene(model = sceneModel, onModelChange = { sceneModel = it })
+        ThreeDScene(model = sceneModel)
         Spacer(Modifier.height(12.dp))
         Text("SKETCH LAYER  /  2D NÁČRT • KRESLI PRSTOM", color = Color(0xFF9BAFC2), style = MaterialTheme.typography.labelSmall, letterSpacing = 0.7.sp)
         Spacer(Modifier.height(8.dp))
@@ -426,4 +426,89 @@ private fun WireframeScene(model: String, onModelChange: (String) -> Unit) {
         }
         Text("MODEL: $model • POTIAHNI PRE OTOČENIE", color = Color(0xFF9BAFC2), fontSize = 9.sp)
     }
+}
+
+
+/**
+ * Real WebGL/Three.js viewport. Geometry is rendered in a WebView and can be
+ * rotated with touch gestures. The model selector is driven by voice/text commands
+ * already routed through ProjectWorkspace.
+ */
+@Composable
+private fun ThreeDScene(model: String) {
+    val html = remember {
+        """
+<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<style>
+html,body,#v{margin:0;width:100%;height:100%;overflow:hidden;background:#07101a}
+#hud{position:absolute;z-index:2;left:10px;top:8px;color:#4deBff;font:10px system-ui;letter-spacing:1.5px;text-shadow:0 0 8px #00dfff}
+</style></head><body><div id="hud">JARVIS • REAL-TIME WEBGL GEOMETRY</div><div id="v"></div>
+<script type="module">
+import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+const host=document.getElementById('v');
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x07101a);
+const camera=new THREE.PerspectiveCamera(42,host.clientWidth/host.clientHeight,.1,1000);camera.position.set(5,4,7);
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(host.clientWidth,host.clientHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;host.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0x9beeff,0x102030,2.0));
+const key=new THREE.DirectionalLight(0xffffff,3);key.position.set(4,8,5);key.castShadow=true;scene.add(key);
+const rim=new THREE.PointLight(0x00dfff,18,20);rim.position.set(-4,2,-3);scene.add(rim);
+const grid=new THREE.GridHelper(16,32,0x1b6078,0x123044);grid.position.y=-1.2;scene.add(grid);
+const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.06;controls.target.set(0,0,0);
+const material=new THREE.MeshStandardMaterial({color:0x1685a4,metalness:.68,roughness:.28});
+const edgeMaterial=new THREE.LineBasicMaterial({color:0x65edff,transparent:true,opacity:.7});
+let object=null;
+function addEdges(mesh){const edges=new THREE.EdgesGeometry(mesh.geometry);mesh.add(new THREE.LineSegments(edges,edgeMaterial));}
+function build(name){
+ if(object){scene.remove(object);object.traverse(o=>{if(o.geometry)o.geometry.dispose()});}
+ object=new THREE.Group();scene.add(object);
+ let mesh;
+ if(name==='GUĽA') mesh=new THREE.Mesh(new THREE.SphereGeometry(1.35,48,32),material.clone());
+ else if(name==='PYRAMÍDA') mesh=new THREE.Mesh(new THREE.ConeGeometry(1.5,2.4,4),material.clone());
+ else if(name==='DOM'){
+  const body=new THREE.Mesh(new THREE.BoxGeometry(2.4,1.7,2),material.clone());body.position.y=-.25;object.add(body);addEdges(body);
+  const roof=new THREE.Mesh(new THREE.ConeGeometry(1.8,1.25,4),material.clone());roof.rotation.y=Math.PI/4;roof.position.y=1.15;object.add(roof);addEdges(roof);
+  const door=new THREE.Mesh(new THREE.BoxGeometry(.42,.95,.06),new THREE.MeshStandardMaterial({color:0x062637,metalness:.4}));door.position.set(0,-.62,1.04);object.add(door);
+ } else if(name==='AUTO'){
+  const body=new THREE.Mesh(new THREE.BoxGeometry(3.1,.65,1.35),material.clone());body.position.y=-.15;object.add(body);addEdges(body);
+  const cabin=new THREE.Mesh(new THREE.BoxGeometry(1.65,.72,1.15),material.clone());cabin.position.set(-.15,.48,0);object.add(cabin);addEdges(cabin);
+  for(const x of [-1,1])for(const z of [-.72,.72]){const wheel=new THREE.Mesh(new THREE.CylinderGeometry(.38,.38,.22,32),new THREE.MeshStandardMaterial({color:0x101820,metalness:.2,roughness:.8}));wheel.rotation.x=Math.PI/2;wheel.position.set(x,-.48,z);object.add(wheel);}
+ } else if(name==='ULICA'){
+  const road=new THREE.Mesh(new THREE.BoxGeometry(5,.12,1.8),new THREE.MeshStandardMaterial({color:0x263b4a,roughness:.9}));road.position.y=-.7;object.add(road);
+  for(let i=0;i<4;i++){const b=new THREE.Mesh(new THREE.BoxGeometry(.85,1.2+i*.35,.85),material.clone());b.position.set(-1.65+i*1.1,.0+(i%2)*.25,-.85);object.add(b);addEdges(b);}
+  for(let i=0;i<5;i++){const stripe=new THREE.Mesh(new THREE.BoxGeometry(.55,.015,.08),new THREE.MeshBasicMaterial({color:0x4deBff}));stripe.position.set(-1.5+i*.72,-.625,0);object.add(stripe);}
+ } else if(name==='IZBA'){
+  const floor=new THREE.Mesh(new THREE.BoxGeometry(3.8,.12,2.8),material.clone());floor.position.y=-.9;object.add(floor);addEdges(floor);
+  const bed=new THREE.Mesh(new THREE.BoxGeometry(1.7,.35,1.1),material.clone());bed.position.set(-.65,-.62,-.35);object.add(bed);addEdges(bed);
+  const desk=new THREE.Mesh(new THREE.BoxGeometry(1.0,.12,.65),material.clone());desk.position.set(1,-.15,-.7);object.add(desk);addEdges(desk);
+ } else mesh=new THREE.Mesh(new THREE.BoxGeometry(2.2,2.2,2.2),material.clone());
+ if(name!=='DOM'&&name!=='AUTO'&&name!=='ULICA'&&name!=='IZBA'){object.add(mesh);addEdges(mesh);}
+ document.getElementById('hud').textContent='JARVIS • '+name+' • WEBGL SCENE';
+}
+window.setJarvisModel=build;
+build('KOCKA');
+function tick(){requestAnimationFrame(tick);if(object)object.rotation.y+=.002;controls.update();renderer.render(scene,camera)}tick();
+new ResizeObserver(()=>{const w=host.clientWidth,h=host.clientHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h)}).observe(host);
+</script></body></html>
+        """.trimIndent()
+    }
+    AndroidView(
+        modifier = Modifier.fillMaxWidth().height(260.dp)
+            .background(Color(0xFF07101A), RoundedCornerShape(12.dp)),
+        factory = { ctx ->
+            WebView(ctx).apply {
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                settings.allowFileAccess = false
+                settings.allowContentAccess = false
+                settings.loadWithOverviewMode = true
+                settings.useWideViewPort = true
+                setBackgroundColor(android.graphics.Color.rgb(7,16,26))
+                loadDataWithBaseURL("https://jarvis.local/", html, "text/html", "UTF-8", null)
+            }
+        },
+        update = { webView ->
+            webView.evaluateJavascript("if(window.setJarvisModel)window.setJarvisModel(${JSONObject.quote(model)});", null)
+        }
+    )
 }
