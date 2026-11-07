@@ -249,7 +249,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 pendingProtectedReadCommand = null
                 val cancelled = "Čítanie správ som zrušil. K žiadnym správam som nepristúpil."
                 chat.add(Message(true, cancelled)); speak(cancelled)
-            } else if (normalized == "ATLAS731") {
+            } else if (normalized == MESSAGE_READ_PASSPHRASE.uppercase(Locale.ROOT).replace(Regex("[^A-Z0-9]"), "")) {
                 pendingProtectedReadCommand = null
                 messageReadAuthorized = true
                 handle(protectedRead)
