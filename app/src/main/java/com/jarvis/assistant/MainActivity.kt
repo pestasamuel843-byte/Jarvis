@@ -354,6 +354,17 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 val answer = if (timetable.isBlank()) "Pane, rozvrh ešte nie je nastavený. Povedzte: nastav rozvrh." else "Váš uložený rozvrh: " + timetable.replace("\\n", ". ")
                 chat.add(Message(true, answer)); speak(answer)
             }
+            Regex("(?i)^(?:(?:zapíš|zapis|pridaj|ulož|uloz)\\s+)?známk[au] z (.+?)\\s+([1-5])$").find(text) != null -> {
+                val match = Regex("(?i)^(?:(?:zapíš|zapis|pridaj|ulož|uloz)\\s+)?známk[au] z (.+?)\\s+([1-5])$").find(text)!!
+                val subject = match.groupValues[1].trim().take(60)
+                val grade = match.groupValues[2].toInt()
+                val date = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(Date())
+                val entries = prefs.getString("progress_data", "").orEmpty().lines().filter { it.isNotBlank() }.toMutableList()
+                entries.add("$date | ZNÁMKA | $subject | $grade")
+                prefs.edit().putString("progress_data", entries.takeLast(120).joinToString("\\n")).apply()
+                val answer = "Zapísal som známku $grade z predmetu $subject do osobného prehľadu. Údaj je uložený lokálne v tablete."
+                chat.add(Message(true, answer)); speak(answer)
+            }
             text.contains("graf", true) || text.contains("známk", true) || text.contains("zlepšil", true) || text.contains("zhoršil", true) || text.contains("mentáln", true) || text.contains("ako som sa mal", true) || text.contains("zdrav", true) || text.contains("osobný prehľad", true) -> {
                 showProgress = true
                 val progress = prefs.getString("progress_data", "").orEmpty()
@@ -492,6 +503,32 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 val battery = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
                 val percent = battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
                 val answer = if (percent >= 0) "Batéria má $percent percent, pane." else "Stav batérie sa nepodarilo zistiť."
+                chat.add(Message(true, answer)); speak(answer)
+            }
+            text.startsWith("nauč sa postup", true) -> {
+                val procedure = JarvisIntelligence.parseProcedureCommand(text)
+                if (procedure == null) {
+                    val answer = "Postup zadajte v tvare: nauč sa postup Názov: krok 1, krok 2, krok 3."
+                    chat.add(Message(true, answer)); speak(answer)
+                } else {
+                    val old = prefs.getString("memories", "").orEmpty().lines().filter { it.isNotBlank() }
+                    val updated = old.filterNot {
+                        it.startsWith("NAUČENÝ POSTUP:", true) &&
+                            it.substringAfter(':').trim().substringBefore(" — ").equals(procedure.title, true)
+                    } + JarvisIntelligence.encodeProcedure(procedure)
+                    prefs.edit().putString("memories", updated.takeLast(100).joinToString("\\n")).apply()
+                    val answer = "Postup „${procedure.title}“ som uložil. Neskôr povedzte: použi postup ${procedure.title}. Uložil som textový návod, nie automatický skript."
+                    chat.add(Message(true, answer)); speak(answer)
+                }
+            }
+            text.startsWith("použi postup ", true) || text.startsWith("pouzi postup ", true) -> {
+                val query = text.substringAfter(' ').substringAfter(' ').trim()
+                val procedure = JarvisIntelligence.findProcedure(prefs.getString("memories", "").orEmpty(), query)
+                val answer = if (procedure == null) {
+                    "Postup „$query“ som v pamäti nenašiel. Najprv ma ho nauč príkazom: nauč sa postup Názov: kroky."
+                } else {
+                    "Našiel som postup „${procedure.title}“:\\n${procedure.steps}\\n\\nToto je uložený návod. Jednotlivé kroky vykonám iba vtedy, ak ich aplikácia podporuje a má potrebné oprávnenia."
+                }
                 chat.add(Message(true, answer)); speak(answer)
             }
             text.startsWith("zapamätaj si ", true) || text.startsWith("pamätaj si ", true) || text.startsWith("nauč sa ", true) -> {
@@ -635,6 +672,31 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     chat.add(Message(true, answer)); speak(answer)
                     runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(number)))) }
                         .onFailure { Toast.makeText(context, "Vytáčanie sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+                }
+            }
+            text.startsWith("pripomeň mi ", true) && Regex("(?i)^pripomeň mi (.+?) o (\\d{1,2})[:.](\\d{2})$").matches(text) -> {
+                val match = Regex("(?i)^pripomeň mi (.+?) o (\\d{1,2})[:.](\\d{2})$").find(text)!!
+                val title = match.groupValues[1].trim()
+                val hour = match.groupValues[2].toInt()
+                val minute = match.groupValues[3].toInt()
+                if (hour !in 0..23 || minute !in 0..59) {
+                    val answer = "Čas pripomienky nie je platný. Použite napríklad: pripomeň mi učenie o 18:30."
+                    chat.add(Message(true, answer)); speak(answer)
+                } else {
+                    val scheduledAt = JarvisReminders.schedule(context, title, hour, minute)
+                    val time = SimpleDateFormat("HH:mm", Locale("sk", "SK")).format(Date(scheduledAt))
+                    val date = SimpleDateFormat("d. M. yyyy", Locale("sk", "SK")).format(Date(scheduledAt))
+                    val notificationsAllowed = android.os.Build.VERSION.SDK_INT < 33 ||
+                        context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+                    val answer = if (notificationsAllowed) {
+                        "Pripomienku „$title“ som naplánoval na $date o $time. Android ju môže pri úspore batérie doručiť s oneskorením."
+                    } else {
+                        "Pripomienku „$title“ som naplánoval na $date o $time, ale oznámenia JARVISu nie sú povolené. Otváram nastavenia oznámení, aby ste ich mohli zapnúť."
+                    }
+                    chat.add(Message(true, answer)); speak(answer)
+                    if (!notificationsAllowed) runCatching {
+                        context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
+                    }
                 }
             }
             text.startsWith("pripomeň mi ", true) || text.startsWith("pripomeň ", true) || text.startsWith("vytvor udalosť ", true) -> {
