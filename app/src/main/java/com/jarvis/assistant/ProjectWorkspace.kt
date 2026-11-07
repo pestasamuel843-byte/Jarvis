@@ -5,6 +5,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.webkit.WebChromeClient
 import android.webkit.GeolocationPermissions
+import org.json.JSONObject
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -31,7 +32,7 @@ import kotlin.math.sin
 private val WorkCyan = Color(0xFF4DEBFF)
 
 @Composable
-fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, onRefine: (String) -> Unit, initialMapMode: Boolean = false) {
+fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, onRefine: (String) -> Unit, initialMapMode: Boolean = false, voiceCommand: String = "") {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("jarvis_workspace", Context.MODE_PRIVATE) }
     val strokes = remember {
@@ -93,7 +94,7 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
             Button(onClick = { mapMode = true }, colors = ButtonDefaults.buttonColors(containerColor = if (mapMode) Color(0xFF12394B) else Color(0xFF0A1521)), border = androidx.compose.foundation.BorderStroke(1.dp, if (mapMode) WorkCyan.copy(alpha = 0.7f) else Color(0xFF20394B)), shape = RoundedCornerShape(8.dp)) { Text("⌖  GEO PRIESTOR", color = WorkCyan, letterSpacing = 1.sp) }
         }
         if (mapMode) {
-            NavigationProjection()
+            NavigationProjection(voiceCommand)
         } else {
         Text("ČO NAVRHUJEME ĎALEJ?", color = WorkCyan, style = MaterialTheme.typography.labelSmall)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -190,8 +191,14 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
 }
 
 @Composable
-private fun NavigationProjection() {
+private fun NavigationProjection(voiceCommand: String = "") {
     val context = LocalContext.current
+    var mapWebView by remember { mutableStateOf<WebView?>(null) }
+    LaunchedEffect(voiceCommand, mapWebView) {
+        if (voiceCommand.isNotBlank() && mapWebView != null) {
+            mapWebView?.evaluateJavascript("handleVoiceCommand(${JSONObject.quote(voiceCommand)})", null)
+        }
+    }
     var pendingGeoCallback by remember { mutableStateOf<GeolocationPermissions.Callback?>(null) }
     var pendingGeoOrigin by remember { mutableStateOf("") }
     val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -272,6 +279,17 @@ function toggle3D(){
  map.easeTo({pitch:threeD?60:0,bearing:threeD?-18:0,duration:900});
  status(threeD?'3D perspektíva aktívna':'2D mapa aktívna');
 }
+function handleVoiceCommand(raw){
+ const q=(raw||'').trim();if(!q)return;
+ const lower=q.toLocaleLowerCase('sk');
+ if(lower.includes('zemeguľ')||lower.includes('zemegul')||lower.includes('globe mode')){showGlobe();return}
+ if(lower.includes('späť na zem')||lower.includes('celú zem')){showGlobe();return}
+ const streetMode=lower.includes('ulic')||lower.includes('street mode')||lower.includes('úroveň ulíc');
+ const match=q.match(/(?:ukáž|zobraz|nájdi|vyhľadaj|priblíž(?: sa)? na|prejdi na)\\s+(?:mi\\s+)?(.+)/i);
+ if(match&&match[1]&&!streetMode){document.getElementById('place').value=match[1].replace(/\\s+(?:na map[euy]|na ulicu)$/i,'').trim();showStreets();return}
+ if(streetMode){showStreets();return}
+ status('Hlasový príkaz mapy: '+q);
+}
 function showGlobe(){
  map.setProjection({type:'globe'});
  map.flyTo({center:[10,20],zoom:1.7,pitch:0,bearing:0,duration:1600});
@@ -336,6 +354,7 @@ function locate(){
         modifier = Modifier.fillMaxWidth().height(520.dp),
         factory = { ctx ->
             WebView(ctx).apply {
+                mapWebView = this
                 webViewClient = WebViewClient()
                 webChromeClient = object : WebChromeClient() {
                     override fun onGeolocationPermissionsShowPrompt(origin: String, callback: GeolocationPermissions.Callback) {
