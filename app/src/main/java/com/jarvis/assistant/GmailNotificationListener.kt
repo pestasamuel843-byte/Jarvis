@@ -24,7 +24,22 @@ class GmailNotificationListener : NotificationListenerService() {
         super.onListenerDisconnected()
     }
 
-    private fun sendInlineReply(appName: String?, reply: String): Boolean {
+    private fun latestSender(appName: String?): String? {
+        val packages = mapOf(
+            "Gmail" to "com.google.android.gm",
+            "Messenger" to "com.facebook.orca",
+            "Instagram" to "com.instagram.android",
+            "Facebook" to "com.facebook.katana"
+        )
+        val targetPackage = packages[appName]
+        return runCatching { activeNotifications?.toList().orEmpty() }
+            .getOrDefault(emptyList())
+            .filter { targetPackage == null || it.packageName == targetPackage }
+            .sortedByDescending { it.postTime }
+            .firstNotNullOfOrNull { it.notification.extras?.getCharSequence("android.title")?.toString()?.trim()?.takeIf(String::isNotBlank) }
+    }
+
+    private fun sendInlineReply(appName: String?, sender: String, reply: String): Boolean {
         val packages = mapOf(
             "Gmail" to "com.google.android.gm",
             "Messenger" to "com.facebook.orca",
@@ -33,7 +48,8 @@ class GmailNotificationListener : NotificationListenerService() {
         )
         val targetPackage = packages[appName]
         val notifications = runCatching { activeNotifications?.toList().orEmpty() }.getOrDefault(emptyList())
-            .filter { targetPackage == null || it.packageName == targetPackage }
+            .filter { (targetPackage == null || it.packageName == targetPackage) &&
+                it.notification.extras?.getCharSequence("android.title")?.toString()?.trim() == sender }
             .sortedByDescending { it.postTime }
 
         for (sbn in notifications) {
@@ -58,9 +74,11 @@ class GmailNotificationListener : NotificationListenerService() {
     companion object {
         @Volatile private var connectedInstance: GmailNotificationListener? = null
 
-        fun sendReply(appName: String?, reply: String): Boolean {
-            if (reply.isBlank()) return false
-            return connectedInstance?.sendInlineReply(appName, reply) ?: false
+        fun latestSender(appName: String?): String? = connectedInstance?.latestSender(appName)
+
+        fun sendReply(appName: String?, sender: String, reply: String): Boolean {
+            if (sender.isBlank() || reply.isBlank()) return false
+            return connectedInstance?.sendInlineReply(appName, sender, reply) ?: false
         }
     }
 
