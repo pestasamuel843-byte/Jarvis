@@ -254,7 +254,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 messageReadAuthorized = true
                 handle(protectedRead)
             } else {
-                val retry = "Heslo nesúhlasí. Správy zostávajú zamknuté. Povedzte ATLAS-731 alebo zruš."
+                val retry = "Heslo nesúhlasí. Správy zostávajú zamknuté. Skúste znova alebo povedzte zruš."
                 chat.add(Message(true, retry)); speak(retry)
             }
             return
