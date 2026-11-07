@@ -101,7 +101,10 @@ class GmailNotificationListener : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         if (sbn == null) return
         val appName = supportedApps[sbn.packageName] ?: return
-        if (sbn.isGroup) return
+        // isGroup is true for ordinary child notifications in a conversation group too.
+        // Only discard the synthetic group-summary row; otherwise Messenger/Instagram
+        // conversation previews can be silently ignored.
+        if ((sbn.notification.flags and android.app.Notification.FLAG_GROUP_SUMMARY) != 0) return
         val extras = sbn.notification.extras ?: return
         val title = extras.getCharSequence("android.title")?.toString()?.trim().orEmpty()
         val text = extras.getCharSequence("android.text")?.toString()?.trim().orEmpty()
