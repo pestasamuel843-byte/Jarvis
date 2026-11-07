@@ -27,6 +27,7 @@ class JarvisVoiceService : Service() {
     private var recognizer: SpeechRecognizer? = null
     private var stopped = false
     private var listening = false
+    private var recognitionStarting = false
     private var sessionActive = false
     private var pausedForSpeech = false
     private var restartQueued = false
@@ -79,18 +80,20 @@ class JarvisVoiceService : Service() {
             }).also { speech ->
                 speech.setRecognitionListener(object : RecognitionListener {
                     override fun onReadyForSpeech(params: Bundle?) {
+                        recognitionStarting = false
                         listening = true
                         sendStatus(if (sessionActive) "POČÚVAM • KONVERZÁCIA AKTÍVNA" else "ČAKÁM NA HEJ JARVIS")
                     }
-                    override fun onBeginningOfSpeech() { listening = true }
+                    override fun onBeginningOfSpeech() { recognitionStarting = false; listening = true }
                     override fun onRmsChanged(rmsdB: Float) {}
                     override fun onBufferReceived(buffer: ByteArray?) {}
-                    override fun onEndOfSpeech() { listening = false }
+                    override fun onEndOfSpeech() { listening = false; recognitionStarting = false }
                     override fun onPartialResults(partialResults: Bundle?) {}
                     override fun onEvent(eventType: Int, params: Bundle?) {}
 
                     override fun onError(error: Int) {
                         listening = false
+                        recognitionStarting = false
                         // If Android has no Slovak offline speech pack, fall back to its regular recognizer.
                         if (usingOnDeviceRecognizer && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
                             (error == SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED ||
@@ -111,6 +114,7 @@ class JarvisVoiceService : Service() {
 
                     override fun onResults(results: Bundle?) {
                         listening = false
+                        recognitionStarting = false
                         val phrase = results
                             ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                             ?.firstOrNull().orEmpty().trim()
@@ -193,7 +197,7 @@ class JarvisVoiceService : Service() {
             scheduleRestart(250L)
             return
         }
-        if (listening) return
+        if (listening || recognitionStarting) return
         runCatching {
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
@@ -205,10 +209,11 @@ class JarvisVoiceService : Service() {
                 putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1400L)
                 putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 850L)
             }
+            recognitionStarting = true
             recognizer?.startListening(intent)
-            listening = true
         }.onFailure {
             listening = false
+            recognitionStarting = false
             recreateAndRestart(900L)
         }
     }
@@ -217,6 +222,7 @@ class JarvisVoiceService : Service() {
         handler.removeCallbacksAndMessages(null)
         restartQueued = false
         listening = false
+        recognitionStarting = false
         runCatching { recognizer?.cancel() }
     }
 
@@ -225,6 +231,7 @@ class JarvisVoiceService : Service() {
         runCatching { recognizer?.destroy() }
         recognizer = null
         listening = false
+        recognitionStarting = false
         if (!stopped && !pausedForSpeech) {
             handler.postDelayed({ createRecognizer(); scheduleRestart(200L) }, delay)
         }
