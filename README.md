@@ -13,7 +13,7 @@ Native Android prototype written in Kotlin and Jetpack Compose. It does not requ
 - Notification previews for Gmail, Messenger, Instagram, Facebook, WhatsApp, and EduPage through Android NotificationListener access. WhatsApp quick replies are sent only when Android exposes a reply action and only after explicit confirmation.
 - Voice commands to read the latest notification previews by app, including EduPage grade alerts.
 - Project workspace: AI-generated project brief, rotatable wireframe 3D primitives (cube, pyramid, house, sphere), finger-drawn canvas, and locally saved sketch.
-- Interactive 3D city map workspace using MapLibre and OpenFreeMap vector tiles, with extruded building shapes, place search, zoom/rotation/tilt, optional current location, and optional route drawing. Map tiles, search, location, and routes require internet and relevant permissions.
+- Interactive holographic map workspace using MapLibre and OpenFreeMap vector tiles: starts on a 3D globe, smoothly zooms into searched cities and streets, supports voice requests for the globe/street view and place search, and displays extruded 3D buildings where data is available. Also includes zoom/rotation/tilt, optional current location, and optional route drawing. Map tiles, search, location, and routes require internet and relevant permissions.
 - API endpoint, model, and key settings; the key is not committed to the repository.
 - GitHub Actions builds a debug APK and uploads it as a workflow artifact.
 
