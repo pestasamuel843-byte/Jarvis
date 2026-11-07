@@ -253,10 +253,10 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             chat.add(Message(true, answer)); speak(answer)
             return
         }
-        val replyMatch = Regex("(?i)^(?:odpíš|odpovedz|pošli správu)(?: na (instagram|messenger|facebook)| cez (gmail))?[, ]+(.+)$").find(text)
+        val replyMatch = Regex("(?i)^(?:odpíš|odpovedz|pošli správu)(?: na (instagram|messenger|facebook|whatsapp)| cez (gmail))?[, ]+(.+)$").find(text)
         if (replyMatch != null) {
             val appName = when {
-                replyMatch.groupValues[1].isNotBlank() -> replyMatch.groupValues[1].replaceFirstChar { it.uppercase() }
+                replyMatch.groupValues[1].isNotBlank() -> if (replyMatch.groupValues[1].equals("whatsapp", true)) "WhatsApp" else replyMatch.groupValues[1].replaceFirstChar { it.uppercase() }
                 replyMatch.groupValues[2].isNotBlank() -> "Gmail"
                 else -> null
             }
@@ -699,11 +699,11 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     chat.add(Message(true, answer)); speak(answer)
                 }
             }
-            text.contains("prečítaj správy", true) || text.contains("čítaj správy", true) || text.contains("prečítaj emaily", true) || text.contains("prečítaj e-maily", true) || text.contains("nové správy", true) || text.contains("správy z messenger", true) || text.contains("správy z instagram", true) || text.contains("správy z facebook", true) -> {
+            text.contains("prečítaj známky", true) || text.contains("známky z edupage", true) || text.contains("prečítaj edupage", true) || text.contains("prečítaj správy", true) || text.contains("čítaj správy", true) || text.contains("prečítaj emaily", true) || text.contains("prečítaj e-maily", true) || text.contains("nové správy", true) || text.contains("správy z messenger", true) || text.contains("správy z instagram", true) || text.contains("správy z facebook", true) || text.contains("správy z whatsapp", true) || text.contains("whatsapp správy", true) -> {
                 val enabled = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners").orEmpty()
                     .contains(context.packageName + "/" + GmailNotificationListener::class.java.name)
                 if (!enabled) {
-                    val message = "Na čítanie náhľadov správ z Gmailu, Messengeru, Instagramu a Facebooku povoľte JARVISu prístup k oznámeniam Androidu. Otváram systémové nastavenie. Potom povedzte: Hej Jarvis, prečítaj správy."
+                    val message = "Na čítanie dostupných oznámení z Gmailu, Messengeru, Instagramu, Facebooku, WhatsAppu a EduPage povoľte JARVISu prístup k oznámeniam Androidu. Otváram systémové nastavenie."
                     chat.add(Message(true, message)); speak(message)
                     runCatching { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
                 } else {
