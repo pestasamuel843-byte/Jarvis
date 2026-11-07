@@ -354,6 +354,29 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 val answer = if (timetable.isBlank()) "Pane, rozvrh ešte nie je nastavený. Povedzte: nastav rozvrh." else "Váš uložený rozvrh: " + timetable.replace("\\n", ". ")
                 chat.add(Message(true, answer)); speak(answer)
             }
+            text.contains("analyzuj môj pokrok", true) || text.contains("zhodnoť môj týždeň", true) || text.contains("analyzuj moje výsledky", true) -> {
+                val progress = prefs.getString("progress_data", "").orEmpty()
+                if (progress.isBlank()) {
+                    val answer = "Zatiaľ nemám dostatok záznamov na analýzu. Môžete mi priebežne diktovať známky, napríklad: zapíš známku z matematiky 2, a vyplniť denné hodnotenie."
+                    chat.add(Message(true, answer)); speak(answer)
+                } else if (key.isBlank() && !OfflineBrain(context).isInstalled()) {
+                    val answer = "Záznamy mám uložené, ale na ich inteligentnú analýzu potrebujem pripojenú online AI alebo nainštalovaný offline model. Grafy môžem zobraziť aj teraz."
+                    showProgress = true
+                    chat.add(Message(true, answer)); speak(answer)
+                } else {
+                    busy = true
+                    showProgress = true
+                    chat.add(Message(true, "Analyzujem iba vaše uložené záznamy. Nebudem dopĺňať chýbajúce údaje ani robiť zdravotné diagnózy."))
+                    scope.launch {
+                        val contextData = "ZÁZNAMY POUŽÍVATEĽA (dátum | typ | hodnota | detail):\\n$progress"
+                        val request = "Vyhodnoť tieto osobné školské a denné záznamy. Rozdeľ známky a denné hodnotenia, uveď iba doložené trendy, upozorni na malý počet údajov a navrhni najviac tri realistické ďalšie kroky. Neurčuj diagnózy a nevymýšľaj chýbajúce hodnoty."
+                        val answer = askAiWithOfflineFallback(context, endpoint, key, model, chat.toList().takeLast(20) + Message(false, request), contextData)
+                        chat.add(Message(true, answer))
+                        speak("Analýza záznamov je pripravená.")
+                        busy = false
+                    }
+                }
+            }
             Regex("(?i)^(?:(?:zapíš|zapis|pridaj|ulož|uloz)\\s+)?známk[au] z (.+?)\\s+([1-5])$").find(text) != null -> {
                 val match = Regex("(?i)^(?:(?:zapíš|zapis|pridaj|ulož|uloz)\\s+)?známk[au] z (.+?)\\s+([1-5])$").find(text)!!
                 val subject = match.groupValues[1].trim().take(60)
