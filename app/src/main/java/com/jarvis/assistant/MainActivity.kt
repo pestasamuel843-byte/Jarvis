@@ -329,13 +329,13 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 showWorkspace = true
                 showChat = false
                 lastWorkspaceRequest = text
-                if (key.isNotBlank()) {
+                if (key.isNotBlank() || OfflineBrain(context).isInstalled()) {
                     val status = "Otváram pracovný priestor a pripravujem návrh, pane."
                     chat.add(Message(true, status)); speak(status)
                     busy = true
                     scope.launch {
                         val progressContext = prefs.getString("memories", "").orEmpty() + "\nUložené osobné záznamy (používaj iba ak relevantné, nevymýšľaj údaje):\n" + prefs.getString("progress_data", "").orEmpty()
-                        val answer = withContext(Dispatchers.IO) { askAi(endpoint, key, model, chat.toList().takeLast(20), progressContext) }
+                        val answer = askAiWithOfflineFallback(context, endpoint, key, model, chat.toList().takeLast(20), progressContext)
                         workspaceDescription = answer
                         prefs.edit().putString("workspace_description", answer).apply()
                         chat.add(Message(true, answer))
@@ -343,7 +343,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                         busy = false
                     }
                 } else {
-                    val answer = "Otváram pracovný priestor, pane. Nastavte AI kľúč, ak chcete návrh projektu generovať konverzáciou. Náčrt môžete kresliť prstom."
+                    val answer = "Otváram pracovný priestor, pane. Ak chcete konverzačnú AI bez kľúča, najprv v Nastaveniach stiahnite offline AI model. Zatiaľ môžete kresliť jednoduchý náčrt prstom."
                     workspaceDescription = answer
                     prefs.edit().putString("workspace_description", answer).apply()
                     chat.add(Message(true, answer)); speak(answer)
@@ -888,7 +888,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     val progress = prefs.getString("progress_data", "").orEmpty()
                     val personalContext = prefs.getString("memories", "").orEmpty() +
                         if (progress.isBlank()) "" else "\nOsobné záznamy známok a dennej pohody (používaj len tieto údaje; nevymýšľaj hodnoty):\n" + progress
-                    val answer = withContext(Dispatchers.IO) { askAi(endpoint, key, model, chat.toList().takeLast(20), personalContext) }
+                    val answer = askAiWithOfflineFallback(context, endpoint, key, model, chat.toList().takeLast(20), personalContext)
                     chat.add(Message(true, answer)); speak(answer); busy = false
                 }
             }
@@ -1004,18 +1004,18 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 }
                 if (showWorkspace) {
                     ProjectWorkspace(title = "JARVIS • Interaktívny návrh", description = workspaceDescription, onClose = { showWorkspace = false }, initialMapMode = lastWorkspaceRequest.contains("premiet", true) || lastWorkspaceRequest.contains("cestu okolo", true) || lastWorkspaceRequest.contains("trasu", true) || lastWorkspaceRequest.contains("mapu", true) || lastWorkspaceRequest.contains("okolie školy", true), onRefine = { instruction ->
-                        if (key.isNotBlank() && !busy) {
+                        if ((key.isNotBlank() || OfflineBrain(context).isInstalled()) && !busy) {
                             busy = true
                             chat.add(Message(false, instruction))
                             scope.launch {
                                 val projectContext = prefs.getString("memories", "").orEmpty() + "\nUložené osobné záznamy (iba ak relevantné):\n" + prefs.getString("progress_data", "").orEmpty()
-                                val answer = withContext(Dispatchers.IO) { askAi(endpoint, key, model, (chat.toList().takeLast(20) + Message(false, "Uprav aktívny návrh podľa tejto požiadavky: $instruction. Zachovaj užitočné časti a vysvetli konkrétne zmeny.")), projectContext) }
+                                val answer = askAiWithOfflineFallback(context, endpoint, key, model, (chat.toList().takeLast(20) + Message(false, "Uprav aktívny návrh podľa tejto požiadavky: $instruction. Zachovaj užitočné časti a vysvetli konkrétne zmeny.")), projectContext)
                                 workspaceDescription = answer
                                 prefs.edit().putString("workspace_description", answer).apply()
                                 chat.add(Message(true, answer)); speak(answer); busy = false
                             }
                         } else if (key.isBlank()) {
-                            val msg = "Pane, na úpravy návrhu potrebujem nastavený AI kľúč."
+                            val msg = "Pane, na úpravy návrhu potrebujem internetové AI spojenie alebo stiahnutý offline model v Nastaveniach."
                             chat.add(Message(true, msg)); speak(msg)
                         }
                     })
@@ -1694,6 +1694,36 @@ private fun searchWeb(query: String): String {
     } finally {
         connection?.disconnect()
     }
+}
+
+private suspend fun askAiWithOfflineFallback(
+    context: Context,
+    endpoint: String,
+    key: String,
+    model: String,
+    history: List<Message>,
+    memory: String
+): String {
+    val lastPrompt = history.lastOrNull { !it.jarvis }?.text.orEmpty()
+    val offline = OfflineBrain(context)
+    if (key.isBlank()) {
+        return if (offline.isInstalled()) {
+            offline.answer(lastPrompt, memory)
+        } else {
+            "Pane, offline AI model ešte nie je stiahnutý. Otvorte Nastavenia a vyberte „Stiahnuť offline AI mozog“."
+        }
+    }
+
+    val internetAvailable = withContext(Dispatchers.IO) { testInternetConnection() }
+    if (!internetAvailable) {
+        return if (offline.isInstalled()) {
+            offline.answer(lastPrompt, memory)
+        } else {
+            "Pane, internet nie je dostupný a offline AI model ešte nie je stiahnutý. V Nastaveniach ho môžete stiahnuť, keď budete online."
+        }
+    }
+
+    return withContext(Dispatchers.IO) { askAi(endpoint, key, model, history, memory) }
 }
 
 private fun askAi(endpoint: String, key: String, model: String, history: List<Message>, memory: String): String {
