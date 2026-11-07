@@ -152,7 +152,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 }
 
 private data class Message(val jarvis: Boolean, val text: String)
-private data class PendingReply(val appName: String?, val text: String)
+private data class PendingReply(val appName: String?, val sender: String, val text: String)
 
 @Composable
 private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
@@ -241,7 +241,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
         val waitingReply = pendingReply
         if (waitingReply != null && (text.equals("áno", true) || text.equals("potvrď", true) || text.equals("odošli", true) || text.equals("odoslať", true))) {
             pendingReply = null
-            val sent = GmailNotificationListener.sendReply(waitingReply.appName, waitingReply.text)
+            val sent = GmailNotificationListener.sendReply(waitingReply.appName, waitingReply.sender, waitingReply.text)
             val answer = if (sent) "Správa bola odoslaná cez rýchlu odpoveď oznámenia, pane."
                 else "Oznámenie neposkytuje použiteľné tlačidlo rýchlej odpovede alebo už nie je aktívne. Správu som neodoslal. Otvorte príslušnú konverzáciu v aplikácii a odošlite ju tam."
             chat.add(Message(true, answer)); speak(answer)
@@ -253,30 +253,28 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             chat.add(Message(true, answer)); speak(answer)
             return
         }
-        if (text.startsWith("odpíš ", true) || text.startsWith("odpovedz ", true) || text.startsWith("pošli správu ", true)) {
-            val lower = text.lowercase(Locale.ROOT)
+        val replyMatch = Regex("(?i)^(?:odpíš|odpovedz|pošli správu)(?: na (instagram|messenger|facebook)| cez (gmail))?[, ]+(.+)$").find(text)
+        if (replyMatch != null) {
             val appName = when {
-                lower.startsWith("odpíš na instagram ") || lower.startsWith("odpovedz na instagram ") || lower.startsWith("pošli správu na instagram ") -> "Instagram"
-                lower.startsWith("odpíš na messenger ") || lower.startsWith("odpovedz na messenger ") || lower.startsWith("pošli správu na messenger ") -> "Messenger"
-                lower.startsWith("odpíš na facebook ") || lower.startsWith("odpovedz na facebook ") || lower.startsWith("pošli správu na facebook ") -> "Facebook"
-                lower.startsWith("odpíš na gmail ") || lower.startsWith("odpovedz na gmail ") || lower.startsWith("pošli správu cez gmail ") -> "Gmail"
+                replyMatch.groupValues[1].isNotBlank() -> replyMatch.groupValues[1].replaceFirstChar { it.uppercase() }
+                replyMatch.groupValues[2].isNotBlank() -> "Gmail"
                 else -> null
             }
-            val draft = when {
-                lower.startsWith("odpíš na ") -> text.substringAfter(" ", "").substringAfter(" ", "")
-                lower.startsWith("odpovedz na ") -> text.substringAfter(" ", "").substringAfter(" ", "")
-                lower.startsWith("pošli správu na ") -> text.substringAfter(" ", "").substringAfter(" ", "").substringAfter(" ", "")
-                lower.startsWith("pošli správu cez gmail ") -> text.substringAfter("pošli správu cez gmail ", "")
-                else -> text.substringAfter(" ", "")
-            }.trim()
+            val draft = replyMatch.groupValues[3].trim().removePrefix("že ").trim()
             if (draft.isBlank()) {
                 val answer = "Pane, nadiktujte aj text správy. Napríklad: Odpíš na Instagram, že prídem o desať minút."
                 chat.add(Message(true, answer)); speak(answer)
             } else {
-                pendingReply = PendingReply(appName, draft)
-                val target = appName ?: "najnovšie aktívne oznámenie"
-                val answer = "Pripravil som odpoveď pre $target: „$draft“. Mám ju odoslať?"
-                chat.add(Message(true, answer)); speak(answer)
+                val sender = GmailNotificationListener.latestSender(appName)
+                if (sender.isNullOrBlank()) {
+                    val answer = "Nemám otvorené aktívne oznámenie s adresátom pre ${appName ?: "poslednú správu"}. Otvorte najnovšie oznámenie danej konverzácie a skúste príkaz znova. Zatiaľ nič neodosielam."
+                    chat.add(Message(true, answer)); speak(answer)
+                } else {
+                    pendingReply = PendingReply(appName, sender, draft)
+                    val target = if (appName == null) sender else "$sender cez $appName"
+                    val answer = "Pripravil som odpoveď pre $target: „$draft“. Mám ju odoslať?"
+                    chat.add(Message(true, answer)); speak(answer)
+                }
             }
             return
         }
