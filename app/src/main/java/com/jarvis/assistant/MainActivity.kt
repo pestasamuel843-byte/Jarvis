@@ -182,11 +182,13 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     var moodValue by remember { mutableFloatStateOf(3f) }
     var moodNote by remember { mutableStateOf("") }
     var scheduleSetupIndex by remember { mutableIntStateOf(-1) }
+    var firstRunSetupRequested by remember { mutableStateOf(false) }
     val scheduleDays = listOf("Pondelok", "Utorok", "Streda", "Štvrtok", "Piatok")
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(4700)
         showIntro = false
-        showCheckIn = true
+        // The school timetable is collected once, by voice. Never force a grades/mood form on startup.
+        showCheckIn = !prefs.getBoolean("first_run_completed", false)
     }
     var lastWorkspaceRequest by remember { mutableStateOf("") }
     var workspaceDescription by remember { mutableStateOf(prefs.getString("workspace_description", "Povedzte JARVISu, čo chcete navrhnúť. Návrh AI sa zobrazí tu a náčrt môžete kresliť prstom.") ?: "") }
@@ -917,7 +919,16 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             listening = true
             prefs.edit().putBoolean("voice_enabled", true).apply()
             context.startForegroundService(Intent(context, JarvisVoiceService::class.java))
+            if (firstRunSetupRequested) {
+                firstRunSetupRequested = false
+                prefs.edit().putBoolean("first_run_completed", true).apply()
+                scheduleSetupIndex = 0
+                val prompt = "Dobrý deň, pane. Vitajte v JARVIS. Najprv nastavíme váš školský rozvrh. Začneme pondelkom. Aký predmet máte na prvej hodine?"
+                chat.add(Message(true, prompt))
+                speak(prompt)
+            }
         } else {
+            firstRunSetupRequested = false
             wakeMode = false
             listening = false
             Toast.makeText(context, "Bez povolenia mikrofónu hlasové ovládanie nefunguje.", Toast.LENGTH_LONG).show()
@@ -1173,34 +1184,34 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
         if (showCheckIn && !showIntro) {
             AlertDialog(
                 onDismissRequest = { showCheckIn = false },
-                title = { Text("Denný prehľad JARVIS") },
+                title = { Text("Prvé spustenie • JARVIS") },
                 text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Dostali ste dnes nové známky? A ako ste sa dnes mali? Údaje sa ukladajú iba v tomto zariadení.", color = Muted, fontSize = 13.sp)
-                        OutlinedTextField(value = gradeSubject, onValueChange = { gradeSubject = it }, label = { Text("Predmet (napr. Matematika)") }, singleLine = true)
-                        OutlinedTextField(value = gradeValue, onValueChange = { gradeValue = it.filter { c -> c.isDigit() }.take(1) }, label = { Text("Známka 1–5 (voliteľné)") }, singleLine = true)
-                        Text("Ako ste sa dnes mali? 1 = ťažký deň, 5 = veľmi dobrý deň", color = Muted, fontSize = 12.sp)
-                        Slider(value = moodValue, onValueChange = { moodValue = it }, valueRange = 1f..5f, steps = 3)
-                        Text("Hodnotenie dňa: " + moodValue.toInt() + "/5", color = Cyan)
-                        OutlinedTextField(value = moodNote, onValueChange = { moodNote = it }, label = { Text("Poznámka (voliteľné)") }, minLines = 1, maxLines = 2)
-                    }
+                    Text(
+                        "Najprv si spolu nastavíme školský rozvrh. Budem sa pýtať hlasom, po jednej hodine. Známky sa pri spustení nezadávajú.",
+                        color = Muted,
+                        fontSize = 13.sp
+                    )
                 },
                 confirmButton = {
                     TextButton(onClick = {
-                        val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-                        val entries = prefs.getString("progress_data", "").orEmpty().lines().filter { it.isNotBlank() }.toMutableList()
-                        if (gradeSubject.isNotBlank() && gradeValue.toIntOrNull() in 1..5) {
-                            entries.add(date + " | ZNÁMKA | " + gradeSubject.trim() + " | " + gradeValue.toInt())
-                        }
-                        entries.add(date + " | DEŇ | " + moodValue.toInt() + "/5 | " + moodNote.trim().take(220))
-                        prefs.edit().putString("progress_data", entries.takeLast(120).joinToString("\n")).apply()
                         showCheckIn = false
-                        val msg = "Denný prehľad uložený, pane. Pri analýze použijem iba skutočne zaznamenané údaje."
-                        chat.add(Message(true, msg))
-                        speak(msg)
-                    }) { Text("Uložiť") }
+                        val prompt = "Dobrý deň, pane. Vitajte v JARVIS. Najprv nastavíme váš školský rozvrh. Začneme pondelkom. Aký predmet máte na prvej hodine?"
+                        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                            prefs.edit().putBoolean("first_run_completed", true).putBoolean("voice_enabled", true).apply()
+                            scheduleSetupIndex = 0
+                            wakeMode = true
+                            context.startForegroundService(Intent(context, JarvisVoiceService::class.java))
+                            chat.add(Message(true, prompt))
+                            speak(prompt)
+                        } else {
+                            firstRunSetupRequested = true
+                            micPermission.launch(Manifest.permission.RECORD_AUDIO)
+                        }
+                    }) { Text("ZAČAŤ HLASOVÉ NASTAVENIE") }
                 },
-                dismissButton = { TextButton(onClick = { showCheckIn = false }) { Text("Preskočiť dnes") } }
+                dismissButton = {
+                    TextButton(onClick = { showCheckIn = false }) { Text("NESKÔR") }
+                }
             )
         }
         if (settings) {

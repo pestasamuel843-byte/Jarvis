@@ -31,6 +31,7 @@ class JarvisVoiceService : Service() {
     private var pausedForSpeech = false
     private var restartQueued = false
     private var usingOnDeviceRecognizer = false
+    private var consecutiveErrors = 0
 
     override fun onCreate() {
         super.onCreate()
@@ -91,26 +92,43 @@ class JarvisVoiceService : Service() {
 
                     override fun onError(error: Int) {
                         listening = false
-                        // If Android has no Slovak offline speech pack, fall back to its regular recognizer.
-                        if (usingOnDeviceRecognizer && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                            (error == SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED ||
-                                error == SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE)) {
-                            createRecognizer(preferOnDevice = false)
-                            scheduleRestart(300L)
-                            return
-                        }
-                        val delay = when (error) {
+                        when (error) {
                             SpeechRecognizer.ERROR_NO_MATCH,
-                            SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 300L
-                            SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> 900L
-                            SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> 4000L
-                            else -> 700L
+                            SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {
+                                // These are normal idle-listening outcomes. Keep the recognizer instance;
+                                // destroying it here creates a rapid start/stop loop and repeated system tones.
+                                consecutiveErrors = (consecutiveErrors + 1).coerceAtMost(6)
+                                scheduleRestart((900L + consecutiveErrors * 250L).coerceAtMost(2400L))
+                            }
+                            SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> {
+                                consecutiveErrors++
+                                recreateAndRestart(1600L)
+                            }
+                            SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> {
+                                sendStatus("MIKROFÓN NEMÁ POVOLENIE")
+                                stopSelf()
+                            }
+                            SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED,
+                            SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE -> {
+                                if (usingOnDeviceRecognizer && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                    sendStatus("SLOVENSKÝ OFFLINE BALÍK NIE JE DOSTUPNÝ • SKÚŠAM SYSTÉMOVÉ ROZPOZNÁVANIE")
+                                    createRecognizer(preferOnDevice = false)
+                                    scheduleRestart(1200L)
+                                } else {
+                                    consecutiveErrors++
+                                    recreateAndRestart(2500L)
+                                }
+                            }
+                            else -> {
+                                consecutiveErrors = (consecutiveErrors + 1).coerceAtMost(6)
+                                recreateAndRestart((1200L + consecutiveErrors * 500L).coerceAtMost(4200L))
+                            }
                         }
-                        recreateAndRestart(delay)
                     }
 
                     override fun onResults(results: Bundle?) {
                         listening = false
+                        consecutiveErrors = 0
                         val phrase = results
                             ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                             ?.firstOrNull().orEmpty().trim()
