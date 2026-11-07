@@ -359,7 +359,7 @@ button{background:#0b2434;border:1px solid #236079;color:#4deBff;border-radius:7
 </style></head><body><div id="view"></div>
 <div id="tools">
 <button onclick="setShape('KOCKA')">Kocka</button><button onclick="setShape('GUĽA')">Guľa</button><button onclick="setShape('PYRAMÍDA')">Kužeľ</button><button onclick="setShape('DOM')">Dom</button><button onclick="setShape('AUTO')">Auto</button>
-<button onclick="addCube()">+ Objekt</button><button onclick="removeSelected()">Odstrániť</button><button onclick="resetCamera()">Reset</button>
+<button onclick="addCube()">+ Objekt</button><button onclick="duplicateSelected()">Duplikovať</button><button onclick="removeSelected()">Odstrániť</button><button onclick="moveSelected(-.25,0,0)">X−</button><button onclick="moveSelected(.25,0,0)">X+</button><button onclick="moveSelected(0,.25,0)">Y+</button><button onclick="moveSelected(0,0,.25)">Z+</button><button onclick="rotateSelected()">↻ 15°</button><button onclick="scaleSelected(.1)">Zväčšiť</button><button onclick="scaleSelected(-.1)">Zmenšiť</button><button onclick="resetCamera()">Reset kamery</button>
 </div><div id="status">3D VIEWPORT • potiahnutím otáčaj, dvoma prstami približuj</div>
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
 <script type="module">
@@ -380,6 +380,10 @@ function clear(){for(const o of objects){scene.remove(o);o.geometry.dispose();o.
 window.setShape=(name)=>{clear();if(name==='GUĽA')add(new THREE.SphereGeometry(1,48,32));else if(name==='PYRAMÍDA')add(new THREE.ConeGeometry(1,2,4));else if(name==='DOM'){add(new THREE.BoxGeometry(2,1.5,2),0,.75,0);const roof=add(new THREE.ConeGeometry(1.55,.9,4),0,1.95,0);roof.rotation.y=Math.PI/4;}else if(name==='AUTO'){add(new THREE.BoxGeometry(3,.65,1.4),0,.75,0);add(new THREE.BoxGeometry(1.5,.65,1.15),-.15,1.35,0);for(const x of [-1,1])for(const z of [-.62,.62]){const w=add(new THREE.CylinderGeometry(.34,.34,.18,24),x,.35,z);w.rotation.x=Math.PI/2;w.material.color.set(0x172b3a)}}else add(new THREE.BoxGeometry(2,2,2));};
 window.addCube=()=>add(new THREE.BoxGeometry(1,1,1),(Math.random()-.5)*2,1,(Math.random()-.5)*2);
 window.removeSelected=()=>{if(!selected)return;scene.remove(selected);objects.splice(objects.indexOf(selected),1);selected.geometry.dispose();selected.material.dispose();selected=null;document.getElementById('status').textContent='Objekt odstránený • zostáva '+objects.length};
+window.duplicateSelected=()=>{if(!selected){document.getElementById('status').textContent='Najprv vyber objekt';return}const copy=new THREE.Mesh(selected.geometry.clone(),selected.material.clone());copy.position.copy(selected.position).add(new THREE.Vector3(.6,0,.6));copy.rotation.copy(selected.rotation);copy.scale.copy(selected.scale);scene.add(copy);objects.push(copy);selected=copy;document.getElementById('status').textContent='Objekt duplikovaný • spolu '+objects.length};
+window.moveSelected=(x,y,z)=>{if(!selected){document.getElementById('status').textContent='Najprv vyber objekt';return}selected.position.add(new THREE.Vector3(x,y,z));document.getElementById('status').textContent='Poloha: '+selected.position.toArray().map(v=>v.toFixed(2)).join(', ')};
+window.rotateSelected=()=>{if(!selected){document.getElementById('status').textContent='Najprv vyber objekt';return}selected.rotation.y+=Math.PI/12;document.getElementById('status').textContent='Otočenie: '+(selected.rotation.y*180/Math.PI).toFixed(0)+'°'};
+window.scaleSelected=(delta)=>{if(!selected){document.getElementById('status').textContent='Najprv vyber objekt';return}const factor=delta>0?1.1:.9;selected.scale.multiplyScalar(factor);document.getElementById('status').textContent='Mierka: '+selected.scale.x.toFixed(2)};
 window.resetCamera=()=>{camera.position.set(5,4,7);controls.target.set(0,1,0);controls.update()};
 const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
 renderer.domElement.addEventListener('pointerdown',e=>{const r=renderer.domElement.getBoundingClientRect();pointer.x=((e.clientX-r.left)/r.width)*2-1;pointer.y=-((e.clientY-r.top)/r.height)*2+1;raycaster.setFromCamera(pointer,camera);const hit=raycaster.intersectObjects(objects)[0];if(hit){selected=hit.object;selected.material.emissive.set(0x07505c)}});
@@ -390,7 +394,7 @@ function animate(){requestAnimationFrame(animate);controls.update();renderer.ren
         """.trimIndent()
     }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("PLNOHODNOTNÝ 3D VIEWPORT • otočenie, priblíženie a práca so základnými objektmi", color = WorkCyan, fontSize = 10.sp)
+        Text("3D EDITOR • výber objektov, posun, otočenie, mierka a duplikovanie", color = WorkCyan, fontSize = 10.sp)
         AndroidView(
             modifier = Modifier.fillMaxWidth().height(340.dp).background(Color(0xFF07101A), RoundedCornerShape(12.dp)),
             factory = { ctx ->
@@ -411,6 +415,6 @@ function animate(){requestAnimationFrame(animate);controls.update();renderer.ren
                 view.evaluateJavascript("window.setShape && window.setShape('$safeModel')", null)
             }
         )
-        Text("Model: $model • ďalšie úpravy cez hlasové alebo textové pokyny zatiaľ menia opis projektu; pokročilé CAD nástroje a export modelov ešte nie sú hotové.", color = Color(0xFF9BAFC2), fontSize = 9.sp)
+        Text("Model: $model • základné úpravy geometrie sú aktívne. Presné CAD rozmery, mesh editovanie, ukladanie scén a export GLB/STL ešte nie sú hotové.", color = Color(0xFF9BAFC2), fontSize = 9.sp)
     }
 }
