@@ -137,8 +137,15 @@ class JarvisVoiceService : Service() {
 
     private fun dispatchCommand(command: String) {
         val normalized = command.lowercase(Locale.ROOT)
-        val stop = listOf("vypni počúvanie", "prestaň počúvať", "vypni mikrofón", "jarvis spi", "ukonči rozhovor", "ukonči konverzáciu")
-        if (stop.any { normalized.contains(it) }) {
+        val endConversation = listOf("vypni sa", "zatiaľ sa maj", "zatím sa maj", "maj sa", "končíme", "ukonči rozhovor", "ukonči konverzáciu", "dobrú noc")
+        if (endConversation.any { normalized.contains(it) }) {
+            sessionActive = false
+            sendStatus("ČAKÁM NA HEJ JARVIS")
+            sendCommandBroadcast(ACTION_COMMAND, command)
+            return
+        }
+        val stopListening = listOf("vypni počúvanie", "prestaň počúvať", "vypni mikrofón", "jarvis spi")
+        if (stopListening.any { normalized.contains(it) }) {
             isRunning = false
             sendCommandBroadcast(ACTION_COMMAND, command)
             stopSelf()
