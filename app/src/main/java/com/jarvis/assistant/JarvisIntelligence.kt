@@ -40,14 +40,44 @@ REALISTICKÉ HRANICE:
 - Ak funkcia nie je implementovaná alebo ju Android/API neposkytuje, povedz to priamo a ponúkni bezpečnú alternatívu.
 """
     
+    data class LearnedProcedure(val title: String, val steps: String)
+
+    fun parseProcedureCommand(command: String): LearnedProcedure? {
+        val raw = command.trim()
+            .replace(Regex("(?i)^nauč sa postup\\s*:?[ ]*"), "")
+        val separator = raw.indexOf(':')
+        if (separator <= 0 || separator == raw.lastIndex) return null
+        val title = raw.substring(0, separator).trim().take(80)
+        val steps = raw.substring(separator + 1).trim().take(1800)
+        if (title.isBlank() || steps.isBlank()) return null
+        return LearnedProcedure(title, steps)
+    }
+
+    fun encodeProcedure(procedure: LearnedProcedure): String =
+        "NAUČENÝ POSTUP: ${procedure.title} — ${procedure.steps}"
+
+    fun findProcedure(memories: String, query: String): LearnedProcedure? {
+        val needle = query.trim()
+        if (needle.isBlank()) return null
+        return memories.lineSequence()
+            .filter { it.startsWith("NAUČENÝ POSTUP:", ignoreCase = true) }
+            .mapNotNull { line ->
+                val body = line.substringAfter(':').trim()
+                val separator = body.indexOf(" — ")
+                if (separator <= 0) null else LearnedProcedure(
+                    body.substring(0, separator).trim(),
+                    body.substring(separator + 3).trim()
+                )
+            }
+            .firstOrNull { it.title.contains(needle, ignoreCase = true) || needle.contains(it.title, ignoreCase = true) }
+    }
+
     fun memoryEntryFromCommand(command: String): String {
         val trimmed = command.trim()
-        return if (trimmed.startsWith("nauč sa postup ", ignoreCase = true)) {
-            "NAUČENÝ POSTUP: " + trimmed.substringAfter("nauč sa postup ", "").trim()
-        } else if (trimmed.startsWith("nauč sa postup:", ignoreCase = true)) {
-            "NAUČENÝ POSTUP: " + trimmed.substringAfter("nauč sa postup:", "").trim()
-        } else {
-            trimmed.substringAfter(' ').substringAfter(' ').trim()
+        if (trimmed.startsWith("nauč sa postup", ignoreCase = true)) {
+            val procedure = parseProcedureCommand(trimmed)
+            return if (procedure != null) encodeProcedure(procedure) else ""
         }
+        return trimmed.substringAfter(' ').substringAfter(' ').trim()
     }
 }
