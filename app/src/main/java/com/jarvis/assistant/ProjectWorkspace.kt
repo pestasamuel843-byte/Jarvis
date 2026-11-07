@@ -377,7 +377,7 @@ const objects=[];let selected=null;
 const mat=()=>new THREE.MeshStandardMaterial({color:0x4deBff,metalness:.55,roughness:.28,emissive:0x07303a});
 function add(geometry,x=0,y=1,z=0){const mesh=new THREE.Mesh(geometry,mat());mesh.position.set(x,y,z);scene.add(mesh);objects.push(mesh);selected=mesh;document.getElementById('status').textContent='Objektov: '+objects.length+' • vybraný objekt';return mesh}
 function clear(){for(const o of objects){scene.remove(o);o.geometry.dispose();o.material.dispose()}objects.length=0;selected=null}
-window.setShape=(name)=>{clear();if(name==='GUĽA')add(new THREE.SphereGeometry(1,48,32));else if(name==='PYRAMÍDA')add(new THREE.ConeGeometry(1,2,4));else if(name==='DOM'){add(new THREE.BoxGeometry(2,1.5,2),0,.75,0);const roof=add(new THREE.ConeGeometry(1.55,.9,4),0,1.95,0);roof.rotation.y=Math.PI/4;}else if(name==='AUTO'){add(new THREE.BoxGeometry(3,.65,1.4),0,.75,0);add(new THREE.BoxGeometry(1.5,.65,1.15),-.15,1.35,0);for(const x of [-1,1])for(const z of [-.62,.62]){const w=add(new THREE.CylinderGeometry(.34,.34,.18,24),x,.35,z);w.rotation.x=Math.PI/2;w.material.color.set(0x172b3a)}}else add(new THREE.BoxGeometry(2,2,2));};
+window.setShape=(name)=>{clear();if(name==='GUĽA')add(new THREE.SphereGeometry(1,48,32));else if(name==='PYRAMÍDA')add(new THREE.ConeGeometry(1,2,4));else if(name==='DOM'){add(new THREE.BoxGeometry(2,1.5,2),0,.75,0);const roof=add(new THREE.ConeGeometry(1.55,.9,4),0,1.95,0);roof.rotation.y=Math.PI/4;}else if(name==='AUTO'){add(new THREE.BoxGeometry(3,.65,1.4),0,.75,0);add(new THREE.BoxGeometry(1.5,.65,1.15),-.15,1.35,0);for(const x of [-1,1])for(const z of [-.62,.62]){const w=add(new THREE.CylinderGeometry(.34,.34,.18,24),x,.35,z);w.rotation.x=Math.PI/2;w.material.color.set(0x172b3a)}}else if(name==='ULICA'){add(new THREE.BoxGeometry(18,.12,5),0,.06,0).material.color.set(0x263b4a);for(let x=-7;x<=7;x+=2.5){const mark=add(new THREE.BoxGeometry(1,.025,.12),x,.13,0);mark.material.color.set(0xb5eaf4)}for(const x of [-6,6]){const building=add(new THREE.BoxGeometry(3,3,3),x,1.5,-4);building.material.color.set(0x17617a)}}else add(new THREE.BoxGeometry(2,2,2));};
 window.addCube=()=>add(new THREE.BoxGeometry(1,1,1),(Math.random()-.5)*2,1,(Math.random()-.5)*2);
 window.removeSelected=()=>{if(!selected)return;scene.remove(selected);objects.splice(objects.indexOf(selected),1);selected.geometry.dispose();selected.material.dispose();selected=null;document.getElementById('status').textContent='Objekt odstránený • zostáva '+objects.length};
 window.duplicateSelected=()=>{if(!selected){document.getElementById('status').textContent='Najprv vyber objekt';return}const copy=new THREE.Mesh(selected.geometry.clone(),selected.material.clone());copy.position.copy(selected.position).add(new THREE.Vector3(.6,0,.6));copy.rotation.copy(selected.rotation);copy.scale.copy(selected.scale);scene.add(copy);objects.push(copy);selected=copy;document.getElementById('status').textContent='Objekt duplikovaný • spolu '+objects.length};
@@ -412,7 +412,10 @@ function animate(){requestAnimationFrame(animate);controls.update();renderer.ren
             },
             update = { view ->
                 val safeModel = model.replace("'", "").replace("\\", "")
-                view.evaluateJavascript("window.setShape && window.setShape('$safeModel')", null)
+                if (view.tag != safeModel) {
+                    view.tag = safeModel
+                    view.evaluateJavascript("window.setShape && window.setShape('$safeModel')", null)
+                }
             }
         )
         Text("Model: $model • základné úpravy geometrie sú aktívne. Presné CAD rozmery, mesh editovanie, ukladanie scén a export GLB/STL ešte nie sú hotové.", color = Color(0xFF9BAFC2), fontSize = 9.sp)
