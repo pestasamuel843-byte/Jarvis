@@ -1588,20 +1588,27 @@ private fun PersonalDashboardSidePanel(
             verticalArrangement = Arrangement.spacedBy(7.dp)
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("INSTAGRAM  /  FEED", color = Cyan, fontSize = 9.sp, letterSpacing = 1.1.sp)
-                Text("EXTERNÝ ÚČET", color = Muted, fontSize = 7.sp)
+                Text("ONLINE SERVICES", color = Cyan, fontSize = 9.sp, letterSpacing = 1.1.sp)
+                Text("QUICK ACCESS", color = Muted, fontSize = 7.sp)
             }
-            Box(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(7.dp)).background(Color(0xFF07121D)), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("◎", color = Cyan, fontSize = 30.sp)
-                    Text("POSLEDNÉ PRÍSPEVKY", color = Color.White, fontSize = 9.sp, letterSpacing = 1.sp)
-                    Text("Instagram zatiaľ nie je pripojený", color = Muted, fontSize = 8.sp)
-                    Text("Po pripojení účtu sa tu môže zobraziť dostupný obsah.", color = Muted, fontSize = 7.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Text("Komunikácia, médiá a nákupy", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                DashboardAction("◎", "INSTAGRAM", Modifier.weight(1f)) {
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.instagram.com/"))) }
+                }
+                DashboardAction("✉", "MESSENGER", Modifier.weight(1f)) {
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.messenger.com/"))) }
                 }
             }
-            DashboardAction("◎", "OTVORIŤ INSTAGRAM", Modifier.fillMaxWidth()) {
-                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.instagram.com/"))) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                DashboardAction("▶", "YOUTUBE", Modifier.weight(1f)) {
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/"))) }
+                }
+                DashboardAction("▣", "OBCHOD", Modifier.weight(1f)) {
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.alza.sk/"))) }
+                }
             }
+            Text("Otvárajú sa oficiálne weby/aplikácie. Priame čítanie inboxov a automatické nákupy nie sú týmto pripojené.", color = Muted, fontSize = 7.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
         Column(
             Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(10.dp))
