@@ -36,12 +36,14 @@ object JarvisAgent {
                 steps.add(Step.OpenApp(app))
             }
         }
-        return steps.joinToString(" ") { step ->
+        val outcomes = steps.map { step ->
             when (step) {
                 is Step.OpenApp -> openApp(context, step.name)
                 is Step.Search -> search(context, step.query, step.youtube)
             }
         }
+        if (outcomes.any { it == null }) return null
+        return outcomes.filterNotNull().joinToString(" ")
     }
 
     private fun normalize(value: String): String = value.lowercase(Locale("sk", "SK"))
@@ -51,7 +53,7 @@ object JarvisAgent {
         .replace('š', 's').replace('ť', 't').replace('ú', 'u').replace('ý', 'y')
         .replace('ž', 'z')
 
-    private fun openApp(context: Context, requested: String): String {
+    private fun openApp(context: Context, requested: String): String? {
         val aliases = mapOf(
             "youtube" to "com.google.android.youtube",
             "instagram" to "com.instagram.android",
@@ -60,7 +62,9 @@ object JarvisAgent {
             "gmail" to "com.google.android.gm",
             "chrome" to "com.android.chrome",
             "spotify" to "com.spotify.music",
-            "netflix" to "com.netflix.mediaclient"
+            "netflix" to "com.netflix.mediaclient",
+            "mapy" to "com.google.android.apps.maps",
+            "google maps" to "com.google.android.apps.maps"
         )
         val packageName = aliases[requested.lowercase(Locale.ROOT)]
         val directIntent = packageName?.let { context.packageManager.getLaunchIntentForPackage(it) }
@@ -77,7 +81,7 @@ object JarvisAgent {
             normalize(it.loadLabel(context.packageManager).toString()).contains(wanted)
         }
         val intent = match?.let { context.packageManager.getLaunchIntentForPackage(it.activityInfo.packageName) }
-            ?: return "Aplikáciu $requested som v nainštalovaných aplikáciách nenašiel."
+            ?: return null
         return runCatching {
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(intent)
