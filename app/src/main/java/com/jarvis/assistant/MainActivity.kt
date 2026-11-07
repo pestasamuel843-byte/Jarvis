@@ -554,6 +554,21 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     runCatching { context.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) }
                 }
             }
+            text.contains("počasie", true) || text.contains("predpoveď", true) || text.contains("teplota vonku", true) -> {
+                val answer = "Zisťujem aktuálne počasie pre Svit z online meteorologických dát, pane."
+                chat.add(Message(true, answer)); speak(answer)
+                busy = true
+                scope.launch {
+                    val result = withContext(Dispatchers.IO) {
+                        runCatching { LiveWeather.forSvit() }.getOrElse {
+                            "Pane, živé údaje o počasí sa nepodarilo načítať. Skontrolujte internetové pripojenie a skúste to znova. Dátum a čas merania preto nebudem odhadovať."
+                        }
+                    }
+                    chat.add(Message(true, result))
+                    speak(if (result.startsWith("Pane, živé")) "Počasie sa momentálne nepodarilo načítať." else "Aktuálne počasie pre Svit je pripravené.")
+                    busy = false
+                }
+            }
             text.startsWith("hľadaj ", true) || text.startsWith("vyhľadaj ", true) -> {
                 val query = text.substringAfter(' ').trim()
                 val answer = "Pane, hľadám na internete: $query"
