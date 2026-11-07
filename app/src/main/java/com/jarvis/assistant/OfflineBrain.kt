@@ -117,6 +117,7 @@ class OfflineBrain(private val context: Context) {
                         "Si JARVIS, stručný slovenský osobný asistent. Používateľa oslovuj pane. " +
                             "Odpovedaj prirodzenou slovenčinou. Buď presný a priznaj neistotu. " +
                             "Nevymýšľaj osobné údaje ani výsledky akcií. Nemáš priamu kontrolu nad inými aplikáciami. " +
+                            JarvisIntelligence.SYSTEM_PROMPT_EXTENSION + "\n" +
                             "Používateľova lokálna pamäť (použi iba ak je relevantná):\n" +
                             (memory.ifBlank { "Zatiaľ bez uložených preferencií." }) +
                             (if (extraContext.isBlank()) "" else "\nDoplňujúci kontext uložený v aplikácii:\n${extraContext.take(2500)}") +
