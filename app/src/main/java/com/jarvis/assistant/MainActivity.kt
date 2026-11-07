@@ -169,6 +169,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     var apiTesting by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var pendingReply by remember { mutableStateOf<PendingReply?>(null) }
+    var pendingDestructiveAction by remember { mutableStateOf<String?>(null) }
     var listening by remember { mutableStateOf(false) }
     var wakeMode by remember { mutableStateOf(prefs.getBoolean("voice_enabled", false)) }
     var appForeground by remember { mutableStateOf(true) }
@@ -251,6 +252,45 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             pendingReply = null
             val answer = "Odoslanie som zrušil. Správa zostala neodoslaná."
             chat.add(Message(true, answer)); speak(answer)
+            return
+        }
+        val pendingChange = pendingDestructiveAction
+        if (pendingChange != null) {
+            if (text.equals("áno", true) || text.equals("potvrď", true) || text.equals("potvrdzujem", true)) {
+                pendingDestructiveAction = null
+                val result = when {
+                    pendingChange == "clear_history" -> {
+                        chat.clear()
+                        "História konverzácie bola vymazaná."
+                    }
+                    pendingChange == "clear_notes" -> {
+                        prefs.edit().remove("notes").apply()
+                        "Všetky poznámky boli vymazané."
+                    }
+                    pendingChange == "delete_last_note" -> {
+                        val remaining = prefs.getString("notes", "").orEmpty().lines().filter { it.isNotBlank() }.dropLast(1)
+                        prefs.edit().putString("notes", remaining.joinToString("\\n")).apply()
+                        "Posledná poznámka bola odstránená."
+                    }
+                    pendingChange.startsWith("forget:") -> {
+                        val query = pendingChange.substringAfter("forget:")
+                        val remaining = prefs.getString("memories", "").orEmpty().lines()
+                            .filter { it.isNotBlank() && !it.contains(query, ignoreCase = true) }
+                        prefs.edit().putString("memories", remaining.joinToString("\\n")).apply()
+                        "Z pamäte boli odstránené položky zodpovedajúce zadaniu."
+                    }
+                    else -> "Neznámu zmenu som nevykonal."
+                }
+                chat.add(Message(true, result + ""))
+                speak(result)
+            } else if (text.equals("nie", true) || text.equals("zruš", true) || text.equals("zruš zmenu", true)) {
+                pendingDestructiveAction = null
+                val result = "Zmenu som zrušil. Údaje zostali nezmenené."
+                chat.add(Message(true, result)); speak(result)
+            } else {
+                val result = "Čakám na potvrdenie. Povedzte áno alebo zruš."
+                chat.add(Message(true, result)); speak(result)
+            }
             return
         }
         val replyMatch = Regex("(?i)^(?:odpíš|odpovedz|pošli správu)(?: na (instagram|messenger|facebook|whatsapp)| cez (gmail))?[, ]+(.+)$").find(text)
@@ -444,8 +484,8 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 }
             }
             text.contains("vymaž históriu", true) || text.contains("vymaž konverzáciu", true) -> {
-                chat.clear()
-                val answer = "Históriu konverzácie som vymazal, pane."
+                pendingDestructiveAction = "clear_history"
+                val answer = "Chcete vymazať uloženú históriu konverzácie? Táto zmena sa nedá vrátiť. Potvrďte slovom áno alebo povedzte zruš."
                 chat.add(Message(true, answer)); speak(answer)
             }
             text.contains("batéria", true) || text.contains("stav batérie", true) -> {
@@ -469,10 +509,8 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             }
             text.startsWith("zabudni ", true) -> {
                 val query = text.substringAfter(' ').trim()
-                val old = prefs.getString("memories", "").orEmpty()
-                val remaining = old.lines().filter { it.isNotBlank() && !it.contains(query, ignoreCase = true) }
-                prefs.edit().putString("memories", remaining.joinToString("\\n")).apply()
-                val answer = "Odstránil som z pamäti položky zodpovedajúce zadaniu, pane."
+                pendingDestructiveAction = "forget:$query"
+                val answer = "Chcete odstrániť z pamäte položky obsahujúce „$query“? Potvrďte slovom áno alebo povedzte zruš."
                 chat.add(Message(true, answer)); speak(answer)
             }
             text.contains("ukáž poznámky", true) || text.contains("moje poznámky", true) || text == "poznámky" -> {
@@ -481,14 +519,13 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 chat.add(Message(true, answer)); speak(if (notes.isBlank()) answer else "Zobrazil som vaše poznámky, pane.")
             }
             text == "vymaž poznámky" || text == "vymaž všetky poznámky" || text == "zmaž poznámky" -> {
-                prefs.edit().remove("notes").apply()
-                val answer = "Všetky lokálne poznámky som vymazal, pane."
+                pendingDestructiveAction = "clear_notes"
+                val answer = "Chcete vymazať všetky uložené poznámky? Potvrďte slovom áno alebo povedzte zruš."
                 chat.add(Message(true, answer)); speak(answer)
             }
             text.startsWith("vymaž poslednú poznámku", true) || text.startsWith("zmaž poslednú poznámku", true) -> {
-                val remaining = prefs.getString("notes", "").orEmpty().lines().filter { it.isNotBlank() }.dropLast(1)
-                prefs.edit().putString("notes", remaining.joinToString("\\n")).apply()
-                val answer = if (remaining.isEmpty()) "Zoznam poznámok je teraz prázdny, pane." else "Poslednú poznámku som odstránil, pane."
+                pendingDestructiveAction = "delete_last_note"
+                val answer = "Chcete odstrániť poslednú uloženú poznámku? Potvrďte slovom áno alebo povedzte zruš."
                 chat.add(Message(true, answer)); speak(answer)
             }
             text.startsWith("naviguj na ", true) || text.startsWith("navigácia na ", true) || text.startsWith("trasa na ", true) -> {
