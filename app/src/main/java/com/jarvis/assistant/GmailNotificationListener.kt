@@ -9,7 +9,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Saves notification previews from Gmail, Messenger, Instagram and Facebook.
+ * Saves notification previews from Gmail, Messenger, Instagram, Facebook, WhatsApp and EduPage.
  * The user must explicitly grant Android notification access. This does not bypass
  * app privacy controls or fetch full conversations from those services.
  */
