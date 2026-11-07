@@ -152,6 +152,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 }
 
 private data class Message(val jarvis: Boolean, val text: String)
+private data class PendingReply(val appName: String?, val text: String)
 
 @Composable
 private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
@@ -167,6 +168,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     var apiTestResult by remember { mutableStateOf("") }
     var apiTesting by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
+    var pendingReply by remember { mutableStateOf<PendingReply?>(null) }
     var listening by remember { mutableStateOf(false) }
     var wakeMode by remember { mutableStateOf(prefs.getBoolean("voice_enabled", false)) }
     var appForeground by remember { mutableStateOf(true) }
@@ -236,6 +238,48 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     fun handle(raw: String) {
         val text = raw.trim().replace(Regex("(?i)^(?:(?:hej|hey)\\s+)?jarvis[,: ]*"), "").trim()
         if (text.isEmpty() || busy) return
+        val waitingReply = pendingReply
+        if (waitingReply != null && (text.equals("áno", true) || text.equals("potvrď", true) || text.equals("odošli", true) || text.equals("odoslať", true))) {
+            pendingReply = null
+            val sent = GmailNotificationListener.sendReply(waitingReply.appName, waitingReply.text)
+            val answer = if (sent) "Správa bola odoslaná cez rýchlu odpoveď oznámenia, pane."
+                else "Oznámenie neposkytuje použiteľné tlačidlo rýchlej odpovede alebo už nie je aktívne. Správu som neodoslal. Otvorte príslušnú konverzáciu v aplikácii a odošlite ju tam."
+            chat.add(Message(true, answer)); speak(answer)
+            return
+        }
+        if (waitingReply != null && (text.equals("nie", true) || text.equals("zruš", true) || text.equals("zruš odoslanie", true))) {
+            pendingReply = null
+            val answer = "Odoslanie som zrušil. Správa zostala neodoslaná."
+            chat.add(Message(true, answer)); speak(answer)
+            return
+        }
+        if (text.startsWith("odpíš ", true) || text.startsWith("odpovedz ", true) || text.startsWith("pošli správu ", true)) {
+            val lower = text.lowercase(Locale.ROOT)
+            val appName = when {
+                lower.startsWith("odpíš na instagram ") || lower.startsWith("odpovedz na instagram ") || lower.startsWith("pošli správu na instagram ") -> "Instagram"
+                lower.startsWith("odpíš na messenger ") || lower.startsWith("odpovedz na messenger ") || lower.startsWith("pošli správu na messenger ") -> "Messenger"
+                lower.startsWith("odpíš na facebook ") || lower.startsWith("odpovedz na facebook ") || lower.startsWith("pošli správu na facebook ") -> "Facebook"
+                lower.startsWith("odpíš na gmail ") || lower.startsWith("odpovedz na gmail ") || lower.startsWith("pošli správu cez gmail ") -> "Gmail"
+                else -> null
+            }
+            val draft = when {
+                lower.startsWith("odpíš na ") -> text.substringAfter(" ", "").substringAfter(" ", "")
+                lower.startsWith("odpovedz na ") -> text.substringAfter(" ", "").substringAfter(" ", "")
+                lower.startsWith("pošli správu na ") -> text.substringAfter(" ", "").substringAfter(" ", "").substringAfter(" ", "")
+                lower.startsWith("pošli správu cez gmail ") -> text.substringAfter("pošli správu cez gmail ", "")
+                else -> text.substringAfter(" ", "")
+            }.trim()
+            if (draft.isBlank()) {
+                val answer = "Pane, nadiktujte aj text správy. Napríklad: Odpíš na Instagram, že prídem o desať minút."
+                chat.add(Message(true, answer)); speak(answer)
+            } else {
+                pendingReply = PendingReply(appName, draft)
+                val target = appName ?: "najnovšie aktívne oznámenie"
+                val answer = "Pripravil som odpoveď pre $target: „$draft“. Mám ju odoslať?"
+                chat.add(Message(true, answer)); speak(answer)
+            }
+            return
+        }
         if (scheduleSetupIndex >= 0) {
             val day = scheduleDays[scheduleSetupIndex / 8]
             val period = scheduleSetupIndex % 8 + 1
