@@ -604,11 +604,15 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     else context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://mail.google.com/")))
                 }.onFailure { Toast.makeText(context, "Gmail sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
             }
-            text.startsWith("zamkni ") || text.startsWith("uzamkni ") || text.startsWith("zamkni aplikáciu ") || text.startsWith("zamkni aplikaciu ") || text.startsWith("zamkni apku ") -> {
-                val requested = text
-                    .removePrefix("zamkni aplikáciu ").removePrefix("zamkni aplikaciu ")
-                    .removePrefix("zamkni apku ").removePrefix("uzamkni ").removePrefix("zamkni ")
-                    .trim()
+            text.startsWith("zamkni ", true) || text.startsWith("uzamkni ", true) -> {
+                val lowerCommand = text.lowercase(Locale.ROOT)
+                val requested = when {
+                    lowerCommand.startsWith("zamkni aplikáciu ") -> text.substringAfter("zamkni aplikáciu ", "")
+                    lowerCommand.startsWith("zamkni aplikaciu ") -> text.substringAfter("zamkni aplikaciu ", "")
+                    lowerCommand.startsWith("zamkni apku ") -> text.substringAfter("zamkni apku ", "")
+                    lowerCommand.startsWith("uzamkni ") -> text.substringAfter("uzamkni ", "")
+                    else -> text.substringAfter("zamkni ", "")
+                }.trim()
                 val installed = context.packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
                 val match = installed.firstOrNull { app ->
                     val label = context.packageManager.getApplicationLabel(app).toString()
