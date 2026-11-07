@@ -86,6 +86,8 @@ private val Muted = Color(0xFF9BAFC2)
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = null
+    private var ttsReady = false
+    private var pendingSpeech: String? = null
     @Volatile private var speechOutputActive = false
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -105,6 +107,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             val engine = tts ?: return
+            ttsReady = true
             engine.language = Locale("sk", "SK")
             engine.setSpeechRate(0.96f)
             engine.setPitch(1.0f)
@@ -138,10 +141,14 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 getSharedPreferences("jarvis", MODE_PRIVATE).edit().putString("tts_voice_status", "NO_VERIFIED_MALE_SLOVAK_VOICE").apply()
                 android.util.Log.e("JARVIS-TTS", "No explicitly identifiable male Slovak voice installed on this device.")
             }
+            pendingSpeech?.let { queued -> pendingSpeech = null; speak(queued) }
+        } else {
+            android.util.Log.e("JARVIS-TTS", "TextToSpeech initialization failed: $status")
         }
     }
     private fun speak(text: String) {
         val engine = tts ?: return
+        if (!ttsReady) { pendingSpeech = text; return }
         // Mark speech synchronously so the microphone loop cannot hear JARVIS speaking.
         speechOutputActive = true
         if (JarvisVoiceService.isRunning) startService(Intent(this, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_PAUSE))
@@ -924,7 +931,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             wakeMode = true
             listening = true
             prefs.edit().putBoolean("voice_enabled", true).apply()
-            context.startForegroundService(Intent(context, JarvisVoiceService::class.java))
+            context.startForegroundService(Intent(context, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_PAUSE))
             if (firstRunSetupRequested) {
                 firstRunSetupRequested = false
                 prefs.edit().putBoolean("first_run_completed", true).apply()
@@ -1206,7 +1213,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                             prefs.edit().putBoolean("first_run_completed", true).putBoolean("voice_enabled", true).apply()
                             scheduleSetupIndex = 0
                             wakeMode = true
-                            context.startForegroundService(Intent(context, JarvisVoiceService::class.java))
+                            context.startForegroundService(Intent(context, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_PAUSE))
                             chat.add(Message(true, prompt))
                             speak(prompt)
                         } else {
