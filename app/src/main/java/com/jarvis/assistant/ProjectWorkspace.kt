@@ -285,9 +285,13 @@ function handleVoiceCommand(raw){
  if(lower.includes('zemeguľ')||lower.includes('zemegul')||lower.includes('globe mode')){showGlobe();return}
  if(lower.includes('späť na zem')||lower.includes('celú zem')){showGlobe();return}
  const streetMode=lower.includes('ulic')||lower.includes('street mode')||lower.includes('úroveň ulíc');
- const match=q.match(/(?:ukáž|zobraz|nájdi|vyhľadaj|priblíž(?: sa)? na|prejdi na)\\s+(?:mi\\s+)?(.+)/i);
- if(match&&match[1]&&!streetMode){document.getElementById('place').value=match[1].replace(/\\s+(?:na map[euy]|na ulicu)$/i,'').trim();showStreets();return}
- if(streetMode){showStreets();return}
+ const match=q.match(/(?:ukáž|zobraz|nájdi|vyhľadaj|priblíž(?: sa)? na|prejdi na)\s+(?:mi\s+)?(.+)/i);
+ if(match&&match[1]&&!streetMode){document.getElementById('place').value=match[1].replace(/\s+(?:na map[euy]|na ulicu)$/i,'').trim();showStreets();return}
+ if(streetMode){
+  const streetPlace=q.match(/ulic(?:u|e)?\\s+(?:v\\s+)?(.+)/i);
+  if(streetPlace&&streetPlace[1])document.getElementById('place').value=streetPlace[1].trim();
+  showStreets();return
+ }
  status('Hlasový príkaz mapy: '+q);
 }
 function showGlobe(){
