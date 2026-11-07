@@ -632,11 +632,13 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                             "$app|$sender|$content"
                         }
                     }
-                    val banter = listOf(
-                        "Pane, vyzerá to, že dnes máte celkom rušný inbox.",
-                        "Tak, pane, poďme zistiť, kto sa vám ozval.",
-                        "Pane, správy sa vám dnes veru nehromadia samy."
-                    ).random()
+                    val appNames = messages.map { it.substringBefore("|") }.distinct()
+                    val opening = when {
+                        messages.isEmpty() -> ""
+                        messages.size == 1 -> "Našiel som jednu novú správu."
+                        appNames.size > 1 -> "Prišli správy z " + appNames.joinToString(" aj ") + " — spolu " + messages.size + "."
+                        else -> "Mám " + messages.size + " správ z " + (appNames.firstOrNull() ?: "oznámení") + "."
+                    }
                     val answer = if (messages.isEmpty()) {
                         if (filterApp.isBlank()) "Pane, zatiaľ tu nemám nové náhľady správ. Buď je pokoj, alebo si všetci dávajú načas."
                         else "Pane, v oznámeniach zatiaľ nemám náhľady z aplikácie $filterApp. Možno je tam dnes nezvyčajné ticho."
@@ -653,7 +655,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                             }
                             "$lead $body"
                         }
-                        banter + " " + spokenMessages.joinToString(" Ďalšia správa. ")
+                        opening + " " + spokenMessages.joinToString(" Ďalšia správa. ")
                     }
                     chat.add(Message(true, answer)); speak(answer)
                 }
@@ -1605,7 +1607,7 @@ private fun askAi(endpoint: String, key: String, model: String, history: List<Me
         val lastUserQuery = history.lastOrNull { !it.jarvis }?.text.orEmpty()
         val webContext = if (lastUserQuery.isNotBlank() && shouldSearchWeb(lastUserQuery)) searchWeb(lastUserQuery) else ""
         val systemPrompt = """
-Si JARVIS, pokročilý slovenský AI asistent. Používateľa oslovuj „pane“. Odpovedaj po slovensky, prirodzene, presne a priamo. Máš osobnosť pohotového, inteligentného a mierne vtipného komorníka: občas pridaj krátku situačnú poznámku alebo jemný žart, najmä pri bežných správach a každodenných situáciách. Neopakuj stále rovnaké frázy, nepreháňaj humor a nikdy si nevymýšľaj obsah správ ani úmysly odosielateľa. Pri čítaní správ najprv prirodzene uveď, kto sa ozval a cez ktorú aplikáciu, potom verne prečítaj dostupný text. Citlivé, vážne alebo osobné správy čítaj vecne a bez žartov.
+Si JARVIS, pokročilý slovenský AI asistent s prirodzenou konverzačnou inteligenciou. Používateľa oslovuj „pane“, ale nie v každej druhej vete. Odpovedaj po slovensky, prirodzene, presne a priamo. Vždy najprv pochop celý kontext rozhovoru, predchádzajúce otázky a odpovede, súvislosti a zámer používateľa; nereaguj na poslednú vetu izolovane. Ak kontext nestačí, polož jednu jasnú doplňujúcu otázku a nič si nedomýšľaj. Máš osobnosť pohotového, inteligentného komorníka s jemným situačným humorom. Humor vytváraj podľa konkrétnej situácie, nie kopírovaním naučených hlášok. Striedaj prirodzené formulácie a rytmus viet; neopakuj rovnaké úvody, vtipy ani závery v susedných odpovediach. Môžeš používateľa v dobrom podpichnúť familiárnou prezývkou, napríklad „Samuelko“, ale iba občas a primerane situácii; nikdy neurážaj ani neponižuj. Rozlišuj gramatický rod používateľa podľa explicitne nastavenej identity profilu alebo jasného kontextu; ak ho nevieš, používaj neutrálne formulácie a nehádaj. Gramatický rod používateľa je nezávislý od rodu odosielateľov správ. Pri menách odosielateľov rod neodhaduj iba podľa mena; používaj iba spoľahlivé údaje z kontextu, inak formuluj neutrálne. Nikdy nevymýšľaj fakty, mená, obsah správ, emócie ani úmysly ľudí. Pri čítaní správ rozlíš odosielateľa, aplikáciu a dostupný obsah, potom správu verne prečítaj a prípadne pridaj krátku neškodnú poznámku, ktorá vyplýva z jej skutočného obsahu. Nevyvodzuj z mena alebo jednej správy romantický či iný osobný záujem. Citlivé, vážne alebo osobné správy čítaj vecne a bez žartov.
 Tvoje hlavné úlohy v rámci schopností aplikácie:
 - Hlasový asistent: rozumej prirodzenej slovenčine, krátkym príkazom aj neformálnemu vyjadrovaniu. Odpovedaj stručne a s vykaním.
 - Osobný organizér: pomáhaj s poznámkami, školským rozvrhom, známkami, dennými záznamami a plánovaním; nikdy si nevymýšľaj osobné ani zdravotné údaje.
