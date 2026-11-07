@@ -590,6 +590,40 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     runCatching { context.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) }
                 }
             }
+            text.contains("skenuj dokument", true) || text.contains("naskenuj dokument", true) || text.contains("spusti skener", true) || text.contains("skenuj papier", true) -> {
+                val message = "Spúšťam skener dokumentov. Zarovnajte strany v kamere a potvrďte skenovanie."
+                chat.add(Message(true, message)); speak(message)
+                startDocumentScan()
+            }
+            text.contains("otvor gmail", true) || text.contains("spusti gmail", true) || text.contains("otvor email", true) || text.contains("otvor e mail", true) -> {
+                val message = "Otváram Gmail, pane."
+                chat.add(Message(true, message)); speak(message)
+                val launch = context.packageManager.getLaunchIntentForPackage("com.google.android.gm")
+                runCatching {
+                    if (launch != null) context.startActivity(launch)
+                    else context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://mail.google.com/")))
+                }.onFailure { Toast.makeText(context, "Gmail sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+            }
+            text.contains("prečítaj správy", true) || text.contains("čítaj správy", true) || text.contains("prečítaj emaily", true) || text.contains("prečítaj e-maily", true) || text.contains("nové správy", true) -> {
+                val enabled = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners").orEmpty()
+                    .contains(context.packageName + "/" + GmailNotificationListener::class.java.name)
+                if (!enabled) {
+                    val message = "Na čítanie náhľadov Gmail správ povoľte JARVISu prístup k oznámeniam. Otváram systémové nastavenie. Potom mi povedzte: Hej Jarvis, prečítaj správy."
+                    chat.add(Message(true, message)); speak(message)
+                    runCatching { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+                } else {
+                    val previews = runCatching { JSONArray(context.getSharedPreferences("jarvis_gmail", Context.MODE_PRIVATE).getString("previews", "[]")) }.getOrDefault(JSONArray())
+                    val messages = (0 until previews.length()).mapNotNull { i ->
+                        val item = previews.optJSONObject(i) ?: return@mapNotNull null
+                        val title = item.optString("title").trim()
+                        val body = item.optString("text").trim()
+                        if (title.isBlank() && body.isBlank()) null else listOf(title, body).filter { it.isNotBlank() }.joinToString(". ")
+                    }
+                    val answer = if (messages.isEmpty()) "V oznámeniach zatiaľ nemám žiadne náhľady Gmail správ. Zapnite upozornenia na nové správy v Gmaili."
+                        else "Náhľady posledných Gmail oznámení: " + messages.take(5).joinToString(". Ďalšia správa: ")
+                    chat.add(Message(true, answer)); speak(answer)
+                }
+            }
             text.contains("počasie", true) || text.contains("predpoveď", true) || text.contains("teplota vonku", true) -> {
                 val answer = "Zisťujem aktuálne počasie pre Svit z online meteorologických dát, pane."
                 chat.add(Message(true, answer)); speak(answer)
