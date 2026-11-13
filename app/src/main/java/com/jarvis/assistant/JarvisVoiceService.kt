@@ -139,7 +139,10 @@ class JarvisVoiceService : Service() {
                 }
             } catch (error: Exception) {
                 if (!stopped && !pausedForSpeech) {
-                    handler.post { sendStatus("LOKÁLNY DETEKTOR SA NEPODARILO SPUSTIŤ: ${error.message ?: "neznáma chyba"}") }
+                    handler.post {
+                        sendStatus("LOKÁLNY DETEKTOR SA NEPODARILO SPUSTIŤ: ${error.message ?: "neznáma chyba"}. ĎALŠÍ POKUS O 15 SEKÚND.")
+                        handler.postDelayed({ startWakeLoop() }, 15_000L)
+                    }
                 }
             } finally {
                 wakeLoopActive = false
