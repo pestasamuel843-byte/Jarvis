@@ -87,6 +87,7 @@ private val Muted = Color(0xFF9BAFC2)
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = null
     @Volatile private var speechOutputActive = false
+    @Volatile private var offlineVoiceReady = false
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -128,16 +129,22 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 name.contains("male") || name.contains("masculine") || name.contains("man") || name.contains("muž") || name.contains("muz")
             }
             val selectedVoice = lukasVoice ?: maleSlovak ?: localSlovakVoices.firstOrNull()
-            if (selectedVoice != null) {
+            if (selectedVoice != null && !selectedVoice.isNetworkConnectionRequired) {
                 engine.voice = selectedVoice
-                android.util.Log.i("JARVIS-TTS", "Selected Slovak voice: ${selectedVoice.name}")
+                offlineVoiceReady = true
+                android.util.Log.i("JARVIS-TTS", "Selected local Slovak voice: ${selectedVoice.name}")
             } else {
+                offlineVoiceReady = false
                 android.util.Log.e("JARVIS-TTS", "No local Slovak TTS voice is installed. JARVIS will not silently use a network voice. Install a Slovak offline voice in Android Text-to-speech settings.")
             }
         }
     }
     private fun speak(text: String) {
         val engine = tts ?: return
+        if (!offlineVoiceReady) {
+            android.util.Log.w("JARVIS-TTS", "Speech skipped: no local Slovak TTS voice is installed.")
+            return
+        }
         // Mark speech synchronously so the microphone loop cannot hear JARVIS speaking.
         speechOutputActive = true
         if (JarvisVoiceService.isRunning) startService(Intent(this, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_PAUSE))
@@ -956,7 +963,12 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             override fun onReceive(receiverContext: Context?, intent: Intent?) {
                 when (intent?.action) {
                     JarvisVoiceService.ACTION_COMMAND -> intent.getStringExtra(JarvisVoiceService.EXTRA_COMMAND)?.let { latestVoiceCommand(it) }
-                    JarvisVoiceService.ACTION_WAKE -> speak("Počúvam, pane.")
+                    JarvisVoiceService.ACTION_WAKE -> speak(listOf(
+                        "Počúvam, pane. Dúfam, že dnes nejdeme hasiť digitálny požiar.",
+                        "Som tu, pane. Čo máme na programe? A prosím, nech je to niečo pokojnejšie než včera.",
+                        "Nazdar, pane. Systémy sú pripravené. Káva sa, žiaľ, stále nenachádza v mojich kompetenciách.",
+                        "Počúvam. Môžem vám podať prehľad dňa, upozornenia alebo sa pustiť do úlohy."
+                    ).random())
                     JarvisVoiceService.ACTION_STATUS -> {
                         val status = intent.getStringExtra(JarvisVoiceService.EXTRA_STATUS).orEmpty()
                         listening = status != "HLASOVÝ MODUL VYPNUTÝ"
