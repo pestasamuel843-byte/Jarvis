@@ -100,7 +100,7 @@ class OfflineBrain(private val context: Context) {
      * Batch-analyzes notification previews with the on-device model.
      * Message text is treated as untrusted quoted data, never as instructions.
      */
-    suspend fun analyzeMessageReactions(items: List<JarvisMessageReactions.MessageInput>): Map<Int, String> {
+    internal suspend fun analyzeMessageReactions(items: List<JarvisMessageReactions.MessageInput>): Map<Int, String> {
         if (!isInstalled() || items.isEmpty()) return emptyMap()
         val selected = items.take(4)
         val numbered = selected.mapIndexed { index, item ->
