@@ -68,9 +68,15 @@ class JarvisVoiceService : Service() {
             return
         }
         runCatching {
-            recognizer?.destroy()
+            runCatching { recognizer?.cancel() }
+            runCatching { recognizer?.destroy() }
             usingOnDeviceRecognizer = preferOnDevice && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
                 SpeechRecognizer.isOnDeviceRecognitionAvailable(this)
+            if (preferOnDevice && !usingOnDeviceRecognizer) {
+                sendStatus("OFFLINE ROZPOZNÁVANIE NIE JE DOSTUPNÉ • POUŽÍVAM SYSTÉMOVÚ SLUŽBU; INTERNET MÔŽE BYŤ POTREBNÝ")
+            } else if (usingOnDeviceRecognizer) {
+                sendStatus("POUŽÍVAM LOKÁLNE ROZPOZNÁVANIE REČI")
+            }
             recognizer = (if (usingOnDeviceRecognizer) {
                 SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
             } else {
@@ -142,15 +148,8 @@ class JarvisVoiceService : Service() {
     }
 
     private fun processPhrase(phrase: String) {
-        val normalized = phrase.lowercase(Locale.ROOT)
-            .replace(Regex("[^\\p{L}\\p{N} ]"), " ")
-            .replace(Regex("\\s+"), " ").trim()
-        if (normalized.isBlank()) return
-
-        val wake = Regex("^(?:(?:hej|hey) )?jarvis\\b[ ,:]*", RegexOption.IGNORE_CASE)
-        val match = wake.find(normalized)
-        if (match != null) {
-            val remainder = normalized.substring(match.range.last + 1).trim()
+        val remainder = WakePhraseMatcher.commandAfterWakePhrase(phrase)
+        if (remainder != null) {
             sessionActive = true
             sendStatus("KONVERZÁCIA AKTÍVNA")
             if (remainder.isBlank()) sendCommandBroadcast(ACTION_WAKE, "")

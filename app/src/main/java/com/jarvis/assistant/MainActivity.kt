@@ -110,10 +110,25 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             engine.setPitch(1.0f)
             engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) { speechOutputActive = true }
-                override fun onDone(utteranceId: String?) { speechOutputActive = false; if (JarvisVoiceService.isRunning) startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
+                override fun onDone(utteranceId: String?) {
+                    speechOutputActive = false
+                    if (JarvisVoiceService.isRunning) {
+                        startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME))
+                    }
+                }
                 @Deprecated("Deprecated in Java")
-                override fun onError(utteranceId: String?) { speechOutputActive = false; startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
-                override fun onError(utteranceId: String?, errorCode: Int) { speechOutputActive = false; startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
+                override fun onError(utteranceId: String?) {
+                    speechOutputActive = false
+                    if (JarvisVoiceService.isRunning) {
+                        startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME))
+                    }
+                }
+                override fun onError(utteranceId: String?, errorCode: Int) {
+                    speechOutputActive = false
+                    if (JarvisVoiceService.isRunning) {
+                        startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME))
+                    }
+                }
             })
             // Never treat the word "neural" as evidence of a male voice: that selected
             // a female Slovak voice on some Android TTS engines.
@@ -141,7 +156,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         speechOutputActive = true
         if (JarvisVoiceService.isRunning) startService(Intent(this, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_PAUSE))
         val result = engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis")
-        if (result == TextToSpeech.ERROR) speechOutputActive = false
+        if (result == TextToSpeech.ERROR) {
+            speechOutputActive = false
+            if (JarvisVoiceService.isRunning) {
+                startService(Intent(this, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME))
+            }
+        }
     }
     override fun onDestroy() {
         tts?.stop()
@@ -165,6 +185,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     var settings by remember { mutableStateOf(false) }
     var showAdvancedSettings by remember { mutableStateOf(false) }
     var apiTestResult by remember { mutableStateOf("") }
+    var offlineModelInstalled by remember { mutableStateOf(OfflineBrain(context).isInstalled()) }
     var apiTesting by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var pendingReply by remember { mutableStateOf<PendingReply?>(null) }
@@ -1003,7 +1024,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                         wakeMode = wakeMode,
                         busy = busy,
-                        aiReady = endpoint.isNotBlank() && key.isNotBlank() && model.isNotBlank(),
+                        aiReady = (endpoint.isNotBlank() && key.isNotBlank() && model.isNotBlank()) || offlineModelInstalled,
                         model = model,
                         onToggleVoice = {
                             if (wakeMode) {
@@ -1233,8 +1254,10 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                                         OfflineBrain(context).download { percent ->
                                             apiTestResult = "Sťahujem offline AI model: $percent %"
                                         }
-                                        apiTestResult = "Offline AI model je stiahnutý."
+                                        offlineModelInstalled = true
+                                        apiTestResult = "Offline AI model je stiahnutý. Lokálny AI engine ho načíta pri prvej otázke."
                                     } catch (error: Exception) {
+                                        offlineModelInstalled = OfflineBrain(context).isInstalled()
                                         apiTestResult = "Stiahnutie modelu zlyhalo: ${error.message ?: "neznáma chyba"}"
                                     } finally {
                                         apiTesting = false
@@ -1243,7 +1266,25 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                             },
                             enabled = !apiTesting
                         ) { Text(if (apiTesting) "PRACUJEM…" else "STIAHNUŤ OFFLINE AI MOZOG") }
+                        Text(if (offlineModelInstalled) "STAV: OFFLINE AI MODEL JE V ZARIADENÍ" else "STAV: OFFLINE AI MODEL EŠTE NIE JE STIAHNUTÝ", color = if (offlineModelInstalled) Color(0xFF69F0AE) else Muted, fontSize = 11.sp)
                         Text("JARVIS môže používať lokálnu AI bez kľúča alebo voliteľnú online AI službu. Offline model sa stiahne iba raz a zostane uložený v zariadení.", color = Muted, fontSize = 12.sp)
+                        Button(
+                            onClick = {
+                                apiTesting = true
+                                apiTestResult = "Spúšťam lokálny AI model na zariadení…"
+                                scope.launch {
+                                    val result = withContext(Dispatchers.IO) {
+                                        runCatching { OfflineBrain(context).answer("Odpovedz presne: JARVIS OFFLINE FUNGUJE") }
+                                    }
+                                    apiTestResult = result.fold(
+                                        { "OFFLINE AI FUNGUJE: " + it.take(180) },
+                                        { "OFFLINE AI SA NEPODARILO SPUSTIŤ: " + (it.message ?: "neznáma chyba") }
+                                    )
+                                    apiTesting = false
+                                }
+                            },
+                            enabled = offlineModelInstalled && !apiTesting
+                        ) { Text(if (apiTesting) "TESTUJEM…" else "TESTOVAŤ OFFLINE AI") }
                         Text("Predvolená služba: Google Gemini API • model Gemini 2.5 Flash", color = Cyan, fontSize = 12.sp)
                         OutlinedTextField(key, { key = it }, label = { Text("Google Gemini API kľúč") }, placeholder = { Text("Vložte svoj kľúč z Google AI Studio") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
                         TextButton(onClick = {
