@@ -800,15 +800,23 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 chat.add(Message(true, answer)); speak(answer)
                 busy = true
                 scope.launch {
-                    val results = withContext(Dispatchers.IO) { searchWeb(query) }
-                    val resultText = if (results.isNotBlank()) {
-                        "Výsledky vyhľadávania pre „$query“:\n\n$results"
+                    val online = withContext(Dispatchers.IO) { testInternetConnection() }
+                    if (!online) {
+                        val offlineMessage = "Pane, internet momentálne nie je dostupný. Android mi nedovoľuje zapnúť Wi-Fi potichu. Ak je aplikácia na obrazovke, otvorím nastavenia Wi-Fi; po pripojení povedzte vyhľadávanie ešte raz."
+                        chat.add(Message(true, offlineMessage))
+                        speak(offlineMessage)
+                        runCatching { context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) }
                     } else {
-                        "Pane, priamy výpis výsledkov sa nepodarilo načítať. Otváram vyhľadávanie v prehliadači."
+                        val results = withContext(Dispatchers.IO) { searchWeb(query) }
+                        val resultText = if (results.isNotBlank()) {
+                            "Výsledky vyhľadávania pre „$query“:\n\n$results"
+                        } else {
+                            "Pane, priamy výpis výsledkov sa nepodarilo načítať. Otváram vyhľadávanie v prehliadači."
+                        }
+                        chat.add(Message(true, resultText))
+                        if (results.isNotBlank()) speak("Našiel som výsledky. Zobrazujem ich v konverzácii.")
+                        else runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=" + URLEncoder.encode(query, "UTF-8")))) }
                     }
-                    chat.add(Message(true, resultText))
-                    if (results.isNotBlank()) speak("Našiel som výsledky. Zobrazujem ich v konverzácii.")
-                    else runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=" + URLEncoder.encode(query, "UTF-8")))) }
                     busy = false
                 }
             }
@@ -1047,7 +1055,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                                 chat.add(Message(true, answer)); speak(answer); busy = false
                             }
                         } else {
-                            val msg = "Pane, na úpravy návrhu potrebujem internetové AI spojenie alebo stiahnutý offline model v Nastaveniach."
+                            val msg = "Pane, na úpravy návrhu potrebujem nainštalovaný lokálny AI model. API kľúč ani cloud nepoužívam."
                             chat.add(Message(true, msg)); speak(msg)
                         }
                     })
