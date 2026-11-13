@@ -18,7 +18,7 @@ class WakePhraseMatcherTest {
     }
 
     @Test fun recognizesCommonSpeechToTextVariants() {
-        assertEquals("otvor nastavenia", WakePhraseMatcher.commandAfterWakePhrase("Džarvis, otvor nastavenia"))
+        assertEquals("otvor nastavenia", WakePhraseMatcher.commandAfterWakePhrase("Hej Džarvis, otvor nastavenia"))
     }
 
     @Test fun doesNotWakeOnJarvisAlone() {
