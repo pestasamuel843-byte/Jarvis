@@ -105,7 +105,21 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
             val engine = tts ?: return
-            engine.language = Locale("sk", "SK")
+            val slovakLocale = Locale.forLanguageTag("sk-SK")
+            val slovakLanguageStatus = engine.setLanguage(slovakLocale)
+            if (slovakLanguageStatus == TextToSpeech.LANG_MISSING_DATA ||
+                slovakLanguageStatus == TextToSpeech.LANG_NOT_SUPPORTED) {
+                android.util.Log.e("JARVIS-TTS", "Slovak TTS is not installed or not supported by the selected Android speech engine.")
+                runOnUiThread {
+                    Toast.makeText(
+                        this,
+                        "Slovenský hlas nie je v systéme nainštalovaný. Nainštalujte slovenčinu v nastaveniach prevodu textu na reč.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            } else {
+                android.util.Log.i("JARVIS-TTS", "Slovak TTS language is available.")
+            }
             engine.setSpeechRate(0.96f)
             engine.setPitch(1.0f)
             engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
