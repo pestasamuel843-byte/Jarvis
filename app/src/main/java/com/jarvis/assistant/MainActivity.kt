@@ -85,11 +85,17 @@ private val Cyan = Color(0xFF4DEBFF)
 private val Muted = Color(0xFF9BAFC2)
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
+    companion object {
+        @Volatile var isUiAttached: Boolean = false
+            private set
+    }
+
     private var tts: TextToSpeech? = null
     @Volatile private var speechOutputActive = false
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        isUiAttached = true
         // Film-style full-screen interface: hide status/navigation bars while JARVIS is open.
         window.decorView.systemUiVisibility = (
             android.view.View.SYSTEM_UI_FLAG_FULLSCREEN or
@@ -144,6 +150,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         if (result == TextToSpeech.ERROR) speechOutputActive = false
     }
     override fun onDestroy() {
+        isUiAttached = false
         tts?.stop()
         tts?.shutdown()
         super.onDestroy()
