@@ -1269,14 +1269,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                             enabled = !apiTesting
                         ) { Text(if (apiTesting) "KONTROLUJEM…" else "OTESTOVAŤ INTERNET") }
                         if (apiTestResult.isNotBlank()) {
-                            Text(apiTestResult, color = if (apiTestResult.startsWith("Spojenie funguje")) Cyan else Muted, fontSize = 12.sp)
-                        }
-                        TextButton(onClick = { showAdvancedSettings = !showAdvancedSettings }) {
-                            Text(if (showAdvancedSettings) "Skryť pokročilé nastavenia" else "Pokročilé nastavenia", color = Muted)
-                        }
-                        if (showAdvancedSettings) {
-                            OutlinedTextField(endpoint, { endpoint = it }, label = { Text("API endpoint") }, singleLine = true)
-                            OutlinedTextField(model, { model = it }, label = { Text("Model") }, singleLine = true)
+                            Text(apiTestResult, color = if (apiTestResult.startsWith("Internet funguje")) Cyan else Muted, fontSize = 12.sp)
                         }
                     }
                 },
@@ -1344,7 +1337,7 @@ private fun JarvisDashboard(
                         Text("NEURAL COMMAND DECK  •  MK-VII", color=Muted, fontSize=8.sp, letterSpacing=1.4.sp)
                     }
                     Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
-                        HudMetric("NEURAL LINK", if(aiReady) "ONLINE" else "AWAITING KEY", if(aiReady) Color(0xFF69F0AE) else Color(0xFFFFBD68), Modifier.fillMaxWidth())
+                        HudMetric("NEURAL LINK", if(aiReady) "ONLINE" else "OFFLINE MODEL CHÝBA", if(aiReady) Color(0xFF69F0AE) else Color(0xFFFFBD68), Modifier.fillMaxWidth())
                         HudMetric("VOICE CHANNEL", if(wakeMode) "LISTENING" else "STANDBY", if(wakeMode) Cyan else Muted, Modifier.fillMaxWidth())
                         HudMetric("POWER CELL", "${battery ?: "—"}%", Color.White, Modifier.fillMaxWidth())
                     }
@@ -1412,7 +1405,7 @@ private fun JarvisDashboard(
                 }
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){DashboardAction("◉",if(wakeMode)"Vypnúť hlas" else "Hlasový vstup",Modifier.weight(1f),onToggleVoice);DashboardAction("⌁","Konverzácia",Modifier.weight(1f),onChat)}
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){DashboardAction("⬡","STARK WORKSPACE",Modifier.weight(1f),onWorkspace);DashboardAction("⚙","Nastavenia",Modifier.weight(1f),onSettings)}
-                Text("AI: ${if(aiReady) "READY" else "NOT CONFIGURED"}     BATTERY: ${battery ?: "—"}%",color=Muted,fontSize=9.sp)
+                Text("AI: ${if(aiReady) "READY" else "OFFLINE MODEL CHÝBA"}     BATTERY: ${battery ?: "—"}%",color=Muted,fontSize=9.sp)
             }
         }
     }
@@ -1475,7 +1468,7 @@ private fun PersonalDashboardSidePanel(
             DashboardAction("⬡", "PROJEKT", Modifier.weight(1f), onWorkspace)
             DashboardAction("⚙", "NASTAVENIA", Modifier.weight(1f), onSettings)
         }
-        Text(if (busy) "JARVIS PRACUJE…" else if (aiReady) "AI ENGINE ONLINE" else "AI ENGINE NEKONFIGUROVANÝ", color = if (busy) Color(0xFFFFBD68) else if (aiReady) Color(0xFF69F0AE) else Muted, fontSize = 7.sp)
+        Text(if (busy) "JARVIS PRACUJE…" else if (aiReady) "AI ENGINE ONLINE" else "OFFLINE MODEL CHÝBA", color = if (busy) Color(0xFFFFBD68) else if (aiReady) Color(0xFF69F0AE) else Muted, fontSize = 7.sp)
     }
 }
 
