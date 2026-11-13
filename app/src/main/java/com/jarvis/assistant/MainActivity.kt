@@ -196,7 +196,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
         // The school timetable is collected once, by voice. Never force a grades/mood form on startup.
         showCheckIn = !prefs.getBoolean("first_run_completed", false)
     }
-    var lastWorkspaceRequest by remember { mutableStateOf("") }
+    var lastWorkspaceRequest by remember { mutableStateOf(prefs.getString("workspace_last_command", "").orEmpty()) }
     var workspaceDescription by remember { mutableStateOf(prefs.getString("workspace_description", "Povedzte JARVISu, čo chcete navrhnúť. Návrh AI sa zobrazí tu a náčrt môžete kresliť prstom.") ?: "") }
     val chat = remember {
         mutableStateListOf<Message>().apply {
@@ -249,6 +249,18 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     fun handle(raw: String) {
         val text = raw.trim().replace(Regex("(?i)^(?:(?:hej|hey)\\s+)?jarvis[,: ]*"), "").trim()
         if (text.isEmpty() || busy) return
+        // Project commands are executed by the headless project layer first.
+        // The workspace UI is only opened as a visual renderer when available.
+        val projectResult = WorkspaceCommandProcessor.process(context, text)
+        if (projectResult != null) {
+            lastWorkspaceRequest = text
+            showWorkspace = true
+            showChat = false
+            chat.add(Message(false, text))
+            chat.add(Message(true, projectResult.spokenResponse))
+            speak(projectResult.spokenResponse)
+            return
+        }
         val waitingReply = pendingReply
         if (waitingReply != null && (text.equals("áno", true) || text.equals("potvrď", true) || text.equals("odošli", true) || text.equals("odoslať", true))) {
             pendingReply = null
@@ -1045,7 +1057,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     )
                 }
                 if (showWorkspace) {
-                    ProjectWorkspace(title = "JARVIS • Interaktívny návrh", description = workspaceDescription, onClose = { showWorkspace = false }, initialMapMode = lastWorkspaceRequest.contains("premiet", true) || lastWorkspaceRequest.contains("cestu okolo", true) || lastWorkspaceRequest.contains("trasu", true) || lastWorkspaceRequest.contains("mapu", true) || lastWorkspaceRequest.contains("okolie školy", true) || lastWorkspaceRequest.contains("zemeguľ", true) || lastWorkspaceRequest.contains("ulic", true), voiceCommand = lastWorkspaceRequest, onRefine = { instruction ->
+                    ProjectWorkspace(title = "JARVIS • Interaktívny návrh", description = workspaceDescription, onClose = { showWorkspace = false }, initialMapMode = prefs.getBoolean("workspace_map_mode", false) || lastWorkspaceRequest.contains("premiet", true) || lastWorkspaceRequest.contains("cestu okolo", true) || lastWorkspaceRequest.contains("trasu", true) || lastWorkspaceRequest.contains("mapu", true) || lastWorkspaceRequest.contains("okolie školy", true) || lastWorkspaceRequest.contains("zemeguľ", true) || lastWorkspaceRequest.contains("ulic", true), voiceCommand = lastWorkspaceRequest, onRefine = { instruction ->
                         if ((key.isNotBlank() || OfflineBrain(context).isInstalled()) && !busy) {
                             busy = true
                             chat.add(Message(false, instruction))
