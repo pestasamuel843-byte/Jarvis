@@ -75,7 +75,9 @@ class JarvisVoiceService : Service() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
             !SpeechRecognizer.isOnDeviceRecognitionAvailable(this)
         ) {
+            stopped = true
             sendStatus("OFFLINE ROZPOZNÁVANIE REČI NIE JE DOSTUPNÉ • ONLINE ROZPOZNÁVANIE JE ZÁMERNE VYPNUTÉ")
+            handler.removeCallbacksAndMessages(null)
             stopSelf()
             return
         }
@@ -116,7 +118,9 @@ class JarvisVoiceService : Service() {
                             SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED,
                             SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE -> {
                                 // Never fall back to a network-backed recognizer.
+                                stopped = true
                                 sendStatus("SLOVENSKÝ OFFLINE JAZYKOVÝ BALÍK NIE JE DOSTUPNÝ • NAINŠTALUJTE HO V NASTAVENIACH REČI ANDROIDU")
+                                handler.removeCallbacksAndMessages(null)
                                 stopSelf()
                             }
                             else -> {
