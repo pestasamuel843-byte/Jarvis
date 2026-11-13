@@ -3,6 +3,7 @@ package com.jarvis.assistant
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.os.Build
@@ -10,6 +11,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -30,12 +32,21 @@ class JarvisVoiceService : Service() {
     private var restartQueued = false
     private var usingOnDeviceRecognizer = false
     private var consecutiveErrors = 0
+    private var cpuWakeLock: PowerManager.WakeLock? = null
 
     override fun onCreate() {
         super.onCreate()
         isRunning = true
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
+        // Keep CPU awake while the user has explicitly enabled background listening.
+        runCatching {
+            val power = getSystemService(POWER_SERVICE) as PowerManager
+            cpuWakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "JARVIS:VoiceListening").apply {
+                setReferenceCounted(false)
+                acquire()
+            }
+        }
         createRecognizer()
     }
 
@@ -247,12 +258,24 @@ class JarvisVoiceService : Service() {
             @Suppress("DEPRECATION")
             Notification.Builder(this)
         }
+        val openApp = PendingIntent.getActivity(
+            this, 701,
+            Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val stopService = PendingIntent.getService(
+            this, 702,
+            Intent(this, JarvisVoiceService::class.java).setAction(ACTION_STOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
         return builder
             .setContentTitle("JARVIS • Hlasový modul")
-            .setContentText("Mikrofón je aktívny. Povedzte „Hej Jarvis“ alebo „vypni počúvanie“.")
+            .setContentText("Mikrofón je aktívny aj pri zhasnutej obrazovke. Povedzte „Hej Jarvis“.")
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+            .setContentIntent(openApp)
             .setOngoing(true)
             .setCategory(Notification.CATEGORY_SERVICE)
+            .addAction(android.R.drawable.ic_media_pause, "Vypnúť mikrofón", stopService)
             .build()
     }
 
@@ -272,6 +295,8 @@ class JarvisVoiceService : Service() {
         runCatching { recognizer?.cancel() }
         runCatching { recognizer?.destroy() }
         recognizer = null
+        runCatching { cpuWakeLock?.let { if (it.isHeld) it.release() } }
+        cpuWakeLock = null
         sendStatus("HLASOVÝ MODUL VYPNUTÝ")
         super.onDestroy()
     }
