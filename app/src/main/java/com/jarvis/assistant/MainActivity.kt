@@ -788,22 +788,39 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                         if (filterApp.isBlank()) "Pane, zatiaľ tu nemám nové náhľady správ. Buď je pokoj, alebo si všetci dávajú načas."
                         else if (filterApp == "EduPage") "V oznámeniach EduPage zatiaľ nemám nové údaje o známkach. Oznámenia nemusia obsahovať celý elektronický klasifikačný záznam." else "Pane, v oznámeniach zatiaľ nemám náhľady z aplikácie $filterApp. Možno je tam dnes nezvyčajné ticho."
                     } else {
-                        val spokenMessages = messages.take(8).mapIndexed { index, entry ->
-                            val parts = entry.split("|", limit = 3)
-                            val app = parts.getOrElse(0) { "Aplikácia" }
-                            val sender = parts.getOrElse(1) { "Neznámy odosielateľ" }
-                            val body = parts.getOrElse(2) { "" }
-                            val lead = if (app == "EduPage") "Oznámenie EduPage." else when (index) {
-                                0 -> "Ozval sa vám niekto cez $app. Odosielateľ: $sender."
-                                1 -> "A máme tu ďalšiu správu. $sender píše cez $app."
-                                else -> "Ďalej sa ozval $sender."
+                        busy = true
+                        scope.launch {
+                            val entries = messages.take(8).map { entry ->
+                                val parts = entry.split("|", limit = 3)
+                                JarvisMessageReactions.MessageInput(
+                                    parts.getOrElse(0) { "Aplikácia" },
+                                    parts.getOrElse(1) { "Neznámy odosielateľ" },
+                                    parts.getOrElse(2) { "" }
+                                )
                             }
-                            val reaction = if (app == "EduPage") null else JarvisMessageReactions.comment(app, sender, body)
-                            listOfNotNull("$lead $body", reaction).joinToString(" ")
+                            val aiComments = if (OfflineBrain(context).isInstalled()) {
+                                runCatching { OfflineBrain(context).analyzeMessageReactions(entries.filter { it.appName != "EduPage" }) }
+                                    .getOrDefault(emptyMap())
+                            } else emptyMap()
+                            var aiIndex = 0
+                            val spokenMessages = entries.mapIndexed { index, item ->
+                                val lead = if (item.appName == "EduPage") "Oznámenie EduPage." else when (index) {
+                                    0 -> "Ozval sa vám niekto cez ${item.appName}. Odosielateľ: ${item.sender}."
+                                    1 -> "A máme tu ďalšiu správu. ${item.sender} píše cez ${item.appName}."
+                                    else -> "Ďalej sa ozval ${item.sender}."
+                                }
+                                val reaction = if (item.appName == "EduPage") null else {
+                                    val safe = JarvisMessageReactions.safetyComment(item.appName, item.message)
+                                    val ai = if (safe == null) aiComments[aiIndex] else null
+                                    aiIndex++
+                                    safe ?: ai ?: JarvisMessageReactions.comment(item.appName, item.sender, item.message)
+                                }
+                                listOfNotNull("$lead ${item.message}", reaction).joinToString(" ")
+                            }
+                            val finalAnswer = opening + " " + spokenMessages.joinToString(" Ďalšia správa. ")
+                            chat.add(Message(true, finalAnswer)); speak(finalAnswer); busy = false
                         }
-                        opening + " " + spokenMessages.joinToString(" Ďalšia správa. ")
                     }
-                    chat.add(Message(true, answer)); speak(answer)
                 }
             }
             text.contains("počasie", true) || text.contains("predpoveď", true) || text.contains("teplota vonku", true) -> {
