@@ -110,10 +110,25 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             engine.setPitch(1.0f)
             engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) { speechOutputActive = true }
-                override fun onDone(utteranceId: String?) { speechOutputActive = false; if (JarvisVoiceService.isRunning) startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
+                override fun onDone(utteranceId: String?) {
+                    speechOutputActive = false
+                    if (JarvisVoiceService.isRunning) {
+                        startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME))
+                    }
+                }
                 @Deprecated("Deprecated in Java")
-                override fun onError(utteranceId: String?) { speechOutputActive = false; startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
-                override fun onError(utteranceId: String?, errorCode: Int) { speechOutputActive = false; startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
+                override fun onError(utteranceId: String?) {
+                    speechOutputActive = false
+                    if (JarvisVoiceService.isRunning) {
+                        startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME))
+                    }
+                }
+                override fun onError(utteranceId: String?, errorCode: Int) {
+                    speechOutputActive = false
+                    if (JarvisVoiceService.isRunning) {
+                        startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME))
+                    }
+                }
             })
             // Never treat the word "neural" as evidence of a male voice: that selected
             // a female Slovak voice on some Android TTS engines.
@@ -141,7 +156,12 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         speechOutputActive = true
         if (JarvisVoiceService.isRunning) startService(Intent(this, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_PAUSE))
         val result = engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis")
-        if (result == TextToSpeech.ERROR) speechOutputActive = false
+        if (result == TextToSpeech.ERROR) {
+            speechOutputActive = false
+            if (JarvisVoiceService.isRunning) {
+                startService(Intent(this, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME))
+            }
+        }
     }
     override fun onDestroy() {
         tts?.stop()
