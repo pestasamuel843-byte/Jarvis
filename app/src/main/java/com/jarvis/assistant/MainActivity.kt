@@ -165,6 +165,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     var settings by remember { mutableStateOf(false) }
     var showAdvancedSettings by remember { mutableStateOf(false) }
     var apiTestResult by remember { mutableStateOf("") }
+    var offlineModelInstalled by remember { mutableStateOf(OfflineBrain(context).isInstalled()) }
     var apiTesting by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var pendingReply by remember { mutableStateOf<PendingReply?>(null) }
@@ -1003,7 +1004,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                         wakeMode = wakeMode,
                         busy = busy,
-                        aiReady = endpoint.isNotBlank() && key.isNotBlank() && model.isNotBlank(),
+                        aiReady = (endpoint.isNotBlank() && key.isNotBlank() && model.isNotBlank()) || offlineModelInstalled,
                         model = model,
                         onToggleVoice = {
                             if (wakeMode) {
@@ -1233,8 +1234,10 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                                         OfflineBrain(context).download { percent ->
                                             apiTestResult = "Sťahujem offline AI model: $percent %"
                                         }
-                                        apiTestResult = "Offline AI model je stiahnutý."
+                                        offlineModelInstalled = true
+                                        apiTestResult = "Offline AI model je stiahnutý. Lokálny AI engine ho načíta pri prvej otázke."
                                     } catch (error: Exception) {
+                                        offlineModelInstalled = OfflineBrain(context).isInstalled()
                                         apiTestResult = "Stiahnutie modelu zlyhalo: ${error.message ?: "neznáma chyba"}"
                                     } finally {
                                         apiTesting = false
@@ -1243,6 +1246,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                             },
                             enabled = !apiTesting
                         ) { Text(if (apiTesting) "PRACUJEM…" else "STIAHNUŤ OFFLINE AI MOZOG") }
+                        Text(if (offlineModelInstalled) "STAV: OFFLINE AI MODEL JE V ZARIADENÍ" else "STAV: OFFLINE AI MODEL EŠTE NIE JE STIAHNUTÝ", color = if (offlineModelInstalled) Color(0xFF69F0AE) else Muted, fontSize = 11.sp)
                         Text("JARVIS môže používať lokálnu AI bez kľúča alebo voliteľnú online AI službu. Offline model sa stiahne iba raz a zostane uložený v zariadení.", color = Muted, fontSize = 12.sp)
                         Text("Predvolená služba: Google Gemini API • model Gemini 2.5 Flash", color = Cyan, fontSize = 12.sp)
                         OutlinedTextField(key, { key = it }, label = { Text("Google Gemini API kľúč") }, placeholder = { Text("Vložte svoj kľúč z Google AI Studio") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
