@@ -17,11 +17,17 @@ import java.util.concurrent.Executors
  */
 class JarvisHeadlessVoiceReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
-        if (intent?.action != JarvisVoiceService.ACTION_COMMAND) return
+        val action = intent?.action ?: return
+        val prefs = context.getSharedPreferences("jarvis", Context.MODE_PRIVATE)
+        if (action == JarvisVoiceService.ACTION_WAKE) {
+            if (!prefs.getBoolean("voice_ui_attached", false)) {
+                showNotification(context, "JARVIS počúva", "Počúvam, pane. Povedzte svoj príkaz.")
+            }
+            return
+        }
+        if (action != JarvisVoiceService.ACTION_COMMAND) return
         val command = intent.getStringExtra(JarvisVoiceService.EXTRA_COMMAND)?.trim().orEmpty()
         if (command.isBlank()) return
-
-        val prefs = context.getSharedPreferences("jarvis", Context.MODE_PRIVATE)
         // The Compose receiver owns commands while the app UI is attached.
         if (prefs.getBoolean("voice_ui_attached", false)) return
 
