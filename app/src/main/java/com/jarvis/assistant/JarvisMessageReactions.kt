@@ -11,14 +11,13 @@ import java.util.Locale
  * text and never claim to know the sender's intent.
  */
 internal object JarvisMessageReactions {
-    fun comment(appName: String, sender: String, message: String): String? {
-        if (appName.equals("EduPage", ignoreCase = true) || message.isBlank()) return null
+    data class MessageInput(val appName: String, val sender: String, val message: String)
 
+    fun safetyComment(appName: String, message: String): String? {
+        if (appName.equals("EduPage", ignoreCase = true) || message.isBlank()) return null
         val text = message.lowercase(Locale.forLanguageTag("sk-SK"))
             .replace(Regex("\\s+"), " ")
             .trim()
-
-        // Serious or potentially sensitive messages take priority over humour.
         val seriousSignals = listOf(
             "je mi zle", "som chor", "som v nemocnici", "úraz", "nehoda",
             "zomrel", "zomrela", "zomrelo", "pohreb", "bojím sa", "bojim sa",
@@ -30,14 +29,36 @@ internal object JarvisMessageReactions {
         if (seriousSignals.any(text::contains)) {
             return "Táto správa pôsobí vážne, pane. Odporúčam najprv si pokojne overiť, čo presne od vás odosielateľ potrebuje."
         }
-
         val hostileSignals = listOf(
-            "si idiot", "si hlupák", "si trapný", "si trapna", "nenávidím ťa",
-            "nenavidim ta", "daj mi pokoj", "neznášam ťa", "neznasam ta"
+            "idiot", "hlupák", "hlupak", "trápny", "trapny", "trapná", "trapna",
+            "nenávidím ťa", "nenavidim ta", "daj mi pokoj", "neznášam ťa", "neznasam ta"
         )
         if (hostileSignals.any(text::contains)) {
             return "Tón tejto správy je nepríjemný. Nemusíme odpovedať rovnakým spôsobom, pane."
         }
+        return null
+    }
+
+    fun parseAiOutput(raw: String, itemCount: Int): Map<Int, String> {
+        val result = linkedMapOf<Int, String>()
+        raw.lineSequence().forEach { line ->
+            val match = Regex("^\\s*(\\d+)\\s*[|:]\\s*(.*?)\\s*$").find(line) ?: return@forEach
+            val index = match.groupValues[1].toIntOrNull()?.minus(1) ?: return@forEach
+            val value = match.groupValues[2].trim()
+            if (index !in 0 until itemCount || value.equals("NONE", true) || value.isBlank()) return@forEach
+            val cleaned = value.replace(Regex("\\s+"), " ").take(150)
+            if (cleaned.isNotBlank()) result[index] = cleaned
+        }
+        return result
+    }
+    fun comment(appName: String, sender: String, message: String): String? {
+        if (appName.equals("EduPage", ignoreCase = true) || message.isBlank()) return null
+
+        val text = message.lowercase(Locale.forLanguageTag("sk-SK"))
+            .replace(Regex("\\s+"), " ")
+            .trim()
+
+        safetyComment(appName, message)?.let { return it }
 
         val laughing = listOf("😂", "🤣", "😅", "😆", "haha", "hehe", "lol").any(text::contains)
         val school = listOf("písomk", "pisomk", "test", "skúšan", "skusan", "domácu úlohu", "domacu ulohu", "matemat").any(text::contains)
