@@ -139,7 +139,7 @@ class JarvisVoiceService : Service() {
                 }
             } catch (error: Exception) {
                 if (!stopped && !pausedForSpeech) {
-                    handler.post { sendStatus("LOKÁLNY DETEKTOR SA NEPODARILO SPUSTIŤ: \${error.message ?: "neznáma chyba"}") }
+                    handler.post { sendStatus("LOKÁLNY DETEKTOR SA NEPODARILO SPUSTIŤ: ${error.message ?: "neznáma chyba"}") }
                 }
             } finally {
                 wakeLoopActive = false
@@ -169,7 +169,7 @@ class JarvisVoiceService : Service() {
                     setRequestProperty("User-Agent", "JARVIS-Android")
                 }
                 connection.connect()
-                check(connection.responseCode in 200..299) { "Model HTTP \${connection.responseCode}: $name" }
+                check(connection.responseCode in 200..299) { "Model HTTP ${connection.responseCode}: $name" }
                 connection.inputStream.use { input -> temp.outputStream().use { output -> input.copyTo(output) } }
                 check(temp.length() > minSize) { "Neúplný súbor modelu: $name" }
                 check(temp.renameTo(target)) { "Nepodarilo sa uložiť model: $name" }
@@ -238,14 +238,14 @@ class JarvisVoiceService : Service() {
                 })
             }
         }.onFailure {
-            sendStatus("CHYBA SLOVENSKÉHO ROZPOZNÁVANIA: \${it.message ?: "neznáma chyba"}")
+            sendStatus("CHYBA SLOVENSKÉHO ROZPOZNÁVANIA: ${it.message ?: "neznáma chyba"}")
             stopSelf()
         }
     }
 
     private fun scheduleRecognition(delay: Long) {
         if (stopped || pausedForSpeech || !sessionActive) return
-        handler.postDelayed {
+        handler.postDelayed({
             if (!stopped && !pausedForSpeech && sessionActive && !recognizing) startRecognition()
         }, delay)
     }
