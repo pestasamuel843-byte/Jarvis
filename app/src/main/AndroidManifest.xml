@@ -21,6 +21,7 @@
         </intent>
     </queries>
     <application
+        android:localeConfig="@xml/locales_config"
         android:allowBackup="false"
         android:label="JARVIS"
         android:icon="@drawable/ic_jarvis"
