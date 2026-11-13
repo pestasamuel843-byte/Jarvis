@@ -67,3 +67,38 @@ The local learning loop may recommend code/configuration changes from test resul
 - Design principles: https://open-jarvis.github.io/OpenJarvis/architecture/design-principles/
 - Changelog: https://github.com/open-jarvis/OpenJarvis/blob/main/CHANGELOG.md
 - Research paper: https://arxiv.org/abs/2605.17172
+
+
+## Voice, microphone, and daily briefing implementation (current branch)
+
+The current Android voice path has been tightened for offline-only operation:
+
+- `JarvisVoiceService` remains a user-enabled Android microphone foreground service with a persistent notification.
+- It now creates only Android's on-device `SpeechRecognizer`. The former fallback to the general system recognizer has been removed, because that recognizer may use a network service.
+- If the device has no on-device recognizer or no Slovak offline language pack, JARVIS reports that limitation and stops instead of silently sending speech to a cloud recognizer.
+- The service accepts `Hej Jarvis`, `Hey Jarvis`, `Nazdar Jarvis`, and `Čau Jarvis`. A partial CPU wake lock is held only while the user-enabled voice service runs, to improve screen-off continuity; this can noticeably increase battery use.
+- Spoken replies select only an installed local Slovak voice identified as Lukáš/male. If no such voice is installed, JARVIS does not silently use a network voice.
+- The dashboard's conversation path no longer exposes an API-key setup or calls the legacy cloud chat client. The Qwen3 LiteRT-LM model is downloaded once while online and used locally afterwards. Web search remains a separate internet-only feature and needs no model API key.
+- `JarvisDailyBriefing` now combines today's locally saved school timetable, active notification previews from the Android notification listener, and the count of local notes. It does not claim access to full email or chat histories.
+
+### Important distinction about Stanford's microphone work
+
+The OpenJarvis GitHub Voice Channel item is an **open feature proposal**, not a shipped Android microphone implementation. It proposes a pipeline using local wake-word detection (openWakeWord), audio capture, pluggable speech-to-text, an agent, and text-to-speech. The proposal itself mentions desktop-oriented `sounddevice`/PipeWire and `faster-whisper`; those are not drop-in Android components.
+
+This branch does **not yet contain a dedicated openWakeWord model detector**. It currently uses Android's on-device speech recognizer in short recognition sessions to detect the wake phrase and transcribe the utterance. That is a practical offline-only improvement over a cloud fallback, but it is not the final low-power streaming wake-word pipeline. The next engineering step is to integrate and test a native Android wake-word detector (AudioRecord + a compatible on-device model), then hand the utterance to local Slovak STT without losing the words spoken immediately after the wake phrase.
+
+### Screen-off and Wi-Fi limitations
+
+- Screen-off listening can continue only while Android keeps the already user-started microphone foreground service alive. The user must enable it while JARVIS is visible and grant microphone access. A tablet that is fully powered off cannot listen. Android or the tablet manufacturer may still stop the process; real-device testing is required.
+- The partial wake lock helps keep the CPU awake but costs battery. The persistent notification and Android microphone privacy indicator are intentional.
+- Normal Android apps cannot silently toggle Wi-Fi on/off on current Android versions. JARVIS can detect that internet is unavailable and open system Wi-Fi settings; the user must enable/connect to a network.
+- The daily briefing reports active notifications exposed by Android and the saved timetable only. Calendar events and full inbox/chat history are not included unless separately implemented and authorized.
+
+## Updated next implementation order
+
+1. Integrate a true local Android wake-word detector and test it in a quiet room and normal household noise.
+2. Replace one-shot speech recognition with a local streaming STT path that reliably captures the command immediately after the wake phrase.
+3. Add a state-machine test suite for wake, listening, thinking, speaking, pause, and recovery; verify no self-trigger while JARVIS speaks.
+4. Test screen-off operation, process recovery, battery use, and Slovak offline language-pack availability on the actual tablet.
+5. Improve the daily briefing with explicitly authorized calendar/reminder sources and clear freshness labels.
+6. Only then create a signed APK and verify it on the target tablet.
