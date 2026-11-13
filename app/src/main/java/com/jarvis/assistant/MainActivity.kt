@@ -1248,6 +1248,23 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                         ) { Text(if (apiTesting) "PRACUJEM…" else "STIAHNUŤ OFFLINE AI MOZOG") }
                         Text(if (offlineModelInstalled) "STAV: OFFLINE AI MODEL JE V ZARIADENÍ" else "STAV: OFFLINE AI MODEL EŠTE NIE JE STIAHNUTÝ", color = if (offlineModelInstalled) Color(0xFF69F0AE) else Muted, fontSize = 11.sp)
                         Text("JARVIS môže používať lokálnu AI bez kľúča alebo voliteľnú online AI službu. Offline model sa stiahne iba raz a zostane uložený v zariadení.", color = Muted, fontSize = 12.sp)
+                        Button(
+                            onClick = {
+                                apiTesting = true
+                                apiTestResult = "Spúšťam lokálny AI model na zariadení…"
+                                scope.launch {
+                                    val result = withContext(Dispatchers.IO) {
+                                        runCatching { OfflineBrain(context).answer("Odpovedz presne: JARVIS OFFLINE FUNGUJE") }
+                                    }
+                                    apiTestResult = result.fold(
+                                        { "OFFLINE AI FUNGUJE: " + it.take(180) },
+                                        { "OFFLINE AI SA NEPODARILO SPUSTIŤ: " + (it.message ?: "neznáma chyba") }
+                                    )
+                                    apiTesting = false
+                                }
+                            },
+                            enabled = offlineModelInstalled && !apiTesting
+                        ) { Text(if (apiTesting) "TESTUJEM…" else "TESTOVAŤ OFFLINE AI") }
                         Text("Predvolená služba: Google Gemini API • model Gemini 2.5 Flash", color = Cyan, fontSize = 12.sp)
                         OutlinedTextField(key, { key = it }, label = { Text("Google Gemini API kľúč") }, placeholder = { Text("Vložte svoj kľúč z Google AI Studio") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
                         TextButton(onClick = {
