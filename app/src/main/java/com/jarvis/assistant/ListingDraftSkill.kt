@@ -40,7 +40,7 @@ internal class ListingDraftSkill : JarvisSkill {
             .replace(Regex("(?i)^priprav inzer[aá]t\\s*"), "")
             .removePrefix(":")
             .trim()
-            .removePrefix("na ")
+            .replace(Regex("(?i)^na\\s+"), "")
             .trim()
 
         if (details.isBlank()) {
@@ -88,8 +88,8 @@ internal class ListingDraftSkill : JarvisSkill {
             }
         }
         return JarvisToolResult.Success(
-            "Vaše lokálne návrhy inzerátov:\\n" + output.joinToString("\\n") +
-                "\\nVšetky sú iba koncepty. Nie sú zverejnené."
+            "Vaše lokálne návrhy inzerátov:\n" + output.joinToString("\n") +
+                "\nVšetky sú iba koncepty. Nie sú zverejnené."
         )
     }
 
