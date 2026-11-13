@@ -1,78 +1,69 @@
-# OpenJarvis ideas adapted for the Android JARVIS
+# Stanford OpenJarvis adaptation for the native Android JARVIS
 
-This document records an Android-specific adaptation of ideas from Stanford's OpenJarvis. It is a design plan, not a claim that these features have already been implemented or tested.
+Reference: https://github.com/open-jarvis/OpenJarvis  
+Documentation: https://open-jarvis.github.io/OpenJarvis/  
+License: Apache-2.0. This Android implementation uses the architectural ideas; it does not copy or bundle Stanford's Python/Rust runtime.
 
-Reference project: https://github.com/open-jarvis/OpenJarvis  
-License: Apache-2.0 (review the license and preserve required notices before copying any source code).
+## What has now been implemented in this branch
 
-## What to borrow conceptually
+The first implementation slice moves the existing Android app/search command handling behind a small, explicit Kotlin skill architecture:
 
-### 1. Local-first model routing
-OpenJarvis is designed to run locally by default and use cloud models only when useful. JARVIS already has an optional LiteRT-LM on-device Qwen model in `OfflineBrain.kt` and an OpenAI-compatible cloud endpoint.
+- `JarvisSkill` defines a typed capability contract and structured outcomes: success, failure, or confirmation required.
+- `JarvisSkillDescriptor` declares each capability's identifier, purpose, Android permissions, network requirement, and confirmation policy.
+- `JarvisSkillRegistry` is an allow-list of compiled-in capabilities. It does not download or execute arbitrary third-party code.
+- `AppSearchSkill` handles app launching and web/YouTube search as one narrow deterministic capability.
+- `JarvisOrchestrator` selects and executes the registered skill and returns its structured result to the existing `MainActivity` entry point through `JarvisAgent`.
+- `JarvisTraceStore` stores only local execution metadata (skill ID, status, timestamp, duration), capped at 100 events. It does not store recognized phrases, message contents, notification text, prompts, or microphone audio.
 
-Adaptation:
-- Route deterministic device commands to Kotlin handlers first; do not spend model tokens to open an app, read the battery, or set a timer.
-- Use the on-device model for simple conversation, local-memory recall, and offline explanations.
-- Use the configured cloud model only when internet is available and the user has configured it; never silently upload local memory or notification text.
-- Tell the user when a task is limited by the small offline model instead of pretending it has cloud-level reasoning.
-- Keep the current standalone Android app; do not import Stanford's Python/Rust desktop runtime or require Ollama/Termux.
+This is a source-code change on the `openjarvis-adaptation` branch. It is not yet a verified APK or a tablet-tested release.
 
-### 2. Orchestrator with explicit tool selection
-OpenJarvis separates an agent/orchestrator from the tools it can invoke.
+## OpenJarvis concepts adapted
 
-Adaptation:
-- Introduce a small Kotlin task planner that converts a request into typed steps such as `ReadNotifications`, `OpenApp`, `SearchWeb`, `CreateReminder`, or `DraftMessage`.
-- Execute only registered Android tools. Each tool returns a structured result: success, failure, or needs-confirmation.
-- Verify the actual Android result before JARVIS says an action succeeded.
-- Ask for confirmation before sending messages, placing calls, deleting data, or changing account/security settings.
-- Add loop limits and timeouts so a misunderstood voice command cannot repeat actions indefinitely.
+Stanford's OpenJarvis v1.0 describes five composable primitives: Intelligence, Engine, Agents, Tools & Memory, and Learning. It also includes local-first routing, multiple agent execution modes, scheduled/continuous agents, local traces, and evaluation gates.
 
-### 3. Skills registry with permission boundaries
-OpenJarvis uses discoverable skills to extend what an agent can do.
+Android adaptation:
 
-Adaptation:
-- Store JARVIS skills as local, versioned capability definitions (for example: school notifications, maps, reminders, media control, and 3D workspace).
-- Each skill declares required Android permissions, supported commands, whether internet is required, and which actions need confirmation.
-- Keep skill definitions separate from the main Compose UI so new capabilities do not turn `MainActivity.kt` into a larger monolith.
-- Do not download and execute arbitrary community code on the tablet. Imported skills must be declarative and reviewed.
+1. **Intelligence and engine routing:** keep the existing optional LiteRT-LM local model in `OfflineBrain.kt`; deterministic device actions should run in Kotlin before invoking a language model. A cloud model remains optional and must never silently receive local memory or notification content.
+2. **Agents and tools:** use the new typed Kotlin skill contract, allow-list registry, and orchestrator. Future message-sending or account-changing tools must return `NeedsConfirmation` until the user explicitly approves.
+3. **Memory:** keep user memory in app-private local storage and only provide relevant excerpts to the model. Do not upload it by default.
+4. **Learning and traces:** keep content-free local execution traces and add a repeatable Slovak command test suite before changing routing behavior. Do not train on private conversations automatically.
+5. **Scheduling:** use Android WorkManager for future scheduled summaries and reminders. Scheduled work must not secretly activate the microphone.
 
-### 4. Local trace and evaluation loop
-OpenJarvis treats evaluations and execution traces as core engineering features.
+## Important Android constraints
 
-Adaptation:
-- Record compact local events: recognized intent, selected tool, result, duration, and whether the user corrected the result.
-- Make trace collection optional and local-only by default; never record raw microphone audio.
-- Build repeatable tests for Slovak phrases, wake-word false activations, app launching, notification reading, offline replies, and confirmation gates.
-- Measure task success, response time, memory use, and battery impact on the actual tablet before calling a feature reliable.
-- Use failed traces to improve phrase matching and tests; do not automatically train on private conversations.
+- Keep the app native Kotlin/Jetpack Compose.
+- Do not require Termux, root, ADB, an Ollama server, or a personal API key.
+- Stanford's Python SDK, CLI, Docker/Podman sandbox, desktop app, and Linux/GPU engines are not directly portable to an Android tablet. Reuse the architectural patterns, not those runtimes.
+- LiteRT-LM is already present in this Android project as an optional on-device model runtime; actual speed and memory use must be checked on the target tablet.
+- Web search and live remote information need internet access. Local conversation can work offline only when a compatible model is installed.
+- Android accepting a launch intent is not proof that the target app fully loaded or completed a task.
+- A foreground microphone service is not guaranteed always-on wake-word detection on every Android device.
 
-### 5. Scheduled and proactive work
-OpenJarvis includes scheduled digests and continuous monitoring agents.
+## Safe future self-upgrade design
 
-Adaptation:
-- Use Android WorkManager for reminders and scheduled summaries that must survive app restarts.
-- Start with a spoken morning briefing from already-authorized sources such as notification previews and local reminders.
-- Use the foreground voice service only for the explicitly enabled microphone session; scheduled work must not secretly activate the microphone.
-- Respect Android background limits and clearly show when a task is pending, running, or unavailable.
+JARVIS should not let an AI model rewrite and install arbitrary executable code on the tablet. A future upgrade flow should:
 
-## Recommended implementation order
+1. Detect a new version from a trusted release source.
+2. Verify release authenticity and APK signing identity.
+3. Run compatibility and regression checks before offering the update.
+4. Explain the changes and request user approval before installation.
+5. Keep a rollback path where Android's installation/update model permits it.
 
-1. **Reliability foundation:** structured tool results, explicit confirmation gates, timeouts, and regression tests for existing voice commands.
-2. **Local-first router:** deterministic commands first, then LiteRT-LM offline chat, then optional cloud fallback.
-3. **Skill registry:** move capabilities behind small Kotlin interfaces with permission and network metadata.
-4. **Local traces and evaluation:** opt-in privacy-preserving diagnostics and a repeatable Slovak test suite.
-5. **WorkManager routines:** persistent reminders and an optional morning briefing.
-6. **Only then expand:** research agent, richer EduPage integration where officially supported, and more advanced 3D workflows.
+The local learning loop may recommend code/configuration changes from test results, but changes should be reviewed and shipped as a signed app release—not silently self-modified at runtime.
 
-## Important constraints
+## Next implementation order
 
-- Target remains a native Kotlin/Jetpack Compose Android tablet app.
-- No Termux, root, ADB, Ollama server, or mandatory personal API key.
-- Offline capability must be described honestly: web search, live maps, and remote services need internet; small local models have limited reasoning and device-dependent speed.
-- A foreground microphone service is not the same as guaranteed always-on wake-word detection on every Android tablet. Test lock-screen behavior, microphone privacy indicators, battery use, and manufacturer power restrictions on the target device.
-- Do not claim a new APK is ready until a GitHub Actions build succeeds and the APK is installed and tested on the tablet.
+1. Add unit tests for Slovak intent parsing and structured skill outcomes.
+2. Extend the registry with narrowly scoped tools (battery/status, reminders, safe read-only information).
+3. Add explicit confirmation gates for any outbound message or sensitive action.
+4. Add local-first model routing between deterministic Kotlin actions and the existing LiteRT-LM model.
+5. Add opt-in WorkManager routines and privacy-preserving regression evaluation.
+6. Only after these foundations, build a signed, user-approved update channel.
 
-## Source
+## Primary Stanford sources
 
-Stanford OpenJarvis repository and README: https://github.com/open-jarvis/OpenJarvis  
-The project describes local-first agents, an orchestrator, skills, evaluation/benchmarking, local traces, and scheduled/continuous agents. This plan adapts those patterns to the existing Android codebase rather than copying its desktop runtime.
+- Repository and release history: https://github.com/open-jarvis/OpenJarvis
+- Architecture overview: https://open-jarvis.github.io/OpenJarvis/architecture/overview/
+- Design principles: https://open-jarvis.github.io/OpenJarvis/architecture/design-principles/
+- Changelog: https://github.com/open-jarvis/OpenJarvis/blob/main/CHANGELOG.md
+- Research paper: https://arxiv.org/abs/2605.17172
