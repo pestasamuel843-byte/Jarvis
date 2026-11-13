@@ -8,7 +8,7 @@ import java.util.Locale
  */
 internal object WakePhraseMatcher {
     private val wakePattern = Regex(
-        "^(?:(?:hej|hey)\\s*)?(?:jarvis|počuj|pocuj)\\b[ ,:]*",
+        "^(?:hey|hej)\\s*(?:jarvis)\\b[ ,:]*",
         RegexOption.IGNORE_CASE
     )
 
