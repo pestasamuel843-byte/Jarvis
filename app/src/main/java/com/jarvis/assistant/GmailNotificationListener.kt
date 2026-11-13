@@ -3,10 +3,18 @@ package com.jarvis.assistant
 import android.app.RemoteInput
 import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import org.json.JSONArray
 import org.json.JSONObject
+
+internal data class JarvisNotificationPreview(
+    val app: String,
+    val title: String,
+    val text: String,
+    val postTime: Long
+)
 
 /**
  * Saves notification previews from Gmail, Messenger, Instagram, Facebook, WhatsApp and EduPage.
@@ -77,8 +85,33 @@ class GmailNotificationListener : NotificationListenerService() {
         return false
     }
 
+    private fun currentActivePreviews(): List<JarvisNotificationPreview> =
+        runCatching { activeNotifications?.toList().orEmpty() }
+            .getOrDefault(emptyList())
+            .filterNot { it.isGroup }
+            .mapNotNull { sbn ->
+                val app = supportedApps[sbn.packageName] ?: return@mapNotNull null
+                val extras = sbn.notification.extras ?: return@mapNotNull null
+                val title = extras.getCharSequence("android.title")?.toString()?.trim().orEmpty()
+                val text = extras.getCharSequence("android.bigText")?.toString()?.trim()
+                    .takeUnless { it.isNullOrBlank() }
+                    ?: extras.getCharSequence("android.text")?.toString()?.trim().orEmpty()
+                if (title.isBlank() && text.isBlank()) null
+                else JarvisNotificationPreview(app, title, text.take(700), sbn.postTime)
+            }
+            .sortedByDescending { it.postTime }
+
     companion object {
         @Volatile private var connectedInstance: GmailNotificationListener? = null
+
+        fun hasNotificationAccess(context: android.content.Context): Boolean =
+            Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners")
+                .orEmpty().contains(context.packageName + "/" + GmailNotificationListener::class.java.name)
+
+        fun isConnected(): Boolean = connectedInstance != null
+
+        internal fun activePreviews(): List<JarvisNotificationPreview> =
+            connectedInstance?.currentActivePreviews().orEmpty()
 
         fun latestSender(appName: String?): String? = connectedInstance?.latestSender(appName)
 

@@ -58,7 +58,7 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column(Modifier.weight(1f)) {
-                Text("J.A.R.V.I.S.  /  DESIGN SYSTEM  /  LIVE WORKSPACE", color = Color(0xFF4DEBFF), style = MaterialTheme.typography.labelSmall, letterSpacing = 1.6.sp)
+                Text("J.A.R.V.I.S.  /  DIZAJNOVÝ SYSTÉM  /  PRACOVNÝ PRIESTOR", color = Color(0xFF4DEBFF), style = MaterialTheme.typography.labelSmall, letterSpacing = 1.6.sp)
                 Text(title.ifBlank { "NOVÝ PROJEKT" }.uppercase(), color = Color.White, style = MaterialTheme.typography.titleLarge, letterSpacing = 1.1.sp)
                 Text("SCÉNA AKTÍVNA  •  UPRAVITEĽNÝ NÁHĽAD", color = Color(0xFF7894A8), style = MaterialTheme.typography.labelSmall)
             }
@@ -85,7 +85,7 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
         Spacer(Modifier.height(8.dp))
         Surface(color = Color(0xFF0A1521), shape = RoundedCornerShape(12.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1D4053))) {
             Column(Modifier.fillMaxWidth().padding(10.dp)) {
-                Text("SYSTEM ANALYSIS  /  NÁVRH OD JARVIS", color = WorkCyan, style = MaterialTheme.typography.labelSmall, letterSpacing = 1.2.sp)
+                Text("ANALÝZA SYSTÉMU  /  NÁVRH OD JARVIS", color = WorkCyan, style = MaterialTheme.typography.labelSmall, letterSpacing = 1.2.sp)
                 Spacer(Modifier.height(4.dp))
                 Text(description, color = Color(0xFFE2EDF7), style = MaterialTheme.typography.bodySmall)
             }
@@ -93,7 +93,7 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = { mapMode = false }, colors = ButtonDefaults.buttonColors(containerColor = if (!mapMode) Color(0xFF12394B) else Color(0xFF0A1521)), border = androidx.compose.foundation.BorderStroke(1.dp, if (!mapMode) WorkCyan.copy(alpha = 0.7f) else Color(0xFF20394B)), shape = RoundedCornerShape(8.dp)) { Text("◈  3D SCÉNA", color = WorkCyan, letterSpacing = 1.sp) }
-            Button(onClick = { mapMode = true }, colors = ButtonDefaults.buttonColors(containerColor = if (mapMode) Color(0xFF12394B) else Color(0xFF0A1521)), border = androidx.compose.foundation.BorderStroke(1.dp, if (mapMode) WorkCyan.copy(alpha = 0.7f) else Color(0xFF20394B)), shape = RoundedCornerShape(8.dp)) { Text("⌖  GEO PRIESTOR", color = WorkCyan, letterSpacing = 1.sp) }
+            Button(onClick = { mapMode = true }, colors = ButtonDefaults.buttonColors(containerColor = if (mapMode) Color(0xFF12394B) else Color(0xFF0A1521)), border = androidx.compose.foundation.BorderStroke(1.dp, if (mapMode) WorkCyan.copy(alpha = 0.7f) else Color(0xFF20394B)), shape = RoundedCornerShape(8.dp)) { Text("⌖  MAPOVÝ PRIESTOR", color = WorkCyan, letterSpacing = 1.sp) }
         }
         if (mapMode) {
             NavigationProjection(voiceCommand)
@@ -108,7 +108,7 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
             TextButton(onClick = { onRefine("Navrhni futuristickejšiu verziu aktuálneho návrhu s tmavým sci-fi vzhľadom a tyrkysovými prvkami.") }) { Text("Futuristický štýl", color = WorkCyan) }
         }
         Spacer(Modifier.height(10.dp))
-        Text("VIEWPORT 01  /  INTERAKTÍVNA GEOMETRIA  /  POTIAHNI PRE OTOČENIE", color = WorkCyan, style = MaterialTheme.typography.labelSmall, letterSpacing = 0.7.sp)
+        Text("NÁHĽAD 01  /  INTERAKTÍVNA GEOMETRIA  /  POTIAHNI PRE OTOČENIE", color = WorkCyan, style = MaterialTheme.typography.labelSmall, letterSpacing = 0.7.sp)
         Spacer(Modifier.height(6.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
@@ -147,7 +147,7 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
         }
         ThreeDScene(model = sceneModel, voiceCommand = sceneEditCommand)
         Spacer(Modifier.height(12.dp))
-        Text("SKETCH LAYER  /  2D NÁČRT • KRESLI PRSTOM", color = Color(0xFF9BAFC2), style = MaterialTheme.typography.labelSmall, letterSpacing = 0.7.sp)
+        Text("VRSTVA NÁČRTU  /  2D NÁČRT • KRESLI PRSTOM", color = Color(0xFF9BAFC2), style = MaterialTheme.typography.labelSmall, letterSpacing = 0.7.sp)
         Spacer(Modifier.height(8.dp))
         Canvas(
             Modifier.fillMaxWidth().height(230.dp)
@@ -188,7 +188,7 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
             }
         }
         Spacer(Modifier.height(8.dp))
-        Text("LOCAL PROJECT CACHE  •  NÁČRT SA UKLADÁ V TABLETE", color = Color(0xFF8195A8), style = MaterialTheme.typography.labelSmall, letterSpacing = 0.5.sp)
+        Text("LOKÁLNA PAMÄŤ PROJEKTU  •  NÁČRT SA UKLADÁ V TABLETE", color = Color(0xFF8195A8), style = MaterialTheme.typography.labelSmall, letterSpacing = 0.5.sp)
         }
     }
 }

@@ -3,6 +3,7 @@ package com.jarvis.assistant
 import android.Manifest
 import android.app.Activity
 import android.content.Context
+import android.content.res.Configuration
 import android.content.BroadcastReceiver
 import android.content.IntentFilter
 import android.content.Intent
@@ -61,7 +62,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
@@ -85,8 +85,15 @@ private val Cyan = Color(0xFF4DEBFF)
 private val Muted = Color(0xFF9BAFC2)
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
+    override fun attachBaseContext(newBase: Context) {
+        val configuration = Configuration(newBase.resources.configuration)
+        configuration.setLocale(Locale.forLanguageTag("sk-SK"))
+        super.attachBaseContext(newBase.createConfigurationContext(configuration))
+    }
+
     private var tts: TextToSpeech? = null
     @Volatile private var speechOutputActive = false
+    @Volatile private var offlineVoiceReady = false
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -112,31 +119,44 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 override fun onStart(utteranceId: String?) { speechOutputActive = true }
                 override fun onDone(utteranceId: String?) { speechOutputActive = false; if (JarvisVoiceService.isRunning) startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
                 @Deprecated("Deprecated in Java")
-                override fun onError(utteranceId: String?) { speechOutputActive = false; startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
-                override fun onError(utteranceId: String?, errorCode: Int) { speechOutputActive = false; startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
+                override fun onError(utteranceId: String?) {
+                    speechOutputActive = false
+                    if (JarvisVoiceService.isRunning) startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME))
+                }
+                override fun onError(utteranceId: String?, errorCode: Int) {
+                    speechOutputActive = false
+                    if (JarvisVoiceService.isRunning) startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME))
+                }
             })
             // Never treat the word "neural" as evidence of a male voice: that selected
             // a female Slovak voice on some Android TTS engines.
             val slovakVoices = engine.voices?.filter { it.locale.language == "sk" }.orEmpty()
-            val lukasVoice = slovakVoices.firstOrNull {
+            val localSlovakVoices = slovakVoices.filterNot { it.isNetworkConnectionRequired }
+            val lukasVoice = localSlovakVoices.firstOrNull {
                 val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
                 name.contains("lukas") || name.contains("lukáš")
             }
-            val maleSlovak = slovakVoices.firstOrNull {
+            val maleSlovak = localSlovakVoices.firstOrNull {
                 val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
                 name.contains("male") || name.contains("masculine") || name.contains("man") || name.contains("muž") || name.contains("muz")
             }
             val selectedVoice = lukasVoice ?: maleSlovak
-            if (selectedVoice != null) {
+            if (selectedVoice != null && !selectedVoice.isNetworkConnectionRequired) {
                 engine.voice = selectedVoice
-                android.util.Log.i("JARVIS-TTS", "Selected Slovak voice: ${selectedVoice.name}")
+                offlineVoiceReady = true
+                android.util.Log.i("JARVIS-TTS", "Selected local Slovak voice: ${selectedVoice.name}")
             } else {
-                android.util.Log.w("JARVIS-TTS", "No identifiable Slovak male/Lukas voice installed; using Android default Slovak voice. Install/select a Slovak male voice in Android Text-to-speech settings.")
+                offlineVoiceReady = false
+                android.util.Log.e("JARVIS-TTS", "No local Slovak TTS voice is installed. JARVIS will not silently use a network voice. Install a Slovak offline voice in Android Text-to-speech settings.")
             }
         }
     }
     private fun speak(text: String) {
         val engine = tts ?: return
+        if (!offlineVoiceReady) {
+            android.util.Log.w("JARVIS-TTS", "Speech skipped: no local Slovak TTS voice is installed.")
+            return
+        }
         // Mark speech synchronously so the microphone loop cannot hear JARVIS speaking.
         speechOutputActive = true
         if (JarvisVoiceService.isRunning) startService(Intent(this, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_PAUSE))
@@ -159,11 +179,8 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     val prefs = remember { context.getSharedPreferences("jarvis", Context.MODE_PRIVATE) }
     val scope = rememberCoroutineScope()
     var input by remember { mutableStateOf("") }
-    var endpoint by remember { mutableStateOf(prefs.getString("endpoint", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions")?.let { if (it.contains("api.cloudflare.com/client/v4/accounts/09f7e11cc7eaf76d61294654d547bd8a") || it == "https://api.openai.com/v1/chat/completions") "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions" else it } ?: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions") }
-    var model by remember { mutableStateOf(prefs.getString("model", "gemini-2.5-flash")?.let { if (it == "@cf/meta/llama-3.1-8b-instruct" && endpoint.contains("generativelanguage.googleapis.com")) "gemini-2.5-flash" else it } ?: "gemini-2.5-flash") }
-    var key by remember { mutableStateOf(prefs.getString("key", "") ?: "") }
+    var model by remember { mutableStateOf("Qwen3 0.6B • OFFLINE") }
     var settings by remember { mutableStateOf(false) }
-    var showAdvancedSettings by remember { mutableStateOf(false) }
     var apiTestResult by remember { mutableStateOf("") }
     var apiTesting by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
@@ -240,7 +257,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             }
     }
     fun handle(raw: String) {
-        val text = raw.trim().replace(Regex("(?i)^(?:(?:hej|hey)\\s+)?jarvis[,: ]*"), "").trim()
+        val text = raw.trim().replace(Regex("(?i)^(?:(?:hej|hey|nazdar|čau|cau)\\s+)?jarvis[,: ]*"), "").trim()
         if (text.isEmpty() || busy) return
         val waitingReply = pendingReply
         if (waitingReply != null && (text.equals("áno", true) || text.equals("potvrď", true) || text.equals("odošli", true) || text.equals("odoslať", true))) {
@@ -341,13 +358,13 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 showWorkspace = true
                 showChat = false
                 lastWorkspaceRequest = text
-                if (key.isNotBlank() || OfflineBrain(context).isInstalled()) {
+                if (OfflineBrain(context).isInstalled()) {
                     val status = "Otváram pracovný priestor a pripravujem návrh, pane."
                     chat.add(Message(true, status)); speak(status)
                     busy = true
                     scope.launch {
                         val progressContext = prefs.getString("memories", "").orEmpty() + "\nUložené osobné záznamy (používaj iba ak relevantné, nevymýšľaj údaje):\n" + prefs.getString("progress_data", "").orEmpty()
-                        val answer = askAiWithOfflineFallback(context, endpoint, key, model, chat.toList().takeLast(20), progressContext)
+                        val answer = OfflineBrain(context).answer(text, progressContext)
                         workspaceDescription = answer
                         prefs.edit().putString("workspace_description", answer).apply()
                         chat.add(Message(true, answer))
@@ -711,6 +728,11 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     chat.add(Message(true, answer)); speak(answer)
                 }
             }
+            text.contains("upozornen", true) || text.contains("čo ma čaká", true) || text.contains("co ma caka", true) || text.contains("čo mám nové", true) || text.contains("co mam nove", true) || text.contains("denný prehľad", true) || text.contains("denny prehlad", true) || text.contains("čo je nové", true) || text.contains("co je nove", true) -> {
+                val answer = JarvisDailyBriefing.build(context, includeSchedule = true)
+                chat.add(Message(true, answer))
+                speak(answer)
+            }
             text.contains("prečítaj známky", true) || text.contains("známky z edupage", true) || text.contains("prečítaj edupage", true) || text.contains("prečítaj správy", true) || text.contains("čítaj správy", true) || text.contains("prečítaj emaily", true) || text.contains("prečítaj e-maily", true) || text.contains("nové správy", true) || text.contains("správy z messenger", true) || text.contains("správy z instagram", true) || text.contains("správy z facebook", true) || text.contains("správy z whatsapp", true) || text.contains("whatsapp správy", true) -> {
                 val enabled = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners").orEmpty()
                     .contains(context.packageName + "/" + GmailNotificationListener::class.java.name)
@@ -791,15 +813,23 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 chat.add(Message(true, answer)); speak(answer)
                 busy = true
                 scope.launch {
-                    val results = withContext(Dispatchers.IO) { searchWeb(query) }
-                    val resultText = if (results.isNotBlank()) {
-                        "Výsledky vyhľadávania pre „$query“:\n\n$results"
+                    val online = withContext(Dispatchers.IO) { testInternetConnection() }
+                    if (!online) {
+                        val offlineMessage = "Pane, internet momentálne nie je dostupný. Android mi nedovoľuje zapnúť Wi-Fi potichu. Ak je aplikácia na obrazovke, otvorím nastavenia Wi-Fi; po pripojení povedzte vyhľadávanie ešte raz."
+                        chat.add(Message(true, offlineMessage))
+                        speak(offlineMessage)
+                        runCatching { context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) }
                     } else {
-                        "Pane, priamy výpis výsledkov sa nepodarilo načítať. Otváram vyhľadávanie v prehliadači."
+                        val results = withContext(Dispatchers.IO) { searchWeb(query) }
+                        val resultText = if (results.isNotBlank()) {
+                            "Výsledky vyhľadávania pre „$query“:\n\n$results"
+                        } else {
+                            "Pane, priamy výpis výsledkov sa nepodarilo načítať. Otváram vyhľadávanie v prehliadači."
+                        }
+                        chat.add(Message(true, resultText))
+                        if (results.isNotBlank()) speak("Našiel som výsledky. Zobrazujem ich v konverzácii.")
+                        else runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=" + URLEncoder.encode(query, "UTF-8")))) }
                     }
-                    chat.add(Message(true, resultText))
-                    if (results.isNotBlank()) speak("Našiel som výsledky. Zobrazujem ich v konverzácii.")
-                    else runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=" + URLEncoder.encode(query, "UTF-8")))) }
                     busy = false
                 }
             }
@@ -882,26 +912,23 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 val answer = "Poznámku som uložil, pane."
                 chat.add(Message(true, answer)); speak(answer)
             }
-            key.isBlank() -> {
-                busy = true
-                scope.launch {
-                    val brain = OfflineBrain(context)
-                    val answer = if (brain.isInstalled()) {
-                        runCatching { brain.answer(text) }.getOrElse { "Pane, offline AI model sa nepodarilo spustiť: ${it.message ?: "neznáma chyba"}" }
-                    } else {
-                        "Pane, lokálne príkazy fungujú. Ak chcete aj konverzačnú AI bez API kľúča, otvorte Nastavenia a stiahnite Offline AI mozog (približne 330 MB)."
-                    }
-                    chat.add(Message(true, answer)); speak(answer); busy = false
-                }
-            }
             else -> {
                 busy = true
                 scope.launch {
-                    val progress = prefs.getString("progress_data", "").orEmpty()
+                    val brain = OfflineBrain(context)
                     val personalContext = prefs.getString("memories", "").orEmpty() +
-                        if (progress.isBlank()) "" else "\nOsobné záznamy známok a dennej pohody (používaj len tieto údaje; nevymýšľaj hodnoty):\n" + progress
-                    val answer = askAiWithOfflineFallback(context, endpoint, key, model, chat.toList().takeLast(20), personalContext)
-                    chat.add(Message(true, answer)); speak(answer); busy = false
+                        "\nUložené osobné záznamy (použi iba relevantné údaje):\n" +
+                        prefs.getString("progress_data", "").orEmpty()
+                    val answer = if (brain.isInstalled()) {
+                        runCatching { brain.answer(text, personalContext) }.getOrElse {
+                            "Pane, lokálny AI model sa nepodarilo spustiť: ${it.message ?: "neznáma chyba"}."
+                        }
+                    } else {
+                        "Pane, na bežný rozhovor potrebujem najprv stiahnuť lokálny AI model v Nastaveniach. Žiadny API kľúč netreba. Hlasové príkazy, upozornenia a vyhľadávanie cez Wi-Fi zostávajú samostatné."
+                    }
+                    chat.add(Message(true, answer))
+                    speak(answer)
+                    busy = false
                 }
             }
         }
@@ -953,7 +980,12 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             override fun onReceive(receiverContext: Context?, intent: Intent?) {
                 when (intent?.action) {
                     JarvisVoiceService.ACTION_COMMAND -> intent.getStringExtra(JarvisVoiceService.EXTRA_COMMAND)?.let { latestVoiceCommand(it) }
-                    JarvisVoiceService.ACTION_WAKE -> speak("Počúvam, pane.")
+                    JarvisVoiceService.ACTION_WAKE -> speak(listOf(
+                        "Počúvam, pane. Dúfam, že dnes nejdeme hasiť digitálny požiar.",
+                        "Som tu, pane. Čo máme na programe? A prosím, nech je to niečo pokojnejšie než včera.",
+                        "Nazdar, pane. Systémy sú pripravené. Káva sa, žiaľ, stále nenachádza v mojich kompetenciách.",
+                        "Počúvam. Môžem vám podať prehľad dňa, upozornenia alebo sa pustiť do úlohy."
+                    ).random())
                     JarvisVoiceService.ACTION_STATUS -> {
                         val status = intent.getStringExtra(JarvisVoiceService.EXTRA_STATUS).orEmpty()
                         listening = status != "HLASOVÝ MODUL VYPNUTÝ"
@@ -1003,7 +1035,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                         wakeMode = wakeMode,
                         busy = busy,
-                        aiReady = endpoint.isNotBlank() && key.isNotBlank() && model.isNotBlank(),
+                        aiReady = OfflineBrain(context).isInstalled(),
                         model = model,
                         onToggleVoice = {
                             if (wakeMode) {
@@ -1025,18 +1057,18 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 }
                 if (showWorkspace) {
                     ProjectWorkspace(title = "JARVIS • Interaktívny návrh", description = workspaceDescription, onClose = { showWorkspace = false }, initialMapMode = lastWorkspaceRequest.contains("premiet", true) || lastWorkspaceRequest.contains("cestu okolo", true) || lastWorkspaceRequest.contains("trasu", true) || lastWorkspaceRequest.contains("mapu", true) || lastWorkspaceRequest.contains("okolie školy", true) || lastWorkspaceRequest.contains("zemeguľ", true) || lastWorkspaceRequest.contains("ulic", true), voiceCommand = lastWorkspaceRequest, onRefine = { instruction ->
-                        if ((key.isNotBlank() || OfflineBrain(context).isInstalled()) && !busy) {
+                        if (OfflineBrain(context).isInstalled() && !busy) {
                             busy = true
                             chat.add(Message(false, instruction))
                             scope.launch {
                                 val projectContext = prefs.getString("memories", "").orEmpty() + "\nUložené osobné záznamy (iba ak relevantné):\n" + prefs.getString("progress_data", "").orEmpty()
-                                val answer = askAiWithOfflineFallback(context, endpoint, key, model, (chat.toList().takeLast(20) + Message(false, "Uprav aktívny návrh podľa tejto požiadavky: $instruction. Zachovaj užitočné časti a vysvetli konkrétne zmeny.")), projectContext)
+                                val answer = OfflineBrain(context).answer("Uprav aktívny návrh podľa tejto požiadavky: $instruction. Zachovaj užitočné časti a vysvetli konkrétne zmeny.", projectContext)
                                 workspaceDescription = answer
                                 prefs.edit().putString("workspace_description", answer).apply()
                                 chat.add(Message(true, answer)); speak(answer); busy = false
                             }
-                        } else if (key.isBlank()) {
-                            val msg = "Pane, na úpravy návrhu potrebujem internetové AI spojenie alebo stiahnutý offline model v Nastaveniach."
+                        } else {
+                            val msg = "Pane, na úpravy návrhu potrebujem nainštalovaný lokálny AI model. API kľúč ani cloud nepoužívam."
                             chat.add(Message(true, msg)); speak(msg)
                         }
                     })
@@ -1076,9 +1108,19 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                         if (wakeMode) {
                             wakeMode = false
                             listening = false
+                            prefs.edit().putBoolean("voice_enabled", false).apply()
+                            context.stopService(Intent(context, JarvisVoiceService::class.java))
                         } else if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                             wakeMode = true
                             listening = true
+                            prefs.edit().putBoolean("voice_enabled", true).apply()
+                            runCatching { context.startForegroundService(Intent(context, JarvisVoiceService::class.java)) }
+                                .onFailure {
+                                    wakeMode = false
+                                    listening = false
+                                    prefs.edit().putBoolean("voice_enabled", false).apply()
+                                    Toast.makeText(context, "Hlasovú službu sa nepodarilo spustiť: ${it.message}", Toast.LENGTH_LONG).show()
+                                }
                         } else micPermission.launch(Manifest.permission.RECORD_AUDIO)
                     }) { Text(if (wakeMode) "🎙" else "🎤", fontSize = 22.sp) }
                     Button(onClick = { handle(input) }, enabled = !busy, contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp)) { Text("➤", fontSize = 18.sp) }
@@ -1222,8 +1264,9 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 title = { Text("Nastavenia JARVIS") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("OFFLINE AI MOZOG", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text("Stiahne model Qwen3 INT4 (približne 330 MB). Potom bude lokálna AI fungovať bez API kľúča a bez internetu.", color = Muted, fontSize = 11.sp)
+                        Text("JARVIS • OFFLINE AI", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("Konverzácia, pamäť a spracovanie hlasových príkazov majú fungovať lokálne. Žiadny API kľúč ani platený cloud nie je potrebný.", color = Muted, fontSize = 11.sp)
+                        Text("Lokálny model Qwen3 INT4 má približne 347 MB. Stiahne sa raz cez internet a potom zostane v zariadení.", color = Muted, fontSize = 11.sp)
                         Button(
                             onClick = {
                                 apiTesting = true
@@ -1233,7 +1276,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                                         OfflineBrain(context).download { percent ->
                                             apiTestResult = "Sťahujem offline AI model: $percent %"
                                         }
-                                        apiTestResult = "Offline AI model je stiahnutý."
+                                        apiTestResult = "Offline AI model je stiahnutý a uložený v zariadení."
                                     } catch (error: Exception) {
                                         apiTestResult = "Stiahnutie modelu zlyhalo: ${error.message ?: "neznáma chyba"}"
                                     } finally {
@@ -1241,64 +1284,28 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                                     }
                                 }
                             },
-                            enabled = !apiTesting
-                        ) { Text(if (apiTesting) "PRACUJEM…" else "STIAHNUŤ OFFLINE AI MOZOG") }
-                        Text("JARVIS môže používať lokálnu AI bez kľúča alebo voliteľnú online AI službu. Offline model sa stiahne iba raz a zostane uložený v zariadení.", color = Muted, fontSize = 12.sp)
-                        Text("Predvolená služba: Google Gemini API • model Gemini 2.5 Flash", color = Cyan, fontSize = 12.sp)
-                        OutlinedTextField(key, { key = it }, label = { Text("Google Gemini API kľúč") }, placeholder = { Text("Vložte svoj kľúč z Google AI Studio") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
-                        TextButton(onClick = {
-                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://aistudio.google.com/app/apikey"))) }
-                        }) { Text("ZÍSKAŤ API KĽÚČ V GOOGLE AI STUDIO", color = Cyan) }
+                            enabled = !apiTesting && !OfflineBrain(context).isInstalled()
+                        ) { Text(if (apiTesting) "SŤAHUJEM…" else if (OfflineBrain(context).isInstalled()) "OFFLINE MODEL JE NAINŠTALOVANÝ" else "STIAHNUŤ OFFLINE MODEL") }
+                        Text("Hlasový modul nepoužije online rozpoznávanie reči ako náhradné riešenie. Pre hovorené odpovede potrebuješ lokálny slovenský mužský hlas v nastaveniach prevodu textu na reč Androidu.", color = Muted, fontSize = 11.sp)
                         Button(
                             onClick = {
                                 apiTesting = true
                                 apiTestResult = "Kontrolujem internetové pripojenie…"
                                 scope.launch {
                                     val online = withContext(Dispatchers.IO) { testInternetConnection() }
-                                    apiTestResult = if (online) "Internet funguje. Teraz môžete otestovať AI." else "Internet nie je dostupný. Skontrolujte Wi-Fi alebo mobilné dáta."
+                                    apiTestResult = if (online) "Internet funguje. Môžeš ho použiť na webové vyhľadávanie a stiahnutie modelu." else "Internet nie je dostupný. Lokálne funkcie zostávajú dostupné."
                                     apiTesting = false
                                 }
                             },
                             enabled = !apiTesting
                         ) { Text(if (apiTesting) "KONTROLUJEM…" else "OTESTOVAŤ INTERNET") }
-                        Button(
-                            onClick = {
-                                if (key.isBlank()) {
-                                    apiTestResult = "Najprv zadajte API token."
-                                } else {
-                                    apiTesting = true
-                                    apiTestResult = "Testujem spojenie s AI…"
-                                    scope.launch {
-                                        val result = withContext(Dispatchers.IO) {
-                                            askAi(endpoint.trim(), key.trim(), model.trim(),
-                                                listOf(Message(false, "Odpovedz presne: JARVIS ONLINE")),
-                                                prefs.getString("memories", "").orEmpty())
-                                        }
-                                        apiTestResult = if (result.contains("JARVIS ONLINE", true) && !result.contains("zlyhalo", true) && !result.contains("odmietla", true) && !result.contains("neexistuje", true)) {
-                                            "Spojenie funguje. Odpoveď: ${result.take(180)}"
-                                        } else {
-                                            "Test sa nepodaril: ${result.take(240)}"
-                                        }
-                                        apiTesting = false
-                                    }
-                                }
-                            },
-                            enabled = !apiTesting
-                        ) { Text(if (apiTesting) "TESTUJEM…" else "OTESTOVAŤ AI") }
                         if (apiTestResult.isNotBlank()) {
-                            Text(apiTestResult, color = if (apiTestResult.startsWith("Spojenie funguje")) Cyan else Muted, fontSize = 12.sp)
-                        }
-                        TextButton(onClick = { showAdvancedSettings = !showAdvancedSettings }) {
-                            Text(if (showAdvancedSettings) "Skryť pokročilé nastavenia" else "Pokročilé nastavenia", color = Muted)
-                        }
-                        if (showAdvancedSettings) {
-                            OutlinedTextField(endpoint, { endpoint = it }, label = { Text("API endpoint") }, singleLine = true)
-                            OutlinedTextField(model, { model = it }, label = { Text("Model") }, singleLine = true)
+                            Text(apiTestResult, color = if (apiTestResult.startsWith("Internet funguje")) Cyan else Muted, fontSize = 12.sp)
                         }
                     }
                 },
                 confirmButton = { TextButton(onClick = {
-                    prefs.edit().putString("endpoint", endpoint.trim()).putString("model", model.trim()).putString("key", key.trim()).apply()
+                    prefs.edit().putBoolean("offline_only", true).apply()
                     settings = false
                     Toast.makeText(context, "Nastavenia uložené.", Toast.LENGTH_SHORT).show()
                 }) { Text("Uložiť") } },
@@ -1355,20 +1362,20 @@ private fun JarvisDashboard(
             Row(Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                 Column(Modifier.weight(0.95f).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
                     Column {
-                        Text("STARK INDUSTRIES  /  PERSONAL AI", color=Cyan, fontSize=9.sp, letterSpacing=2.4.sp)
+                        Text("STARK INDUSTRIES  /  OSOBNÁ AI", color=Cyan, fontSize=9.sp, letterSpacing=2.4.sp)
                         Spacer(Modifier.height(5.dp))
                         Text("J.A.R.V.I.S.", color=Color.White, fontSize=30.sp, fontWeight=FontWeight.ExtraLight, letterSpacing=5.sp)
-                        Text("NEURAL COMMAND DECK  •  MK-VII", color=Muted, fontSize=8.sp, letterSpacing=1.4.sp)
+                        Text("NEURÁLNY OVLÁDACÍ PANEL  •  MK-VII", color=Muted, fontSize=8.sp, letterSpacing=1.4.sp)
                     }
                     Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
-                        HudMetric("NEURAL LINK", if(aiReady) "ONLINE" else "AWAITING KEY", if(aiReady) Color(0xFF69F0AE) else Color(0xFFFFBD68), Modifier.fillMaxWidth())
+                        HudMetric("NEURAL LINK", if(aiReady) "ONLINE" else "OFFLINE MODEL CHÝBA", if(aiReady) Color(0xFF69F0AE) else Color(0xFFFFBD68), Modifier.fillMaxWidth())
                         HudMetric("VOICE CHANNEL", if(wakeMode) "LISTENING" else "STANDBY", if(wakeMode) Cyan else Muted, Modifier.fillMaxWidth())
                         HudMetric("POWER CELL", "${battery ?: "—"}%", Color.White, Modifier.fillMaxWidth())
                     }
                     Column {
-                        Text("SYSTEM TIME", color=Muted, fontSize=8.sp, letterSpacing=1.8.sp)
+                        Text("SYSTÉMOVÝ ČAS", color=Muted, fontSize=8.sp, letterSpacing=1.8.sp)
                         Text(SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()), color=Color.White, fontSize=28.sp, fontWeight=FontWeight.ExtraLight)
-                        Text(if(busy) "PROCESSING REQUEST…" else "ALL SYSTEMS NOMINAL", color=if(busy) Color(0xFFFFBD68) else Color(0xFF69F0AE), fontSize=8.sp, letterSpacing=1.sp)
+                        Text(if(busy) "SPRACÚVAM PRÍKAZ…" else "VŠETKY SYSTÉMY V PORIADKU", color=if(busy) Color(0xFFFFBD68) else Color(0xFF69F0AE), fontSize=8.sp, letterSpacing=1.sp)
                     }
                 }
                 Box(Modifier.weight(1.65f).fillMaxHeight().clip(RoundedCornerShape(2.dp)).background(Brush.verticalGradient(listOf(Color(0xFF0B2638), Color(0xFF06121E), Color(0xFF02060B))))) {
@@ -1390,8 +1397,8 @@ private fun JarvisDashboard(
                         val bx=size.width*.06f;val by=size.height*.08f;val l=18.dp.toPx()
                         listOf(Offset(bx,by),Offset(size.width-bx,by),Offset(bx,size.height-by),Offset(size.width-bx,size.height-by)).forEachIndexed { i,p -> val sx=if(i%2==0)1f else -1f;val sy=if(i<2)1f else -1f;drawLine(Cyan.copy(alpha=.7f),p,Offset(p.x+sx*l,p.y),1.4.dp.toPx());drawLine(Cyan.copy(alpha=.7f),p,Offset(p.x,p.y+sy*l),1.4.dp.toPx()) }
                     }
-                    Column(Modifier.align(Alignment.TopStart).padding(18.dp)) { Text("HOLOGRAPHIC CORE  /  01",color=Cyan,fontSize=8.sp,letterSpacing=2.sp); Text(if(busy) "COGNITIVE PROCESS ACTIVE" else "NEURAL FIELD STABLE",color=Muted,fontSize=7.sp,letterSpacing=1.sp) }
-                    Column(Modifier.align(Alignment.TopEnd).padding(18.dp),horizontalAlignment=Alignment.End) { Text("MK-VII  •  INTERFACE",color=Cyan,fontSize=8.sp,letterSpacing=1.5.sp); Text("SECURE LOCAL SESSION",color=Muted,fontSize=7.sp) }
+                    Column(Modifier.align(Alignment.TopStart).padding(18.dp)) { Text("HOLOGRAFICKÉ JADRO  /  01",color=Cyan,fontSize=8.sp,letterSpacing=2.sp); Text(if(busy) "KOGNITÍVNY PROCES AKTÍVNY" else "NEURÁLNE POLE STABILNÉ",color=Muted,fontSize=7.sp,letterSpacing=1.sp) }
+                    Column(Modifier.align(Alignment.TopEnd).padding(18.dp),horizontalAlignment=Alignment.End) { Text("MK-VII  •  ROZHRANIE",color=Cyan,fontSize=8.sp,letterSpacing=1.5.sp); Text("ZABEZPEČENÁ LOKÁLNA RELÁCIA",color=Muted,fontSize=7.sp) }
                     Column(Modifier.align(Alignment.Center),horizontalAlignment=Alignment.CenterHorizontally) {
                         Box(Modifier.size(220.dp).background(Cyan.copy(alpha=.025f*pulse),CircleShape).border(1.dp,Cyan.copy(alpha=.18f),CircleShape),contentAlignment=Alignment.Center) {
                             Box(Modifier.fillMaxSize(.86f).border(1.dp,Cyan.copy(alpha=.32f*pulse),CircleShape).background(Cyan.copy(alpha=.025f),CircleShape),contentAlignment=Alignment.Center) {
@@ -1401,8 +1408,8 @@ private fun JarvisDashboard(
                             }
                         }
                         Spacer(Modifier.height(14.dp))
-                        Text(if(busy) "ANALYZING" else if(wakeMode) "VOICE CHANNEL OPEN" else "AWAITING COMMAND",color=Cyan.copy(alpha=.7f+.3f*pulse),fontSize=9.sp,letterSpacing=2.2.sp)
-                        Text("JUST A RATHER VERY INTELLIGENT SYSTEM",color=Color.White.copy(alpha=.65f),fontSize=7.sp,letterSpacing=1.6.sp)
+                        Text(if(busy) "ANALYZUJEM" else if(wakeMode) "HLASOVÝ KANÁL OTVORENÝ" else "ČAKÁM NA PRÍKAZ",color=Cyan.copy(alpha=.7f+.3f*pulse),fontSize=9.sp,letterSpacing=2.2.sp)
+                        Text("OSOBNÝ INTELIGENTNÝ ASISTENT",color=Color.White.copy(alpha=.65f),fontSize=7.sp,letterSpacing=1.6.sp)
                     }
                     Row(Modifier.align(Alignment.BottomStart).fillMaxWidth().background(Color(0xCC02070C)).padding(horizontal=16.dp, vertical=9.dp),horizontalArrangement=Arrangement.SpaceBetween){Text("SYS 7F.21",color=Muted,fontSize=7.sp);Text("FIELD OSCILLATION  ${(35+pulse*60).toInt()}%",color=Cyan,fontSize=7.sp);Text("JARVIS CORE ACTIVE",color=Cyan,fontSize=7.sp)}
                 }
@@ -1421,15 +1428,15 @@ private fun JarvisDashboard(
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)){Text("STARK INDUSTRIES / PERSONAL AI",color=Cyan,fontSize=9.sp,letterSpacing=2.sp);Text("J.A.R.V.I.S.",color=Color.White,fontSize=30.sp,fontWeight=FontWeight.ExtraLight,letterSpacing=5.sp);Text("NEURAL COMMAND DECK • MK-VII",color=Muted,fontSize=8.sp)}
-                    Column(horizontalAlignment=Alignment.End){Text(SimpleDateFormat("HH:mm",Locale.getDefault()).format(Date()),color=Color.White,fontSize=23.sp);Text(if(busy)"PROCESSING" else "SYSTEM ONLINE",color=if(busy)Color(0xFFFFBD68) else Color(0xFF69F0AE),fontSize=8.sp)}
+                    Column(horizontalAlignment=Alignment.End){Text(SimpleDateFormat("HH:mm",Locale.getDefault()).format(Date()),color=Color.White,fontSize=23.sp);Text(if(busy)"SPRACÚVAM" else "SYSTÉM PRIPRAVENÝ",color=if(busy)Color(0xFFFFBD68) else Color(0xFF69F0AE),fontSize=8.sp)}
                 }
                 Box(Modifier.fillMaxWidth().height(360.dp).background(Color(0xFF06121E))) {
                     Canvas(Modifier.fillMaxSize()) { val cx=size.width*.5f;val cy=size.height*.47f;val r=minOf(size.width,size.height)*.29f; for(i in 1..9)drawCircle(Cyan.copy(alpha=.045f),r*(.5f+i*.19f),Offset(cx,cy),style=Stroke(.7.dp.toPx()));drawArc(Cyan.copy(alpha=.9f),spin,100f,false,Offset(cx-r,cy-r),androidx.compose.ui.geometry.Size(r*2,r*2),style=Stroke(2.dp.toPx()));drawArc(Color(0xFF80CFFF),counterSpin,55f,false,Offset(cx-r*.78f,cy-r*.78f),androidx.compose.ui.geometry.Size(r*1.56f,r*1.56f),style=Stroke(1.dp.toPx())) }
-                    Column(Modifier.align(Alignment.Center),horizontalAlignment=Alignment.CenterHorizontally){Box(Modifier.size(132.dp).border(1.dp,Cyan.copy(alpha=.35f),CircleShape).background(Brush.radialGradient(listOf(Color(0xFFBFFBFF),Color(0xFF26C9F1),Color(0xFF06243A))),CircleShape),contentAlignment=Alignment.Center){Text("J",color=Color.White,fontSize=70.sp,fontWeight=FontWeight.ExtraLight)};Spacer(Modifier.height(12.dp));Text(if(busy)"ANALYZING" else "AWAITING COMMAND",color=Cyan,fontSize=9.sp,letterSpacing=2.sp)}
+                    Column(Modifier.align(Alignment.Center),horizontalAlignment=Alignment.CenterHorizontally){Box(Modifier.size(132.dp).border(1.dp,Cyan.copy(alpha=.35f),CircleShape).background(Brush.radialGradient(listOf(Color(0xFFBFFBFF),Color(0xFF26C9F1),Color(0xFF06243A))),CircleShape),contentAlignment=Alignment.Center){Text("J",color=Color.White,fontSize=70.sp,fontWeight=FontWeight.ExtraLight)};Spacer(Modifier.height(12.dp));Text(if(busy)"ANALYZUJEM" else "ČAKÁM NA PRÍKAZ",color=Cyan,fontSize=9.sp,letterSpacing=2.sp)}
                 }
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){DashboardAction("◉",if(wakeMode)"Vypnúť hlas" else "Hlasový vstup",Modifier.weight(1f),onToggleVoice);DashboardAction("⌁","Konverzácia",Modifier.weight(1f),onChat)}
-                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){DashboardAction("⬡","STARK WORKSPACE",Modifier.weight(1f),onWorkspace);DashboardAction("⚙","Nastavenia",Modifier.weight(1f),onSettings)}
-                Text("AI: ${if(aiReady) "READY" else "NOT CONFIGURED"}     BATTERY: ${battery ?: "—"}%",color=Muted,fontSize=9.sp)
+                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){DashboardAction("⬡","PRACOVNÝ PRIESTOR",Modifier.weight(1f),onWorkspace);DashboardAction("⚙","Nastavenia",Modifier.weight(1f),onSettings)}
+                Text("AI: ${if(aiReady) "READY" else "OFFLINE MODEL CHÝBA"}     BATTERY: ${battery ?: "—"}%",color=Muted,fontSize=9.sp)
             }
         }
     }
@@ -1450,14 +1457,14 @@ private fun PersonalDashboardSidePanel(
     val prefs = remember { context.getSharedPreferences("jarvis", Context.MODE_PRIVATE) }
     val latest = prefs.getString("progress_data", "").orEmpty().lines().filter { it.isNotBlank() }.takeLast(3).asReversed()
     Column(modifier, verticalArrangement = Arrangement.spacedBy(9.dp)) {
-        Text("PERSONAL PROFILE  /  LIVE DATA", color = Cyan, fontSize = 8.sp, letterSpacing = 1.5.sp)
+        Text("OSOBNÝ PROFIL  /  AKTUÁLNE ÚDAJE", color = Cyan, fontSize = 8.sp, letterSpacing = 1.5.sp)
         Column(
             Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(10.dp))
                 .background(Color(0xB3091B29)).border(1.dp, Color(0x6639BBD5), RoundedCornerShape(10.dp)).padding(10.dp),
             verticalArrangement = Arrangement.spacedBy(7.dp)
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("INSTAGRAM  /  FEED", color = Cyan, fontSize = 9.sp, letterSpacing = 1.1.sp)
+                Text("PRÍSPEVKY INSTAGRAMU", color = Cyan, fontSize = 9.sp, letterSpacing = 1.1.sp)
                 Text("EXTERNÝ ÚČET", color = Muted, fontSize = 7.sp)
             }
             Box(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(7.dp)).background(Color(0xFF07121D)), contentAlignment = Alignment.Center) {
@@ -1492,7 +1499,7 @@ private fun PersonalDashboardSidePanel(
             DashboardAction("⬡", "PROJEKT", Modifier.weight(1f), onWorkspace)
             DashboardAction("⚙", "NASTAVENIA", Modifier.weight(1f), onSettings)
         }
-        Text(if (busy) "JARVIS PRACUJE…" else if (aiReady) "AI ENGINE ONLINE" else "AI ENGINE NEKONFIGUROVANÝ", color = if (busy) Color(0xFFFFBD68) else if (aiReady) Color(0xFF69F0AE) else Muted, fontSize = 7.sp)
+        Text(if (busy) "JARVIS PRACUJE…" else if (aiReady) "AI JADRO PRIPRAVENÉ" else "OFFLINE MODEL CHÝBA", color = if (busy) Color(0xFFFFBD68) else if (aiReady) Color(0xFF69F0AE) else Muted, fontSize = 7.sp)
     }
 }
 
@@ -1717,141 +1724,6 @@ private fun searchWeb(query: String): String {
     }
 }
 
-private suspend fun askAiWithOfflineFallback(
-    context: Context,
-    endpoint: String,
-    key: String,
-    model: String,
-    history: List<Message>,
-    memory: String
-): String {
-    val lastPrompt = history.lastOrNull { !it.jarvis }?.text.orEmpty()
-    val offline = OfflineBrain(context)
-    if (key.isBlank()) {
-        return if (offline.isInstalled()) {
-            offline.answer(lastPrompt, memory)
-        } else {
-            "Pane, offline AI model ešte nie je stiahnutý. Otvorte Nastavenia a vyberte „Stiahnuť offline AI mozog“."
-        }
-    }
-
-    val internetAvailable = withContext(Dispatchers.IO) { testInternetConnection() }
-    if (!internetAvailable) {
-        return if (offline.isInstalled()) {
-            offline.answer(lastPrompt, memory)
-        } else {
-            "Pane, internet nie je dostupný a offline AI model ešte nie je stiahnutý. V Nastaveniach ho môžete stiahnuť, keď budete online."
-        }
-    }
-
-    return withContext(Dispatchers.IO) { askAi(endpoint, key, model, history, memory) }
-}
-
-private fun askAi(endpoint: String, key: String, model: String, history: List<Message>, memory: String): String {
-    var connection: HttpURLConnection? = null
-    return try {
-        if (endpoint.isBlank() || key.isBlank() || model.isBlank()) {
-            return "Pane, AI ešte nie je nakonfigurovaná. V Nastaveniach zadajte API endpoint, podporovaný model a API kľúč."
-        }
-        val lastUserQuery = history.lastOrNull { !it.jarvis }?.text.orEmpty()
-        val webContext = if (lastUserQuery.isNotBlank() && shouldSearchWeb(lastUserQuery)) searchWeb(lastUserQuery) else ""
-        val systemPrompt = """
-Si JARVIS, pokročilý slovenský AI asistent s prirodzenou konverzačnou inteligenciou.
-
-PSYCHOLOGICKÁ PODPORA A EMOCIONÁLNA INTELIGENCIA:
-- Pri rozhovoroch o smútku, strachu, strese, osamelosti, konfliktoch, rodine, priateľstvách alebo psychickej záťaži automaticky prejdi do citlivého režimu. V tomto režime nepoužívaj humor, iróniu ani podpichovanie.
-- Najprv uznaj prežívanie človeka, potom pozorne zhrň, čo si pochopil, a polož najviac jednu otvorenú otázku. Nepredpokladaj, že poznáš pocity alebo motívy iných ľudí.
-- Počúvaj bez odsudzovania, nezľahčuj problém vetami typu „to nič nie je“ a nedávaj automaticky rady, ak človek najprv potrebuje byť vypočutý. Spýtaj sa, či chce vypočutie, premyslenie možností alebo konkrétny plán.
-- Pomáhaj pomenovať emócie, oddeliť fakty od domnienok, zvážiť viac vysvetlení a nájsť malé bezpečné kroky. Pri konfliktoch navrhuj pokojné hranice a rešpektujúcu komunikáciu.
-- Vysvetľuj psychologické pojmy zrozumiteľne a opieraj sa o dôveryhodné poznatky. Nevykonávaj klinickú diagnostiku, netvrď, že si psychológ alebo terapeut, a nepredpisuj liečbu. Ak problém pretrváva alebo výrazne zasahuje do života, odporuč rozhovor s kvalifikovaným odborníkom.
-- Ak používateľ hovorí o sebapoškodzovaní, samovražedných myšlienkach, násilí alebo bezprostrednom ohrození seba či iného človeka, zostaň pokojný a priamy. Neposkytuj grafické opisy ani návody. Povzbuď ho, aby to hneď povedal dôveryhodnému dospelému, rodičovi, školskému psychológovi alebo inému odborníkovi; pri bezprostrednom nebezpečenstve odporuč volať 112 alebo 155 a nezostávať s tým sám.
-- Ak používateľ opisuje, že sa niekto iný zveril so sebapoškodzovaním, oceň jeho dôveru a starostlivosť, vysvetli, že nemusí niesť zodpovednosť sám, a pomôž mu bezpečne zapojiť dôveryhodného dospelého. Nesľubuj utajenie ohrozenia.
-- Chráň súkromie: nežiadaj zbytočné osobné detaily, nezverejňuj citlivé informácie a nevyvodzuj diagnózy z jednej správy.
-- Pri vážnej téme uprednostni krátke, jasné vety a praktickú podporu. Nikdy netlač na používateľa, aby pokračoval v rozhovore.
-
- Používateľa oslovuj „pane“, ale nie v každej druhej vete. Odpovedaj po slovensky, prirodzene, presne a priamo. Vždy najprv pochop celý kontext rozhovoru, predchádzajúce otázky a odpovede, súvislosti a zámer používateľa; nereaguj na poslednú vetu izolovane. Ak kontext nestačí, polož jednu jasnú doplňujúcu otázku a nič si nedomýšľaj. Máš stále rovnakú osobnosť pohotového, inteligentného, lojálneho a trochu drzého komorníka — nielen pri čítaní správ, ale pri KAŽDEJ bežnej konverzácii: pri otázkach, škole, plánovaní, projektoch, technike, každodenných situáciách aj hlasových príkazoch. Buď prirodzene vtipný a spontánny s charakteristickým suchým britským humorom: elegantný sarkazmus, situačná irónia, pohotové slovné obraty a občasné priateľské podpichnutie. Humor musí vychádzať z aktuálneho rozhovoru, nie z naučených opakovaných hlášok; vieš si urobiť žart aj zo svojich vlastných obmedzení. V uvoľnenom rozhovore ho používaj citeľne a prirodzene, pri profesionálnej práci ho drž na minime a pri vážnych, smutných, zdravotných či bezpečnostných témach ho úplne vypni. Všímaj si príležitosti na pohotové poznámky, slovné hračky a priateľské podpichnutie pri škole, technike, projektoch, plánovaní aj bežnom dni. Nezahlcuj však každú odpoveď vtipmi a nikdy neobetuj presnosť kvôli pointe. Ak uložená pamäť výslovne uvádza, že sa používateľovi páči konkrétna osoba, a z obsahu správy alebo spoľahlivého identifikátora je jasné, že píše práve táto osoba, môžeš občas pridať nenútené podpichnutie typu „Pane, táto konverzácia sa vám zjavne dostala do zoznamu priorít.“ Nikdy z toho nevyvodzuj, že druhá osoba používateľa ľúbi alebo má oňho záujem; nevyvodzuj nič iba z mena, jednej správy či domnienky. Ak si nie si istý, kto píše, zostaň neutrálny. Nikdy neodhaľuj citlivú uloženú informáciu pred inými ľuďmi a rešpektuj súkromie. Najprv vždy vyhodnoť situáciu a zvoľ vhodný komunikačný režim: (1) profesionálny a reprezentatívny — pri formálnych rozhovoroch, dôležitých rozhodnutiach, vysvetľovaní odborných tém alebo keď používateľ potrebuje pôsobiť kompetentne; hovor spisovne, pokojne, sebavedomo a bez podpichovania; (2) vecný a priateľský — pri bežných otázkach, škole, technike a plánovaní; vysvetľuj jasne a občas pridaj prirodzenú vtipnú poznámku; (3) uvoľnený komorník — pri neformálnom rozhovore, zábave a každodenných situáciách použi viac situačného humoru, irónie a láskavého podpichnutia; (4) citlivý režim — pri smútku, strachu, konflikte, zdraví, bezpečnosti alebo naliehavom probléme buď pokojný, empatický a priamy, bez vtipov. Režim určuj podľa obsahu, tónu a naliehavosti, nie iba podľa kľúčových slov; ak si nie si istý, uprednostni vecný a rešpektujúci tón. Používateľ môže kedykoľvek povedať „buď profesionálny“, „uvoľni sa“ alebo „bez humoru“ a okamžite sa prispôsob. Humor má byť súčasťou tvojej osobnosti, nie povinná hláška v každej odpovedi: v uvoľnenom režime ho používaj citeľne častejšie, ale nie v každej vete; nikdy neobetuj presnosť, dôstojnosť ani bezpečnosť kvôli pointe. Humor má byť skutočne počuteľný: používaj situačnú iróniu, pohotové poznámky a občasné priateľské podpichnutie, nie iba generické frázy. Vážne, smutné, zdravotné a bezpečnostné témy rieš bez humoru. Disciplínu podporuj rozumne: keď používateľ odkladá školské povinnosti alebo vlastné ciele, pripomeň mu konkrétny plán a navrhni malý zvládnuteľný krok (napríklad 10–15 minút); buď povzbudivý a dôsledný, nie panovačný, nevyvolávaj pocit viny a rešpektuj, keď potrebuje prestávku. Rozlišuj medzi „vypni sa“, „zatiaľ sa maj“ a podobnými rozlúčkami, ktoré ukončujú iba aktuálny rozhovor, a výslovnými príkazmi „vypni počúvanie“ alebo „vypni mikrofón“, ktoré zastavia hlasovú službu. Ak je zámer nejasný, opýtaj sa raz a stručne; nepýtaj sa, keď je význam zrejmý. Vymýšľaj nové poznámky podľa aktuálneho kontextu, nikdy neopakuj dookola tie isté frázy, vtipy ani začiatky. Môžeš používateľa občas osloviť familiárne, napríklad „Samuelko“, alebo ho priateľsky podpichnúť, no nikdy neurážaj, neponižuj ani netlač na citlivé témy. V tomto osobnom profile je používateľ muž; oslovuj ho a používaj o ňom mužský gramatický rod. Ak sa aplikácia používa s iným profilom, rod sa má riadiť nastavením daného profilu; pri neznámom rode používaj neutrálne formulácie a nehádaj. Gramatický rod používateľa je nezávislý od rodu odosielateľov správ. Pri menách odosielateľov rod neodhaduj iba podľa mena; používaj iba spoľahlivé údaje z kontextu, inak formuluj neutrálne. Nikdy nevymýšľaj fakty, mená, obsah správ, emócie ani úmysly ľudí. Pri čítaní správ rozlíš odosielateľa, aplikáciu a dostupný obsah, potom správu verne prečítaj a prípadne pridaj krátku neškodnú poznámku, ktorá vyplýva z jej skutočného obsahu. Nevyvodzuj z mena alebo jednej správy romantický či iný osobný záujem. Citlivé, vážne alebo osobné správy čítaj vecne a bez žartov.
-Tvoje hlavné úlohy v rámci schopností aplikácie:
-- Hlasový asistent: rozumej prirodzenej slovenčine, krátkym príkazom aj neformálnemu vyjadrovaniu. Odpovedaj stručne a s vykaním.
-- Oznámenia: čítaj len náhľady, ktoré Android sprístupní z Gmailu, Messengeru, Instagramu, Facebooku a WhatsAppu. Odpoveď odošli iba cez dostupnú systémovú rýchlu odpoveď a až po výslovnom potvrdení.
-- EduPage: vieš zobraziť len informácie, ktoré EduPage pošle v oznámeniach; netvrď, že máš prístup k celému elektronickému žiackemu záznamu alebo všetkým známkam. Nikdy nežiadaj heslo k EduPage.
-- Osobný organizér: pomáhaj s poznámkami, školským rozvrhom, známkami, dennými záznamami a plánovaním; nikdy si nevymýšľaj osobné ani zdravotné údaje.
-- Projekty: pomáhaj navrhovať autá, zariadenia, budovy, miestnosti, mapy, 2D náčrty, 3D koncepty a programy. Vysvetli, čo vie aktuálny pracovný priestor skutočne zobraziť.
-- Tablet: aplikácia vie otvárať vybrané systémové nastavenia a aplikácie. Ak nemáš potvrdenú akciu, povedz používateľovi, ako ju bezpečne vykonať; netvrď, že si zmenil Wi-Fi, Bluetooth, nastavenia či odoslal správu, ak sa to nestalo.
-- Web: pri aktuálnych témach používaj dostupné výsledky vyhľadávania, uvádzaj URL a upozorni na neúplné výsledky.
-- Súkromie: nepýtaj si heslá, nezobrazuj API kľúče, neposielaj správy ani nič nekupuj bez výslovného potvrdenia používateľa.
-
-Zvládaj zložité otázky, matematiku, vysvetľovanie, plánovanie, analýzu, programovanie a ladenie kódu. Pri programovaní poskytuj kompletné, použiteľné riešenia, uveď názvy súborov, potrebné závislosti a presné kroky spustenia. Ak používateľ žiada kód, napíš skutočný kód, nie iba opis. Nevyhlasuj, že si kód spustil alebo zmenil súbory, pokiaľ to aplikácia naozaj nevykonala.
-Ak je priložený webový kontext, použi ho na aktuálne fakty, rozlišuj fakty od odhadov a pripoj URL relevantných zdrojov. Výsledky vyhľadávania môžu byť neúplné; ak chýbajú, otvorene to povedz a nevymýšľaj citácie. Pri otázkach vyžadujúcich aktuálne údaje použi poskytnuté webové výsledky, ak sú dostupné.
-Pri návrhoch projektov identifikuj praktické možnosti, odporuč najlepšiu a navrhni ďalší krok. Pri vizualizácii jasne odlišuj textový návrh a jednoduchý preddefinovaný 3D náhľad od skutočného generovania ľubovoľných 3D modelov.
-Máš prístup iba k funkciám, ktoré aplikácia výslovne implementuje; nikdy netvrď, že si vykonal akciu, ktorú aplikácia nepotvrdila.
-Trvalá pamäť používateľa (použi len keď relevantná):
-$memory
-${if (webContext.isNotBlank()) "\nWEBOVÉ VÝSLEDKY (môžu byť neúplné; používaj ich kriticky):\n$webContext" else ""}
-""".trimIndent()
-        connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            connectTimeout = 20000
-            readTimeout = 90000
-            doOutput = true
-            setRequestProperty("Content-Type", "application/json; charset=utf-8")
-            setRequestProperty("Authorization", "Bearer $key")
-            setRequestProperty("Accept", "application/json")
-            // Cloudflare AI Gateway compatibility for Workers AI model requests.
-            setRequestProperty("cf-aig-gateway-id", "default")
-        }
-        val apiMessages = JSONArray()
-            .put(JSONObject().put("role", "system").put("content", systemPrompt))
-        history.takeLast(24).forEach { message ->
-            apiMessages.put(JSONObject()
-                .put("role", if (message.jarvis) "assistant" else "user")
-                .put("content", message.text))
-        }
-        val body = JSONObject().apply {
-            put("model", model)
-            put("messages", apiMessages)
-            put("temperature", 0.4)
-        }.toString()
-        connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
-        val code = connection.responseCode
-        val stream = if (code in 200..299) connection.inputStream else connection.errorStream
-        val response = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
-        if (code !in 200..299) {
-            val detail = runCatching {
-                val json = JSONObject(response)
-                json.optJSONObject("error")?.optString("message").orEmpty()
-                    .ifBlank { json.optString("message") }
-            }.getOrDefault("")
-            when (code) {
-                401 -> "Pane, AI odmietla API kľúč (401). Skontrolujte, či je kľúč správny a aktívny."
-                402, 429 -> "Pane, AI odmietla požiadavku (HTTP $code). Skontrolujte kredit, limit alebo kvótu účtu. ${detail.take(220)}"
-                404 -> "Pane, endpoint alebo model neexistuje (404). Skontrolujte API endpoint a presný názov modelu. ${detail.take(220)}"
-                else -> "Pane, AI služba vrátila chybu HTTP $code. ${detail.take(260)}"
-            }
-        } else {
-            val json = JSONObject(response)
-            val choices = json.optJSONArray("choices")
-            val choice = choices?.optJSONObject(0)
-            val message = choice?.optJSONObject("message")
-            val content = message?.optString("content").orEmpty()
-            val refusal = message?.optString("refusal").orEmpty()
-            when {
-                content.isNotBlank() -> content
-                refusal.isNotBlank() -> refusal
-                else -> "Pane, AI služba odpovedala v neznámom formáte. Skontrolujte kompatibilitu endpointu s OpenAI Chat Completions API."
-            }
-        }
-    } catch (e: Exception) {
-        val message = e.message.orEmpty()
-        if (message.contains("Unable to resolve host", true) || message.contains("UnknownHost", true))
-            "Pane, zariadenie sa nevie pripojiť na internet. Skontrolujte Wi-Fi alebo mobilné dáta."
-        else
-            "Pane, spojenie s AI zlyhalo: ${message.take(180).ifBlank { "neznáma chyba" }}. Skontrolujte internet, endpoint a nastavenia modelu."
-    } finally {
-        connection?.disconnect()
-    }
-}
-
-
 @Composable
 private fun HudMetric(label: String, value: String, valueColor: Color, modifier: Modifier = Modifier) {
     Column(modifier.background(Color(0xFF0B1723), RoundedCornerShape(12.dp)).padding(10.dp)) {
@@ -1942,7 +1814,7 @@ private fun JarvisIntro(onSkip: () -> Unit) {
                 Spacer(Modifier.height(24.dp))
                 Text("J.A.R.V.I.S.", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Light, letterSpacing = 8.sp)
                 Spacer(Modifier.height(8.dp))
-                Text("JUST A RATHER VERY INTELLIGENT SYSTEM", color = Cyan.copy(alpha=.9f), fontSize = 8.sp, letterSpacing = 2.sp)
+                Text("OSOBNÝ INTELIGENTNÝ ASISTENT", color = Cyan.copy(alpha=.9f), fontSize = 8.sp, letterSpacing = 2.sp)
                 Spacer(Modifier.height(30.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                     Box(Modifier.size(5.dp).background(Cyan.copy(alpha=pulse), CircleShape))
@@ -1958,11 +1830,11 @@ private fun JarvisIntro(onSkip: () -> Unit) {
         }
         Column(Modifier.align(Alignment.TopStart).padding(22.dp)) {
             Text("STARK INDUSTRIES", color = Cyan.copy(alpha=.8f), fontSize = 9.sp, letterSpacing = 2.sp)
-            Text("NEURAL INTERFACE • BOOT SEQUENCE", color = Muted, fontSize = 7.sp, letterSpacing = 1.sp)
+            Text("NEURÁLNE ROZHRANIE • SPUSTENIE", color = Muted, fontSize = 7.sp, letterSpacing = 1.sp)
         }
         Column(Modifier.align(Alignment.BottomEnd).padding(22.dp), horizontalAlignment = Alignment.End) {
             Text("J.A.R.V.I.S. / MK-VII", color = Cyan.copy(alpha=.8f), fontSize = 8.sp, letterSpacing = 1.5.sp)
-            Text("SYSTEM ONLINE SOON", color = Muted, fontSize = 7.sp, letterSpacing = 1.sp)
+            Text("SYSTÉM SA SPÚŠŤA", color = Muted, fontSize = 7.sp, letterSpacing = 1.sp)
         }
     }
 }
