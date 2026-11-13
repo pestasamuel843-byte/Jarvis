@@ -108,6 +108,8 @@ class GmailNotificationListener : NotificationListenerService() {
             Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners")
                 .orEmpty().contains(context.packageName + "/" + GmailNotificationListener::class.java.name)
 
+        fun isConnected(): Boolean = connectedInstance != null
+
         fun activePreviews(): List<JarvisNotificationPreview> =
             connectedInstance?.currentActivePreviews().orEmpty()
 
