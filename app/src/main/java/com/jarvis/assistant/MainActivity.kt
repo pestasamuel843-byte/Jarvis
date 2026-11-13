@@ -949,6 +949,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
 
     val latestVoiceCommand by rememberUpdatedState<(String) -> Unit>({ spoken -> handle(spoken) })
     DisposableEffect(context) {
+        prefs.edit().putBoolean("voice_ui_attached", true).apply()
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(receiverContext: Context?, intent: Intent?) {
                 when (intent?.action) {
@@ -972,7 +973,20 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             @Suppress("DEPRECATION")
             context.registerReceiver(receiver, filter)
         }
-        onDispose { runCatching { context.unregisterReceiver(receiver) } }
+        onDispose {
+            runCatching { context.unregisterReceiver(receiver) }
+            prefs.edit().putBoolean("voice_ui_attached", false).apply()
+        }
+    }
+
+    // Commands heard after the launcher task was dismissed are queued by the
+    // manifest receiver and replayed through the normal in-app command handler.
+    LaunchedEffect(Unit) {
+        val queued = prefs.getString("pending_headless_voice_command", null)
+        if (!queued.isNullOrBlank()) {
+            prefs.edit().remove("pending_headless_voice_command").apply()
+            handle(queued)
+        }
     }
 
     MaterialTheme(colorScheme = darkColorScheme(primary = Cyan, background = Bg, surface = Panel, onBackground = Color.White, onSurface = Color.White)) {
