@@ -12,6 +12,7 @@ Natívna aplikácia pre Android v Kotlin + Jetpack Compose. Cieľom je hlasovo o
 - Lokálna história rozhovorov a pamäť v súkromnom úložisku aplikácie.
 - Náhľady aktívnych Android oznámení pre podporované aplikácie, ak používateľ povolí Notification Access. Nie je to úplný prístup k inboxom.
 - Vybrané lokálne príkazy pre systém, aplikácie, poznámky, budíky, kalendár, mapy a vyhľadávanie.
+- Lokálne ukladanie návrhov inzerátov z nadiktovaných údajov; bez automatického zverejnenia alebo kontaktovania kupujúcich.
 - Pracovný priestor s niekoľkými rotovateľnými 3D drôtenými primitívmi a lokálne ukladaným 2D náčrtom.
 - Mapový priestor s 3D glóbusom a mapovými dátami; online mapové dlaždice a vyhľadávanie vyžadujú internet.
 - CI zostavenie debug APK cez GitHub Actions.
