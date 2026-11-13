@@ -48,6 +48,7 @@
             android:exported="false">
             <intent-filter>
                 <action android:name="com.jarvis.assistant.VOICE_COMMAND" />
+                <action android:name="com.jarvis.assistant.VOICE_WAKE" />
             </intent-filter>
         </receiver>
         <service
