@@ -5,8 +5,12 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class WakePhraseMatcherTest {
-    @Test fun recognizesSlovakWakePhraseWithCommand() {
+    @Test fun recognizesSlovakSpeechRecognitionVariantWithCommand() {
         assertEquals("otvor youtube", WakePhraseMatcher.commandAfterWakePhrase("Hej Jarvis, otvor YouTube!"))
+    }
+
+    @Test fun recognizesExactEnglishWakePhrase() {
+        assertEquals("otvor youtube", WakePhraseMatcher.commandAfterWakePhrase("Hey Jarvis, otvor YouTube!"))
     }
 
     @Test fun recognizesJoinedWakePhrase() {
@@ -17,8 +21,12 @@ class WakePhraseMatcherTest {
         assertEquals("otvor nastavenia", WakePhraseMatcher.commandAfterWakePhrase("Džarvis, otvor nastavenia"))
     }
 
-    @Test fun recognizesRequestedAlternativeWakeWord() {
-        assertEquals("prečítaj správy", WakePhraseMatcher.commandAfterWakePhrase("Počuj, prečítaj správy"))
+    @Test fun doesNotWakeOnJarvisAlone() {
+        assertNull(WakePhraseMatcher.commandAfterWakePhrase("Jarvis, prečítaj správy"))
+    }
+
+    @Test fun doesNotWakeOnOtherWords() {
+        assertNull(WakePhraseMatcher.commandAfterWakePhrase("Počuj, prečítaj správy"))
     }
 
     @Test fun doesNotWakeOnWordInMiddleOfSentence() {
