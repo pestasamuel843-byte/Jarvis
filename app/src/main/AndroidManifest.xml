@@ -42,6 +42,14 @@
             android:exported="false"
             android:stopWithTask="false"
             android:foregroundServiceType="microphone" />
+        <receiver
+            android:name=".JarvisHeadlessVoiceReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.jarvis.assistant.VOICE_COMMAND" />
+            </intent-filter>
+        </receiver>
         <service
             android:name=".JarvisAppLockService"
             android:label="JARVIS – Uzamykanie aplikácií"
