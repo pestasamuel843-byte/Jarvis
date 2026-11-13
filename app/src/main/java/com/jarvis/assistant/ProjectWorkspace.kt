@@ -453,7 +453,7 @@ private fun WireframeScene(model: String, onModelChange: (String) -> Unit) {
  * already routed through ProjectWorkspace.
  */
 @Composable
-private fun ThreeDScene(model: String, voiceCommand: String = "") {
+private fun ThreeDScene(model: String, edits: List<String> = emptyList()) {
     val html = remember {
         """
 <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
@@ -475,13 +475,12 @@ const grid=new THREE.GridHelper(16,32,0x1b6078,0x123044);grid.position.y=-1.2;sc
 const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.06;controls.target.set(0,0,0);
 const material=new THREE.MeshStandardMaterial({color:0x1685a4,metalness:.68,roughness:.28});
 const edgeMaterial=new THREE.LineBasicMaterial({color:0x65edff,transparent:true,opacity:.7});
-let object=null;let editGroup=null;let lastVoiceEdit='';
+let object=null;const appliedEdits=new Set();
 window.applyJarvisEdit=function(raw){
  const q=(raw||'').toLocaleLowerCase('sk');
- if(!object||!q.trim()||q===lastVoiceEdit)return;
- lastVoiceEdit=q;
- if(editGroup){object.remove(editGroup);editGroup.traverse(o=>{if(o.geometry)o.geometry.dispose()});}
- editGroup=new THREE.Group();object.add(editGroup);
+ if(!object||!q.trim()||appliedEdits.has(q))return;
+ appliedEdits.add(q);
+ const editGroup=new THREE.Group();object.add(editGroup);
  const metal=new THREE.MeshStandardMaterial({color:0x9cefff,metalness:.85,roughness:.18});
  if(q.includes('červen')) object.traverse(o=>{if(o.isMesh&&o.material&&o.material.color&&o.material.color.getHex()===0x1685a4)o.material.color.set(0xb52c42);});
  if(q.includes('modr')) object.traverse(o=>{if(o.isMesh&&o.material&&o.material.color&&o.material.color.getHex()===0x1685a4)o.material.color.set(0x176fc1);});
@@ -497,7 +496,7 @@ window.applyJarvisEdit=function(raw){
 };
 function addEdges(mesh){const edges=new THREE.EdgesGeometry(mesh.geometry);mesh.add(new THREE.LineSegments(edges,edgeMaterial));}
 function build(name){
- lastVoiceEdit='';
+ appliedEdits.clear();
  if(object){scene.remove(object);object.traverse(o=>{if(o.geometry)o.geometry.dispose()});}
  object=new THREE.Group();scene.add(object);
  let mesh;
@@ -524,6 +523,7 @@ function build(name){
  document.getElementById('hud').textContent='JARVIS • '+name+' • WEBGL SCENE';
 }
 window.setJarvisModel=build;
+window.applyJarvisEdits=function(items){(items||[]).forEach(item=>window.applyJarvisEdit(item));};
 build('KOCKA');
 function tick(){requestAnimationFrame(tick);if(object)object.rotation.y+=.002;controls.update();renderer.render(scene,camera)}tick();
 new ResizeObserver(()=>{const w=host.clientWidth,h=host.clientHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h)}).observe(host);
@@ -538,7 +538,8 @@ new ResizeObserver(()=>{const w=host.clientWidth,h=host.clientHeight;camera.aspe
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView, url: String) {
                         view.evaluateJavascript("if(window.setJarvisModel)window.setJarvisModel(${JSONObject.quote(model)});", null)
-                        if (voiceCommand.isNotBlank()) view.evaluateJavascript("if(window.applyJarvisEdit)window.applyJarvisEdit(${JSONObject.quote(voiceCommand)});", null)
+                        val editsJson = JSONArray(edits).toString()
+                        view.evaluateJavascript("if(window.applyJarvisEdits)window.applyJarvisEdits($editsJson);", null)
                     }
                 }
                 settings.javaScriptEnabled = true
@@ -553,7 +554,8 @@ new ResizeObserver(()=>{const w=host.clientWidth,h=host.clientHeight;camera.aspe
         },
         update = { webView ->
             webView.evaluateJavascript("if(window.setJarvisModel)window.setJarvisModel(${JSONObject.quote(model)});", null)
-            if (voiceCommand.isNotBlank()) webView.evaluateJavascript("if(window.applyJarvisEdit)window.applyJarvisEdit(${JSONObject.quote(voiceCommand)});", null)
+            val editsJson = JSONArray(edits).toString()
+            webView.evaluateJavascript("if(window.applyJarvisEdits)window.applyJarvisEdits($editsJson);", null)
         }
     )
 }
