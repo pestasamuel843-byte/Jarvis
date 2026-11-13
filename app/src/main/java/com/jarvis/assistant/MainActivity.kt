@@ -1018,7 +1018,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                         wakeMode = wakeMode,
                         busy = busy,
-                        aiReady = endpoint.isNotBlank() && key.isNotBlank() && model.isNotBlank(),
+                        aiReady = OfflineBrain(context).isInstalled(),
                         model = model,
                         onToggleVoice = {
                             if (wakeMode) {
@@ -1040,7 +1040,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 }
                 if (showWorkspace) {
                     ProjectWorkspace(title = "JARVIS • Interaktívny návrh", description = workspaceDescription, onClose = { showWorkspace = false }, initialMapMode = lastWorkspaceRequest.contains("premiet", true) || lastWorkspaceRequest.contains("cestu okolo", true) || lastWorkspaceRequest.contains("trasu", true) || lastWorkspaceRequest.contains("mapu", true) || lastWorkspaceRequest.contains("okolie školy", true) || lastWorkspaceRequest.contains("zemeguľ", true) || lastWorkspaceRequest.contains("ulic", true), voiceCommand = lastWorkspaceRequest, onRefine = { instruction ->
-                        if ((key.isNotBlank() || OfflineBrain(context).isInstalled()) && !busy) {
+                        if (OfflineBrain(context).isInstalled() && !busy) {
                             busy = true
                             chat.add(Message(false, instruction))
                             scope.launch {
@@ -1050,7 +1050,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                                 prefs.edit().putString("workspace_description", answer).apply()
                                 chat.add(Message(true, answer)); speak(answer); busy = false
                             }
-                        } else if (key.isBlank()) {
+                        } else {
                             val msg = "Pane, na úpravy návrhu potrebujem internetové AI spojenie alebo stiahnutý offline model v Nastaveniach."
                             chat.add(Message(true, msg)); speak(msg)
                         }
@@ -1237,8 +1237,9 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 title = { Text("Nastavenia JARVIS") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("OFFLINE AI MOZOG", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text("Stiahne model Qwen3 INT4 (približne 330 MB). Potom bude lokálna AI fungovať bez API kľúča a bez internetu.", color = Muted, fontSize = 11.sp)
+                        Text("JARVIS • OFFLINE AI", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("Konverzácia, pamäť a spracovanie hlasových príkazov majú fungovať lokálne. Žiadny API kľúč ani platený cloud nie je potrebný.", color = Muted, fontSize = 11.sp)
+                        Text("Lokálny model Qwen3 INT4 má približne 347 MB. Stiahne sa raz cez internet a potom zostane v zariadení.", color = Muted, fontSize = 11.sp)
                         Button(
                             onClick = {
                                 apiTesting = true
@@ -1248,7 +1249,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                                         OfflineBrain(context).download { percent ->
                                             apiTestResult = "Sťahujem offline AI model: $percent %"
                                         }
-                                        apiTestResult = "Offline AI model je stiahnutý."
+                                        apiTestResult = "Offline AI model je stiahnutý a uložený v zariadení."
                                     } catch (error: Exception) {
                                         apiTestResult = "Stiahnutie modelu zlyhalo: ${error.message ?: "neznáma chyba"}"
                                     } finally {
@@ -1256,50 +1257,21 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                                     }
                                 }
                             },
-                            enabled = !apiTesting
-                        ) { Text(if (apiTesting) "PRACUJEM…" else "STIAHNUŤ OFFLINE AI MOZOG") }
-                        Text("JARVIS môže používať lokálnu AI bez kľúča alebo voliteľnú online AI službu. Offline model sa stiahne iba raz a zostane uložený v zariadení.", color = Muted, fontSize = 12.sp)
-                        Text("Predvolená služba: Google Gemini API • model Gemini 2.5 Flash", color = Cyan, fontSize = 12.sp)
-                        OutlinedTextField(key, { key = it }, label = { Text("Google Gemini API kľúč") }, placeholder = { Text("Vložte svoj kľúč z Google AI Studio") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
-                        TextButton(onClick = {
-                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://aistudio.google.com/app/apikey"))) }
-                        }) { Text("ZÍSKAŤ API KĽÚČ V GOOGLE AI STUDIO", color = Cyan) }
+                            enabled = !apiTesting && !OfflineBrain(context).isInstalled()
+                        ) { Text(if (apiTesting) "SŤAHUJEM…" else if (OfflineBrain(context).isInstalled()) "OFFLINE MODEL JE NAINŠTALOVANÝ" else "STIAHNUŤ OFFLINE MODEL") }
+                        Text("Hlasový modul nepoužije online rozpoznávanie reči ako náhradné riešenie. Pre hovorené odpovede potrebuješ lokálny slovenský hlas v nastaveniach prevodu textu na reč Androidu.", color = Muted, fontSize = 11.sp)
                         Button(
                             onClick = {
                                 apiTesting = true
                                 apiTestResult = "Kontrolujem internetové pripojenie…"
                                 scope.launch {
                                     val online = withContext(Dispatchers.IO) { testInternetConnection() }
-                                    apiTestResult = if (online) "Internet funguje. Teraz môžete otestovať AI." else "Internet nie je dostupný. Skontrolujte Wi-Fi alebo mobilné dáta."
+                                    apiTestResult = if (online) "Internet funguje. Môžeš ho použiť na webové vyhľadávanie a stiahnutie modelu." else "Internet nie je dostupný. Lokálne funkcie zostávajú dostupné."
                                     apiTesting = false
                                 }
                             },
                             enabled = !apiTesting
                         ) { Text(if (apiTesting) "KONTROLUJEM…" else "OTESTOVAŤ INTERNET") }
-                        Button(
-                            onClick = {
-                                if (key.isBlank()) {
-                                    apiTestResult = "Najprv zadajte API token."
-                                } else {
-                                    apiTesting = true
-                                    apiTestResult = "Testujem spojenie s AI…"
-                                    scope.launch {
-                                        val result = withContext(Dispatchers.IO) {
-                                            askAi(endpoint.trim(), key.trim(), model.trim(),
-                                                listOf(Message(false, "Odpovedz presne: JARVIS ONLINE")),
-                                                prefs.getString("memories", "").orEmpty())
-                                        }
-                                        apiTestResult = if (result.contains("JARVIS ONLINE", true) && !result.contains("zlyhalo", true) && !result.contains("odmietla", true) && !result.contains("neexistuje", true)) {
-                                            "Spojenie funguje. Odpoveď: ${result.take(180)}"
-                                        } else {
-                                            "Test sa nepodaril: ${result.take(240)}"
-                                        }
-                                        apiTesting = false
-                                    }
-                                }
-                            },
-                            enabled = !apiTesting
-                        ) { Text(if (apiTesting) "TESTUJEM…" else "OTESTOVAŤ AI") }
                         if (apiTestResult.isNotBlank()) {
                             Text(apiTestResult, color = if (apiTestResult.startsWith("Spojenie funguje")) Cyan else Muted, fontSize = 12.sp)
                         }
@@ -1313,7 +1285,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     }
                 },
                 confirmButton = { TextButton(onClick = {
-                    prefs.edit().putString("endpoint", endpoint.trim()).putString("model", model.trim()).putString("key", key.trim()).apply()
+                    prefs.edit().putBoolean("offline_only", true).apply()
                     settings = false
                     Toast.makeText(context, "Nastavenia uložené.", Toast.LENGTH_SHORT).show()
                 }) { Text("Uložiť") } },
