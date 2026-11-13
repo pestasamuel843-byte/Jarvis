@@ -45,7 +45,7 @@ object WorkspaceCommandProcessor {
             else -> previous.model
         }
         val modelChanged = selectedModel != previous.model
-        val edits = if (modelChanged) emptyList() else previous.edits.toMutableList()
+        val edits = if (modelChanged) mutableListOf<String>() else previous.edits.toMutableList()
         val looksLikeEdit = editWords.any(q::contains) && !q.startsWith("otvor")
         if (looksLikeEdit && edits.lastOrNull() != command) {
             edits.add(command)
