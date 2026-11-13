@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -30,12 +31,21 @@ class JarvisVoiceService : Service() {
     private var restartQueued = false
     private var usingOnDeviceRecognizer = false
     private var consecutiveErrors = 0
+    private var cpuWakeLock: PowerManager.WakeLock? = null
 
     override fun onCreate() {
         super.onCreate()
         isRunning = true
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
+        // Keep the CPU awake while the user-enabled microphone foreground service is active.
+        runCatching {
+            val power = getSystemService(POWER_SERVICE) as PowerManager
+            cpuWakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "JARVIS:VoiceCapture").apply {
+                setReferenceCounted(false)
+                acquire()
+            }
+        }
         createRecognizer()
     }
 
@@ -61,21 +71,18 @@ class JarvisVoiceService : Service() {
         return START_STICKY
     }
 
-    private fun createRecognizer(preferOnDevice: Boolean = true) {
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            sendStatus("ROZPOZNÁVANIE REČI NIE JE DOSTUPNÉ")
-            scheduleRestart(3000L)
+    private fun createRecognizer() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            !SpeechRecognizer.isOnDeviceRecognitionAvailable(this)
+        ) {
+            sendStatus("OFFLINE ROZPOZNÁVANIE REČI NIE JE DOSTUPNÉ • ONLINE ROZPOZNÁVANIE JE ZÁMERNE VYPNUTÉ")
+            stopSelf()
             return
         }
         runCatching {
             recognizer?.destroy()
-            usingOnDeviceRecognizer = preferOnDevice && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                SpeechRecognizer.isOnDeviceRecognitionAvailable(this)
-            recognizer = (if (usingOnDeviceRecognizer) {
-                SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
-            } else {
-                SpeechRecognizer.createSpeechRecognizer(this)
-            }).also { speech ->
+            usingOnDeviceRecognizer = true
+            recognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(this).also { speech ->
                 speech.setRecognitionListener(object : RecognitionListener {
                     override fun onReadyForSpeech(params: Bundle?) {
                         listening = true
@@ -108,14 +115,9 @@ class JarvisVoiceService : Service() {
                             }
                             SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED,
                             SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE -> {
-                                if (usingOnDeviceRecognizer && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                    sendStatus("SLOVENSKÝ OFFLINE BALÍK NIE JE DOSTUPNÝ • SKÚŠAM SYSTÉMOVÉ ROZPOZNÁVANIE")
-                                    createRecognizer(preferOnDevice = false)
-                                    scheduleRestart(500L)
-                                } else {
-                                    consecutiveErrors++
-                                    recreateAndRestart(1800L)
-                                }
+                                // Never fall back to a network-backed recognizer.
+                                sendStatus("SLOVENSKÝ OFFLINE JAZYKOVÝ BALÍK NIE JE DOSTUPNÝ • NAINŠTALUJTE HO V NASTAVENIACH REČI ANDROIDU")
+                                stopSelf()
                             }
                             else -> {
                                 consecutiveErrors = (consecutiveErrors + 1).coerceAtMost(5)
@@ -147,7 +149,7 @@ class JarvisVoiceService : Service() {
             .replace(Regex("\\s+"), " ").trim()
         if (normalized.isBlank()) return
 
-        val wake = Regex("^(?:(?:hej|hey) )?jarvis\\b[ ,:]*", RegexOption.IGNORE_CASE)
+        val wake = Regex("^(?:(?:hej|hey|nazdar|čau|cau) )?jarvis\\b[ ,:]*", RegexOption.IGNORE_CASE)
         val match = wake.find(normalized)
         if (match != null) {
             val remainder = normalized.substring(match.range.last + 1).trim()
@@ -249,7 +251,7 @@ class JarvisVoiceService : Service() {
         }
         return builder
             .setContentTitle("JARVIS • Hlasový modul")
-            .setContentText("Mikrofón je aktívny. Povedzte „Hej Jarvis“ alebo „vypni počúvanie“.")
+            .setContentText("Lokálne hlasové počúvanie je aktívne. Povedzte „Hej Jarvis“ alebo „Nazdar Jarvis“.")
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setOngoing(true)
             .setCategory(Notification.CATEGORY_SERVICE)
@@ -272,6 +274,8 @@ class JarvisVoiceService : Service() {
         runCatching { recognizer?.cancel() }
         runCatching { recognizer?.destroy() }
         recognizer = null
+        runCatching { cpuWakeLock?.let { if (it.isHeld) it.release() } }
+        cpuWakeLock = null
         sendStatus("HLASOVÝ MODUL VYPNUTÝ")
         super.onDestroy()
     }
