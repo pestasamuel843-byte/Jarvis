@@ -18,6 +18,13 @@ internal object JarvisMessageReactions {
         val text = message.lowercase(Locale.forLanguageTag("sk-SK"))
             .replace(Regex("\\s+"), " ")
             .trim()
+        val contactBoundarySignals = listOf(
+            "už mi nikdy nepíš", "uz mi nikdy nepis", "nepíš mi", "nepis mi",
+            "nekontaktuj ma", "nechcem s tebou komunikovať", "nechcem s tebou komunikovat"
+        )
+        if (contactBoundarySignals.any(text::contains)) {
+            return "Pane, odosielateľ jasne žiada ukončiť kontakt. Rešpektujme to a neposielajme ďalšiu správu."
+        }
         val seriousSignals = listOf(
             "je mi zle", "som chor", "som v nemocnici", "úraz", "nehoda",
             "zomrel", "zomrela", "zomrelo", "pohreb", "bojím sa", "bojim sa",
