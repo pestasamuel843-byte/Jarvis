@@ -7,6 +7,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import android.os.StatFs
 import java.net.HttpURLConnection
 import java.net.URL
 import com.google.ai.edge.litertlm.Backend
@@ -26,17 +27,24 @@ class OfflineBrain(private val context: Context) {
         const val MODEL_URL =
             "https://huggingface.co/litert-community/Qwen3-0.6B-int4/resolve/main/$MODEL_FILE"
         const val MODEL_SIZE_LABEL = "približne 347 MB"
+        private const val MIN_MODEL_BYTES = 300L * 1024L * 1024L
+        private const val EXTRA_STORAGE_BYTES = 100L * 1024L * 1024L
     }
 
     private val modelFile: File
         get() = File(context.filesDir, MODEL_FILE)
 
-    fun isInstalled(): Boolean = modelFile.exists() && modelFile.length() > 250L * 1024L * 1024L
+    fun isInstalled(): Boolean = modelFile.exists() && modelFile.length() >= MIN_MODEL_BYTES
 
     suspend fun download(onProgress: (Int) -> Unit = {}): Unit = withContext(Dispatchers.IO) {
         if (isInstalled()) {
             onProgress(100)
             return@withContext
+        }
+        val storage = StatFs(context.filesDir.absolutePath)
+        val requiredBytes = MIN_MODEL_BYTES + EXTRA_STORAGE_BYTES
+        if (storage.availableBytes < requiredBytes) {
+            throw IllegalStateException("Nedostatok miesta. Uvoľnite aspoň 400 MB a skúste to znova.")
         }
         val temp = File(context.filesDir, "$MODEL_FILE.part")
         var connection: HttpURLConnection? = null
@@ -53,6 +61,9 @@ class OfflineBrain(private val context: Context) {
                 throw IllegalStateException("Model server returned HTTP ${connection.responseCode}")
             }
             val total = connection.contentLengthLong
+            if (total in 1 until MIN_MODEL_BYTES) {
+                throw IllegalStateException("Server ponúkol neúplný súbor modelu ($total bajtov).")
+            }
             onProgress(0)
             connection.inputStream.use { input ->
                 FileOutputStream(temp).use { output ->
@@ -69,8 +80,8 @@ class OfflineBrain(private val context: Context) {
                     output.fd.sync()
                 }
             }
-            if (temp.length() < 250L * 1024L * 1024L) {
-                throw IllegalStateException("Downloaded model is incomplete")
+            if (temp.length() < MIN_MODEL_BYTES || (total > 0L && temp.length() != total)) {
+                throw IllegalStateException("Stiahnutý model je neúplný (${temp.length()} bajtov). Skúste sťahovanie zopakovať.")
             }
             if (!temp.renameTo(modelFile)) {
                 temp.copyTo(modelFile, overwrite = true)
