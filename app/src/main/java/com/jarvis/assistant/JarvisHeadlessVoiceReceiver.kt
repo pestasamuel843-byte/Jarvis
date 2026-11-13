@@ -22,7 +22,7 @@ class JarvisHeadlessVoiceReceiver : BroadcastReceiver() {
         val prefs = context.getSharedPreferences("jarvis", Context.MODE_PRIVATE)
         if (action == JarvisVoiceService.ACTION_WAKE) {
             if (!prefs.getBoolean("voice_ui_attached", false)) {
-                showNotification(context, "JARVIS počúva", "Počúvam, pane. Povedzte svoj príkaz.")
+                runCatching { showNotification(context, "JARVIS počúva", "Počúvam, pane. Povedzte svoj príkaz.") }
             }
             return
         }
@@ -37,21 +37,28 @@ class JarvisHeadlessVoiceReceiver : BroadcastReceiver() {
             try {
                 val quickResult = runCatching { JarvisAgent.execute(context, command) }.getOrNull()
                 if (!quickResult.isNullOrBlank()) {
-                    showNotification(context, "JARVIS vykonal príkaz", quickResult)
+                    deliverSpeech(context, quickResult)
+                    .also { runCatching { showNotification(context, "JARVIS vykonal príkaz", quickResult) } }
                 } else {
                     val answer = runCatching {
                         runBlocking { answerHeadlessVoiceCommand(context, command) }
                     }.getOrElse { "Pane, príkaz som zachytil, ale spracovanie zlyhalo: ${it.message ?: "neznáma chyba"}." }
-                    context.startService(
-                        Intent(context, JarvisVoiceService::class.java)
-                            .setAction(JarvisVoiceService.ACTION_SPEAK)
-                            .putExtra(JarvisVoiceService.EXTRA_SPEECH, answer)
-                    )
-                    showNotification(context, "JARVIS odpovedal", answer)
+                    deliverSpeech(context, answer)
+                    runCatching { showNotification(context, "JARVIS odpovedal", answer) }
                 }
             } finally {
                 pending.finish()
             }
+        }
+    }
+
+    private fun deliverSpeech(context: Context, text: String) {
+        runCatching {
+            context.startService(
+                Intent(context, JarvisVoiceService::class.java)
+                    .setAction(JarvisVoiceService.ACTION_SPEAK)
+                    .putExtra(JarvisVoiceService.EXTRA_SPEECH, text)
+            )
         }
     }
 
