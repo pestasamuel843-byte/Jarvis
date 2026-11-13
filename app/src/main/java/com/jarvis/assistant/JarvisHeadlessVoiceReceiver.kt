@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import java.util.concurrent.Executors
+import kotlinx.coroutines.runBlocking
 
 /**
  * Receives speech commands even when the Compose screen has been dismissed.
@@ -38,12 +39,15 @@ class JarvisHeadlessVoiceReceiver : BroadcastReceiver() {
                 if (!quickResult.isNullOrBlank()) {
                     showNotification(context, "JARVIS vykonal príkaz", quickResult)
                 } else {
-                    prefs.edit().putString("pending_headless_voice_command", command).apply()
-                    showNotification(
-                        context,
-                        "JARVIS zachytil váš príkaz",
-                        "Príkaz je uložený. Otvorte JARVIS a automaticky ho spracujem."
+                    val answer = runCatching {
+                        runBlocking { answerHeadlessVoiceCommand(context, command) }
+                    }.getOrElse { "Pane, príkaz som zachytil, ale spracovanie zlyhalo: ${it.message ?: "neznáma chyba"}." }
+                    context.startService(
+                        Intent(context, JarvisVoiceService::class.java)
+                            .setAction(JarvisVoiceService.ACTION_SPEAK)
+                            .putExtra(JarvisVoiceService.EXTRA_SPEECH, answer)
                     )
+                    showNotification(context, "JARVIS odpovedal", answer)
                 }
             } finally {
                 pending.finish()
