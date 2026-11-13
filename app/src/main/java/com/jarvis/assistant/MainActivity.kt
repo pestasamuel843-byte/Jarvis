@@ -127,7 +127,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
                 name.contains("male") || name.contains("masculine") || name.contains("man") || name.contains("muž") || name.contains("muz")
             }
-            val selectedVoice = lukasVoice ?: maleSlovak ?: localSlovakVoices.firstOrNull()
+            val selectedVoice = lukasVoice ?: maleSlovak
             if (selectedVoice != null && !selectedVoice.isNetworkConnectionRequired) {
                 engine.voice = selectedVoice
                 offlineVoiceReady = true
@@ -1263,7 +1263,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                             },
                             enabled = !apiTesting && !OfflineBrain(context).isInstalled()
                         ) { Text(if (apiTesting) "SŤAHUJEM…" else if (OfflineBrain(context).isInstalled()) "OFFLINE MODEL JE NAINŠTALOVANÝ" else "STIAHNUŤ OFFLINE MODEL") }
-                        Text("Hlasový modul nepoužije online rozpoznávanie reči ako náhradné riešenie. Pre hovorené odpovede potrebuješ lokálny slovenský hlas v nastaveniach prevodu textu na reč Androidu.", color = Muted, fontSize = 11.sp)
+                        Text("Hlasový modul nepoužije online rozpoznávanie reči ako náhradné riešenie. Pre hovorené odpovede potrebuješ lokálny slovenský mužský hlas v nastaveniach prevodu textu na reč Androidu.", color = Muted, fontSize = 11.sp)
                         Button(
                             onClick = {
                                 apiTesting = true
