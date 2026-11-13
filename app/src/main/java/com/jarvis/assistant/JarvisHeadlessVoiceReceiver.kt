@@ -33,8 +33,13 @@ class JarvisHeadlessVoiceReceiver : BroadcastReceiver() {
         val pending = goAsync()
         executor.execute {
             try {
-                val quickResult = runCatching { JarvisAgent.execute(context, command) }.getOrNull()
-                if (!quickResult.isNullOrBlank()) {
+                val projectResult = runCatching { WorkspaceCommandProcessor.process(context, command) }.getOrNull()
+                if (projectResult != null) {
+                    deliverSpeech(context, projectResult.spokenResponse)
+                    runCatching { showNotification(context, "JARVIS • Projekt uložený", projectResult.spokenResponse) }
+                } else {
+                    val quickResult = runCatching { JarvisAgent.execute(context, command) }.getOrNull()
+                    if (!quickResult.isNullOrBlank()) {
                     deliverSpeech(context, quickResult)
                     .also { runCatching { showNotification(context, "JARVIS vykonal príkaz", quickResult) } }
                 } else {
@@ -43,6 +48,7 @@ class JarvisHeadlessVoiceReceiver : BroadcastReceiver() {
                     }.getOrElse { "Pane, príkaz som zachytil, ale spracovanie zlyhalo: ${it.message ?: "neznáma chyba"}." }
                     deliverSpeech(context, answer)
                     runCatching { showNotification(context, "JARVIS odpovedal", answer) }
+                    }
                 }
             } finally {
                 pending.finish()
