@@ -62,6 +62,7 @@ interface JarvisSkill {
  */
 object JarvisSkillRegistry {
     private val skills: List<JarvisSkill> = listOf(
+        ListingDraftSkill(),
         AppSearchSkill()
     )
 
