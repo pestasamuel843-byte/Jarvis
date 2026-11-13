@@ -13,15 +13,13 @@ import kotlinx.coroutines.runBlocking
 
 /**
  * Receives speech commands even when the Compose screen has been dismissed.
- * Supported quick actions are executed headlessly. Other commands are safely
- * queued and replayed by the normal command engine when JARVIS is reopened.
+ * Quick actions and conversational AI are processed without the Compose screen.
  */
 class JarvisHeadlessVoiceReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         val action = intent?.action ?: return
-        val prefs = context.getSharedPreferences("jarvis", Context.MODE_PRIVATE)
         if (action == JarvisVoiceService.ACTION_WAKE) {
-            if (!prefs.getBoolean("voice_ui_attached", false)) {
+            if (!MainActivity.isUiAttached) {
                 runCatching { showNotification(context, "JARVIS počúva", "Počúvam, pane. Povedzte svoj príkaz.") }
             }
             return
@@ -30,7 +28,7 @@ class JarvisHeadlessVoiceReceiver : BroadcastReceiver() {
         val command = intent.getStringExtra(JarvisVoiceService.EXTRA_COMMAND)?.trim().orEmpty()
         if (command.isBlank()) return
         // The Compose receiver owns commands while the app UI is attached.
-        if (prefs.getBoolean("voice_ui_attached", false)) return
+        if (MainActivity.isUiAttached) return
 
         val pending = goAsync()
         executor.execute {
