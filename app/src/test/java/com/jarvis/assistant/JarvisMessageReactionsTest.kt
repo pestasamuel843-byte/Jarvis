@@ -37,7 +37,7 @@ class JarvisMessageReactionsTest {
     }
 
     @Test fun parsesNumberedAiCommentsAndIgnoresNone() {
-        val result = JarvisMessageReactions.parseAiOutput("1|To znie ako pozvanie.\\n2|NONE\\n3|Pýta sa na čas.", 3)
+        val result = JarvisMessageReactions.parseAiOutput("1|To znie ako pozvanie.\n2|NONE\n3|Pýta sa na čas.", 3)
         assertEquals("To znie ako pozvanie.", result[0])
         assertEquals(null, result[1])
         assertEquals("Pýta sa na čas.", result[2])
