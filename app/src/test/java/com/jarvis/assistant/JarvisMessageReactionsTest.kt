@@ -36,6 +36,12 @@ class JarvisMessageReactionsTest {
         assertTrue(result.orEmpty().contains("nepríjemný"))
     }
 
+    @Test fun respectsExplicitNoContactBoundary() {
+        val result = JarvisMessageReactions.comment("Messenger", "Martin", "Už mi nikdy nepíš.")
+        assertTrue(result.orEmpty().contains("žiada ukončiť kontakt"))
+        assertTrue(result.orEmpty().contains("neposielajme ďalšiu správu"))
+    }
+
     @Test fun parsesNumberedAiCommentsAndIgnoresNone() {
         val result = JarvisMessageReactions.parseAiOutput("1|To znie ako pozvanie.\n2|NONE\n3|Pýta sa na čas.", 3)
         assertEquals("To znie ako pozvanie.", result[0])
