@@ -363,7 +363,7 @@ class JarvisVoiceService : Service() {
         private const val SAMPLE_RATE = 16000
         private const val WAKE_KEYWORD = "hey jarvis"
         private const val ENCODER = "encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx"
-        private const val DECODER = "decoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx"
+        private const val DECODER = "decoder-epoch-12-avg-2-chunk-16-left-64.onnx"
         private const val JOINER = "joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx"
         private const val TOKENS = "tokens.txt"
     }
