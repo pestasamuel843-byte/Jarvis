@@ -6,6 +6,7 @@ import android.webkit.WebViewClient
 import android.webkit.WebChromeClient
 import android.webkit.GeolocationPermissions
 import org.json.JSONObject
+import org.json.JSONArray
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -48,11 +49,19 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
     }
     var activeStroke by remember { mutableStateOf<List<Offset>>(emptyList()) }
     val redoStrokes = remember { mutableStateListOf<List<Offset>>() }
-    var mapMode by remember { mutableStateOf(initialMapMode) }
-    var sceneModel by remember { mutableStateOf("AUTO") }
+    var mapMode by remember { mutableStateOf(initialMapMode || WorkspaceCommandProcessor.load(context).mapMode) }
+    var sceneModel by remember { mutableStateOf(WorkspaceCommandProcessor.load(context).model) }
+    var sceneEdits by remember { mutableStateOf(WorkspaceCommandProcessor.load(context).edits) }
     var sceneCommand by remember { mutableStateOf("") }
     var sceneEditCommand by remember { mutableStateOf("") }
-    LaunchedEffect(voiceCommand) { if (voiceCommand.isNotBlank() && !mapMode) sceneEditCommand = voiceCommand }
+    LaunchedEffect(voiceCommand) {
+        if (voiceCommand.isNotBlank()) {
+            val restored = WorkspaceCommandProcessor.process(context, voiceCommand)?.state ?: WorkspaceCommandProcessor.load(context)
+            sceneModel = restored.model
+            sceneEdits = restored.edits
+            mapMode = restored.mapMode
+        }
+    }
     Column(
         Modifier.fillMaxWidth().background(Color(0xFF050A11), RoundedCornerShape(20.dp)).padding(12.dp)
     ) {
@@ -92,8 +101,8 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
         }
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { mapMode = false }, colors = ButtonDefaults.buttonColors(containerColor = if (!mapMode) Color(0xFF12394B) else Color(0xFF0A1521)), border = androidx.compose.foundation.BorderStroke(1.dp, if (!mapMode) WorkCyan.copy(alpha = 0.7f) else Color(0xFF20394B)), shape = RoundedCornerShape(8.dp)) { Text("◈  3D SCÉNA", color = WorkCyan, letterSpacing = 1.sp) }
-            Button(onClick = { mapMode = true }, colors = ButtonDefaults.buttonColors(containerColor = if (mapMode) Color(0xFF12394B) else Color(0xFF0A1521)), border = androidx.compose.foundation.BorderStroke(1.dp, if (mapMode) WorkCyan.copy(alpha = 0.7f) else Color(0xFF20394B)), shape = RoundedCornerShape(8.dp)) { Text("⌖  GEO PRIESTOR", color = WorkCyan, letterSpacing = 1.sp) }
+            Button(onClick = { mapMode = false; prefs.edit().putBoolean("workspace_map_mode", false).apply() }, colors = ButtonDefaults.buttonColors(containerColor = if (!mapMode) Color(0xFF12394B) else Color(0xFF0A1521)), border = androidx.compose.foundation.BorderStroke(1.dp, if (!mapMode) WorkCyan.copy(alpha = 0.7f) else Color(0xFF20394B)), shape = RoundedCornerShape(8.dp)) { Text("◈  3D SCÉNA", color = WorkCyan, letterSpacing = 1.sp) }
+            Button(onClick = { mapMode = true; prefs.edit().putBoolean("workspace_map_mode", true).apply() }, colors = ButtonDefaults.buttonColors(containerColor = if (mapMode) Color(0xFF12394B) else Color(0xFF0A1521)), border = androidx.compose.foundation.BorderStroke(1.dp, if (mapMode) WorkCyan.copy(alpha = 0.7f) else Color(0xFF20394B)), shape = RoundedCornerShape(8.dp)) { Text("⌖  GEO PRIESTOR", color = WorkCyan, letterSpacing = 1.sp) }
         }
         if (mapMode) {
             NavigationProjection(voiceCommand)
@@ -139,13 +148,19 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
                         q.contains("kock") || q.contains("kocka") -> "KOCKA"
                         else -> sceneModel
                     }
+                    val savedProject = WorkspaceCommandProcessor.process(context, command)?.state
+                    if (savedProject != null) {
+                        sceneModel = savedProject.model
+                        sceneEdits = savedProject.edits
+                        mapMode = savedProject.mapMode
+                    }
                     sceneEditCommand = command
                     onRefine("Uprav aktívny projekt podľa tejto požiadavky: $command. Zachovaj existujúci kontext a opíš konkrétne zmeny. Ak požiadavka vyžaduje zmenu geometrie, uveď presné prvky, rozmery a umiestnenie.")
                     sceneCommand = ""
                 }
             }, enabled = sceneCommand.isNotBlank()) { Text("UPRAVIŤ") }
         }
-        ThreeDScene(model = sceneModel, voiceCommand = sceneEditCommand)
+        ThreeDScene(model = sceneModel, edits = sceneEdits)
         Spacer(Modifier.height(12.dp))
         Text("SKETCH LAYER  /  2D NÁČRT • KRESLI PRSTOM", color = Color(0xFF9BAFC2), style = MaterialTheme.typography.labelSmall, letterSpacing = 0.7.sp)
         Spacer(Modifier.height(8.dp))
