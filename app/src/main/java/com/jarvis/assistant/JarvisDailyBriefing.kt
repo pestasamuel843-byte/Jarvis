@@ -52,6 +52,8 @@ internal object JarvisDailyBriefing {
         val access = GmailNotificationListener.hasNotificationAccess(context)
         if (!access) {
             sections += "K oznámeniam zatiaľ nemám prístup. Ak ho povolíte v Androide, budem vedieť zhrnúť aktívne upozornenia."
+        } else if (!GmailNotificationListener.isConnected()) {
+            sections += "Prístup k oznámeniam je povolený, ale služba Androidu sa ešte nepripojila. Skúste to o chvíľu znova."
         } else {
             val notifications = GmailNotificationListener.activePreviews()
             if (notifications.isEmpty()) {
