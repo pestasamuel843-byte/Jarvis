@@ -46,7 +46,7 @@ object WorkspaceCommandProcessor {
         }
         val modelChanged = selectedModel != previous.model
         val edits = if (modelChanged) emptyList() else previous.edits.toMutableList()
-        val looksLikeEdit = editWords.any(q::contains) && !q.startsWith("otvor") && !q.startsWith("navrhni") && !q.startsWith("vymodeluj")
+        val looksLikeEdit = editWords.any(q::contains) && !q.startsWith("otvor")
         if (looksLikeEdit && edits.lastOrNull() != command) {
             edits.add(command)
             while (edits.size > 30) edits.removeAt(0)
@@ -55,7 +55,8 @@ object WorkspaceCommandProcessor {
         val state = ProjectState(selectedModel, edits, if (isMap) true else if (explicitWorkspace && !mapRequest) false else previous.mapMode, command)
         val editJson = JSONArray().apply { state.edits.forEach { put(it) } }
         prefs.edit()
-            .putBoolean("project_exists", true)
+             .putBoolean("project_exists", true)
+            .putBoolean("workspace_pending_open", true)
             .putString("project_model", state.model)
             .putString("project_edits", editJson.toString())
             .putBoolean("workspace_map_mode", state.mapMode)
