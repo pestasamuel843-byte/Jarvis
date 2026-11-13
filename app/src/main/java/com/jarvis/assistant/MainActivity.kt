@@ -3,6 +3,7 @@ package com.jarvis.assistant
 import android.Manifest
 import android.app.Activity
 import android.content.Context
+import android.content.res.Configuration
 import android.content.BroadcastReceiver
 import android.content.IntentFilter
 import android.content.Intent
@@ -84,6 +85,12 @@ private val Cyan = Color(0xFF4DEBFF)
 private val Muted = Color(0xFF9BAFC2)
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
+    override fun attachBaseContext(newBase: Context) {
+        val configuration = Configuration(newBase.resources.configuration)
+        configuration.setLocale(Locale.forLanguageTag("sk-SK"))
+        super.attachBaseContext(newBase.createConfigurationContext(configuration))
+    }
+
     private var tts: TextToSpeech? = null
     @Volatile private var speechOutputActive = false
     @Volatile private var offlineVoiceReady = false
@@ -1339,10 +1346,10 @@ private fun JarvisDashboard(
             Row(Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                 Column(Modifier.weight(0.95f).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
                     Column {
-                        Text("STARK INDUSTRIES  /  PERSONAL AI", color=Cyan, fontSize=9.sp, letterSpacing=2.4.sp)
+                        Text("STARK INDUSTRIES  /  OSOBNÁ AI", color=Cyan, fontSize=9.sp, letterSpacing=2.4.sp)
                         Spacer(Modifier.height(5.dp))
                         Text("J.A.R.V.I.S.", color=Color.White, fontSize=30.sp, fontWeight=FontWeight.ExtraLight, letterSpacing=5.sp)
-                        Text("NEURAL COMMAND DECK  •  MK-VII", color=Muted, fontSize=8.sp, letterSpacing=1.4.sp)
+                        Text("NEURÁLNY OVLÁDACÍ PANEL  •  MK-VII", color=Muted, fontSize=8.sp, letterSpacing=1.4.sp)
                     }
                     Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
                         HudMetric("NEURAL LINK", if(aiReady) "ONLINE" else "OFFLINE MODEL CHÝBA", if(aiReady) Color(0xFF69F0AE) else Color(0xFFFFBD68), Modifier.fillMaxWidth())
@@ -1350,9 +1357,9 @@ private fun JarvisDashboard(
                         HudMetric("POWER CELL", "${battery ?: "—"}%", Color.White, Modifier.fillMaxWidth())
                     }
                     Column {
-                        Text("SYSTEM TIME", color=Muted, fontSize=8.sp, letterSpacing=1.8.sp)
+                        Text("SYSTÉMOVÝ ČAS", color=Muted, fontSize=8.sp, letterSpacing=1.8.sp)
                         Text(SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()), color=Color.White, fontSize=28.sp, fontWeight=FontWeight.ExtraLight)
-                        Text(if(busy) "PROCESSING REQUEST…" else "ALL SYSTEMS NOMINAL", color=if(busy) Color(0xFFFFBD68) else Color(0xFF69F0AE), fontSize=8.sp, letterSpacing=1.sp)
+                        Text(if(busy) "SPRACÚVAM PRÍKAZ…" else "VŠETKY SYSTÉMY V PORIADKU", color=if(busy) Color(0xFFFFBD68) else Color(0xFF69F0AE), fontSize=8.sp, letterSpacing=1.sp)
                     }
                 }
                 Box(Modifier.weight(1.65f).fillMaxHeight().clip(RoundedCornerShape(2.dp)).background(Brush.verticalGradient(listOf(Color(0xFF0B2638), Color(0xFF06121E), Color(0xFF02060B))))) {
@@ -1374,8 +1381,8 @@ private fun JarvisDashboard(
                         val bx=size.width*.06f;val by=size.height*.08f;val l=18.dp.toPx()
                         listOf(Offset(bx,by),Offset(size.width-bx,by),Offset(bx,size.height-by),Offset(size.width-bx,size.height-by)).forEachIndexed { i,p -> val sx=if(i%2==0)1f else -1f;val sy=if(i<2)1f else -1f;drawLine(Cyan.copy(alpha=.7f),p,Offset(p.x+sx*l,p.y),1.4.dp.toPx());drawLine(Cyan.copy(alpha=.7f),p,Offset(p.x,p.y+sy*l),1.4.dp.toPx()) }
                     }
-                    Column(Modifier.align(Alignment.TopStart).padding(18.dp)) { Text("HOLOGRAPHIC CORE  /  01",color=Cyan,fontSize=8.sp,letterSpacing=2.sp); Text(if(busy) "COGNITIVE PROCESS ACTIVE" else "NEURAL FIELD STABLE",color=Muted,fontSize=7.sp,letterSpacing=1.sp) }
-                    Column(Modifier.align(Alignment.TopEnd).padding(18.dp),horizontalAlignment=Alignment.End) { Text("MK-VII  •  INTERFACE",color=Cyan,fontSize=8.sp,letterSpacing=1.5.sp); Text("SECURE LOCAL SESSION",color=Muted,fontSize=7.sp) }
+                    Column(Modifier.align(Alignment.TopStart).padding(18.dp)) { Text("HOLOGRAFICKÉ JADRO  /  01",color=Cyan,fontSize=8.sp,letterSpacing=2.sp); Text(if(busy) "KOGNITÍVNY PROCES AKTÍVNY" else "NEURÁLNE POLE STABILNÉ",color=Muted,fontSize=7.sp,letterSpacing=1.sp) }
+                    Column(Modifier.align(Alignment.TopEnd).padding(18.dp),horizontalAlignment=Alignment.End) { Text("MK-VII  •  ROZHRANIE",color=Cyan,fontSize=8.sp,letterSpacing=1.5.sp); Text("ZABEZPEČENÁ LOKÁLNA RELÁCIA",color=Muted,fontSize=7.sp) }
                     Column(Modifier.align(Alignment.Center),horizontalAlignment=Alignment.CenterHorizontally) {
                         Box(Modifier.size(220.dp).background(Cyan.copy(alpha=.025f*pulse),CircleShape).border(1.dp,Cyan.copy(alpha=.18f),CircleShape),contentAlignment=Alignment.Center) {
                             Box(Modifier.fillMaxSize(.86f).border(1.dp,Cyan.copy(alpha=.32f*pulse),CircleShape).background(Cyan.copy(alpha=.025f),CircleShape),contentAlignment=Alignment.Center) {
@@ -1385,8 +1392,8 @@ private fun JarvisDashboard(
                             }
                         }
                         Spacer(Modifier.height(14.dp))
-                        Text(if(busy) "ANALYZING" else if(wakeMode) "VOICE CHANNEL OPEN" else "AWAITING COMMAND",color=Cyan.copy(alpha=.7f+.3f*pulse),fontSize=9.sp,letterSpacing=2.2.sp)
-                        Text("JUST A RATHER VERY INTELLIGENT SYSTEM",color=Color.White.copy(alpha=.65f),fontSize=7.sp,letterSpacing=1.6.sp)
+                        Text(if(busy) "ANALYZUJEM" else if(wakeMode) "HLASOVÝ KANÁL OTVORENÝ" else "ČAKÁM NA PRÍKAZ",color=Cyan.copy(alpha=.7f+.3f*pulse),fontSize=9.sp,letterSpacing=2.2.sp)
+                        Text("OSOBNÝ INTELIGENTNÝ ASISTENT",color=Color.White.copy(alpha=.65f),fontSize=7.sp,letterSpacing=1.6.sp)
                     }
                     Row(Modifier.align(Alignment.BottomStart).fillMaxWidth().background(Color(0xCC02070C)).padding(horizontal=16.dp, vertical=9.dp),horizontalArrangement=Arrangement.SpaceBetween){Text("SYS 7F.21",color=Muted,fontSize=7.sp);Text("FIELD OSCILLATION  ${(35+pulse*60).toInt()}%",color=Cyan,fontSize=7.sp);Text("JARVIS CORE ACTIVE",color=Cyan,fontSize=7.sp)}
                 }
@@ -1405,14 +1412,14 @@ private fun JarvisDashboard(
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)){Text("STARK INDUSTRIES / PERSONAL AI",color=Cyan,fontSize=9.sp,letterSpacing=2.sp);Text("J.A.R.V.I.S.",color=Color.White,fontSize=30.sp,fontWeight=FontWeight.ExtraLight,letterSpacing=5.sp);Text("NEURAL COMMAND DECK • MK-VII",color=Muted,fontSize=8.sp)}
-                    Column(horizontalAlignment=Alignment.End){Text(SimpleDateFormat("HH:mm",Locale.getDefault()).format(Date()),color=Color.White,fontSize=23.sp);Text(if(busy)"PROCESSING" else "SYSTEM ONLINE",color=if(busy)Color(0xFFFFBD68) else Color(0xFF69F0AE),fontSize=8.sp)}
+                    Column(horizontalAlignment=Alignment.End){Text(SimpleDateFormat("HH:mm",Locale.getDefault()).format(Date()),color=Color.White,fontSize=23.sp);Text(if(busy)"SPRACÚVAM" else "SYSTÉM PRIPRAVENÝ",color=if(busy)Color(0xFFFFBD68) else Color(0xFF69F0AE),fontSize=8.sp)}
                 }
                 Box(Modifier.fillMaxWidth().height(360.dp).background(Color(0xFF06121E))) {
                     Canvas(Modifier.fillMaxSize()) { val cx=size.width*.5f;val cy=size.height*.47f;val r=minOf(size.width,size.height)*.29f; for(i in 1..9)drawCircle(Cyan.copy(alpha=.045f),r*(.5f+i*.19f),Offset(cx,cy),style=Stroke(.7.dp.toPx()));drawArc(Cyan.copy(alpha=.9f),spin,100f,false,Offset(cx-r,cy-r),androidx.compose.ui.geometry.Size(r*2,r*2),style=Stroke(2.dp.toPx()));drawArc(Color(0xFF80CFFF),counterSpin,55f,false,Offset(cx-r*.78f,cy-r*.78f),androidx.compose.ui.geometry.Size(r*1.56f,r*1.56f),style=Stroke(1.dp.toPx())) }
-                    Column(Modifier.align(Alignment.Center),horizontalAlignment=Alignment.CenterHorizontally){Box(Modifier.size(132.dp).border(1.dp,Cyan.copy(alpha=.35f),CircleShape).background(Brush.radialGradient(listOf(Color(0xFFBFFBFF),Color(0xFF26C9F1),Color(0xFF06243A))),CircleShape),contentAlignment=Alignment.Center){Text("J",color=Color.White,fontSize=70.sp,fontWeight=FontWeight.ExtraLight)};Spacer(Modifier.height(12.dp));Text(if(busy)"ANALYZING" else "AWAITING COMMAND",color=Cyan,fontSize=9.sp,letterSpacing=2.sp)}
+                    Column(Modifier.align(Alignment.Center),horizontalAlignment=Alignment.CenterHorizontally){Box(Modifier.size(132.dp).border(1.dp,Cyan.copy(alpha=.35f),CircleShape).background(Brush.radialGradient(listOf(Color(0xFFBFFBFF),Color(0xFF26C9F1),Color(0xFF06243A))),CircleShape),contentAlignment=Alignment.Center){Text("J",color=Color.White,fontSize=70.sp,fontWeight=FontWeight.ExtraLight)};Spacer(Modifier.height(12.dp));Text(if(busy)"ANALYZUJEM" else "ČAKÁM NA PRÍKAZ",color=Cyan,fontSize=9.sp,letterSpacing=2.sp)}
                 }
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){DashboardAction("◉",if(wakeMode)"Vypnúť hlas" else "Hlasový vstup",Modifier.weight(1f),onToggleVoice);DashboardAction("⌁","Konverzácia",Modifier.weight(1f),onChat)}
-                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){DashboardAction("⬡","STARK WORKSPACE",Modifier.weight(1f),onWorkspace);DashboardAction("⚙","Nastavenia",Modifier.weight(1f),onSettings)}
+                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){DashboardAction("⬡","PRACOVNÝ PRIESTOR",Modifier.weight(1f),onWorkspace);DashboardAction("⚙","Nastavenia",Modifier.weight(1f),onSettings)}
                 Text("AI: ${if(aiReady) "READY" else "OFFLINE MODEL CHÝBA"}     BATTERY: ${battery ?: "—"}%",color=Muted,fontSize=9.sp)
             }
         }
@@ -1434,14 +1441,14 @@ private fun PersonalDashboardSidePanel(
     val prefs = remember { context.getSharedPreferences("jarvis", Context.MODE_PRIVATE) }
     val latest = prefs.getString("progress_data", "").orEmpty().lines().filter { it.isNotBlank() }.takeLast(3).asReversed()
     Column(modifier, verticalArrangement = Arrangement.spacedBy(9.dp)) {
-        Text("PERSONAL PROFILE  /  LIVE DATA", color = Cyan, fontSize = 8.sp, letterSpacing = 1.5.sp)
+        Text("OSOBNÝ PROFIL  /  AKTUÁLNE ÚDAJE", color = Cyan, fontSize = 8.sp, letterSpacing = 1.5.sp)
         Column(
             Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(10.dp))
                 .background(Color(0xB3091B29)).border(1.dp, Color(0x6639BBD5), RoundedCornerShape(10.dp)).padding(10.dp),
             verticalArrangement = Arrangement.spacedBy(7.dp)
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("INSTAGRAM  /  FEED", color = Cyan, fontSize = 9.sp, letterSpacing = 1.1.sp)
+                Text("PRÍSPEVKY INSTAGRAMU", color = Cyan, fontSize = 9.sp, letterSpacing = 1.1.sp)
                 Text("EXTERNÝ ÚČET", color = Muted, fontSize = 7.sp)
             }
             Box(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(7.dp)).background(Color(0xFF07121D)), contentAlignment = Alignment.Center) {
@@ -1476,7 +1483,7 @@ private fun PersonalDashboardSidePanel(
             DashboardAction("⬡", "PROJEKT", Modifier.weight(1f), onWorkspace)
             DashboardAction("⚙", "NASTAVENIA", Modifier.weight(1f), onSettings)
         }
-        Text(if (busy) "JARVIS PRACUJE…" else if (aiReady) "AI ENGINE ONLINE" else "OFFLINE MODEL CHÝBA", color = if (busy) Color(0xFFFFBD68) else if (aiReady) Color(0xFF69F0AE) else Muted, fontSize = 7.sp)
+        Text(if (busy) "JARVIS PRACUJE…" else if (aiReady) "AI JADRO PRIPRAVENÉ" else "OFFLINE MODEL CHÝBA", color = if (busy) Color(0xFFFFBD68) else if (aiReady) Color(0xFF69F0AE) else Muted, fontSize = 7.sp)
     }
 }
 
@@ -1791,7 +1798,7 @@ private fun JarvisIntro(onSkip: () -> Unit) {
                 Spacer(Modifier.height(24.dp))
                 Text("J.A.R.V.I.S.", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Light, letterSpacing = 8.sp)
                 Spacer(Modifier.height(8.dp))
-                Text("JUST A RATHER VERY INTELLIGENT SYSTEM", color = Cyan.copy(alpha=.9f), fontSize = 8.sp, letterSpacing = 2.sp)
+                Text("OSOBNÝ INTELIGENTNÝ ASISTENT", color = Cyan.copy(alpha=.9f), fontSize = 8.sp, letterSpacing = 2.sp)
                 Spacer(Modifier.height(30.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                     Box(Modifier.size(5.dp).background(Cyan.copy(alpha=pulse), CircleShape))
@@ -1807,11 +1814,11 @@ private fun JarvisIntro(onSkip: () -> Unit) {
         }
         Column(Modifier.align(Alignment.TopStart).padding(22.dp)) {
             Text("STARK INDUSTRIES", color = Cyan.copy(alpha=.8f), fontSize = 9.sp, letterSpacing = 2.sp)
-            Text("NEURAL INTERFACE • BOOT SEQUENCE", color = Muted, fontSize = 7.sp, letterSpacing = 1.sp)
+            Text("NEURÁLNE ROZHRANIE • SPUSTENIE", color = Muted, fontSize = 7.sp, letterSpacing = 1.sp)
         }
         Column(Modifier.align(Alignment.BottomEnd).padding(22.dp), horizontalAlignment = Alignment.End) {
             Text("J.A.R.V.I.S. / MK-VII", color = Cyan.copy(alpha=.8f), fontSize = 8.sp, letterSpacing = 1.5.sp)
-            Text("SYSTEM ONLINE SOON", color = Muted, fontSize = 7.sp, letterSpacing = 1.sp)
+            Text("SYSTÉM SA SPÚŠŤA", color = Muted, fontSize = 7.sp, letterSpacing = 1.sp)
         }
     }
 }
