@@ -118,20 +118,21 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             // Never treat the word "neural" as evidence of a male voice: that selected
             // a female Slovak voice on some Android TTS engines.
             val slovakVoices = engine.voices?.filter { it.locale.language == "sk" }.orEmpty()
-            val lukasVoice = slovakVoices.firstOrNull {
+            val localSlovakVoices = slovakVoices.filterNot { it.isNetworkConnectionRequired }
+            val lukasVoice = localSlovakVoices.firstOrNull {
                 val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
                 name.contains("lukas") || name.contains("lukáš")
             }
-            val maleSlovak = slovakVoices.firstOrNull {
+            val maleSlovak = localSlovakVoices.firstOrNull {
                 val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
                 name.contains("male") || name.contains("masculine") || name.contains("man") || name.contains("muž") || name.contains("muz")
             }
-            val selectedVoice = lukasVoice ?: maleSlovak
+            val selectedVoice = lukasVoice ?: maleSlovak ?: localSlovakVoices.firstOrNull()
             if (selectedVoice != null) {
                 engine.voice = selectedVoice
                 android.util.Log.i("JARVIS-TTS", "Selected Slovak voice: ${selectedVoice.name}")
             } else {
-                android.util.Log.w("JARVIS-TTS", "No identifiable Slovak male/Lukas voice installed; using Android default Slovak voice. Install/select a Slovak male voice in Android Text-to-speech settings.")
+                android.util.Log.e("JARVIS-TTS", "No local Slovak TTS voice is installed. JARVIS will not silently use a network voice. Install a Slovak offline voice in Android Text-to-speech settings.")
             }
         }
     }
@@ -240,7 +241,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             }
     }
     fun handle(raw: String) {
-        val text = raw.trim().replace(Regex("(?i)^(?:(?:hej|hey)\\s+)?jarvis[,: ]*"), "").trim()
+        val text = raw.trim().replace(Regex("(?i)^(?:(?:hej|hey|nazdar|čau|cau)\\s+)?jarvis[,: ]*"), "").trim()
         if (text.isEmpty() || busy) return
         val waitingReply = pendingReply
         if (waitingReply != null && (text.equals("áno", true) || text.equals("potvrď", true) || text.equals("odošli", true) || text.equals("odoslať", true))) {
@@ -341,13 +342,13 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 showWorkspace = true
                 showChat = false
                 lastWorkspaceRequest = text
-                if (key.isNotBlank() || OfflineBrain(context).isInstalled()) {
+                if (OfflineBrain(context).isInstalled()) {
                     val status = "Otváram pracovný priestor a pripravujem návrh, pane."
                     chat.add(Message(true, status)); speak(status)
                     busy = true
                     scope.launch {
                         val progressContext = prefs.getString("memories", "").orEmpty() + "\nUložené osobné záznamy (používaj iba ak relevantné, nevymýšľaj údaje):\n" + prefs.getString("progress_data", "").orEmpty()
-                        val answer = askAiWithOfflineFallback(context, endpoint, key, model, chat.toList().takeLast(20), progressContext)
+                        val answer = OfflineBrain(context).answer(text, progressContext)
                         workspaceDescription = answer
                         prefs.edit().putString("workspace_description", answer).apply()
                         chat.add(Message(true, answer))
@@ -711,6 +712,11 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     chat.add(Message(true, answer)); speak(answer)
                 }
             }
+            text.contains("upozornen", true) || text.contains("čo ma čaká", true) || text.contains("co ma caka", true) || text.contains("čo mám nové", true) || text.contains("co mam nove", true) || text.contains("denný prehľad", true) || text.contains("denny prehlad", true) || text.contains("čo je nové", true) || text.contains("co je nove", true) -> {
+                val answer = JarvisDailyBriefing.build(context, includeSchedule = true)
+                chat.add(Message(true, answer))
+                speak(answer)
+            }
             text.contains("prečítaj známky", true) || text.contains("známky z edupage", true) || text.contains("prečítaj edupage", true) || text.contains("prečítaj správy", true) || text.contains("čítaj správy", true) || text.contains("prečítaj emaily", true) || text.contains("prečítaj e-maily", true) || text.contains("nové správy", true) || text.contains("správy z messenger", true) || text.contains("správy z instagram", true) || text.contains("správy z facebook", true) || text.contains("správy z whatsapp", true) || text.contains("whatsapp správy", true) -> {
                 val enabled = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners").orEmpty()
                     .contains(context.packageName + "/" + GmailNotificationListener::class.java.name)
@@ -882,26 +888,23 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 val answer = "Poznámku som uložil, pane."
                 chat.add(Message(true, answer)); speak(answer)
             }
-            key.isBlank() -> {
-                busy = true
-                scope.launch {
-                    val brain = OfflineBrain(context)
-                    val answer = if (brain.isInstalled()) {
-                        runCatching { brain.answer(text) }.getOrElse { "Pane, offline AI model sa nepodarilo spustiť: ${it.message ?: "neznáma chyba"}" }
-                    } else {
-                        "Pane, lokálne príkazy fungujú. Ak chcete aj konverzačnú AI bez API kľúča, otvorte Nastavenia a stiahnite Offline AI mozog (približne 330 MB)."
-                    }
-                    chat.add(Message(true, answer)); speak(answer); busy = false
-                }
-            }
             else -> {
                 busy = true
                 scope.launch {
-                    val progress = prefs.getString("progress_data", "").orEmpty()
+                    val brain = OfflineBrain(context)
                     val personalContext = prefs.getString("memories", "").orEmpty() +
-                        if (progress.isBlank()) "" else "\nOsobné záznamy známok a dennej pohody (používaj len tieto údaje; nevymýšľaj hodnoty):\n" + progress
-                    val answer = askAiWithOfflineFallback(context, endpoint, key, model, chat.toList().takeLast(20), personalContext)
-                    chat.add(Message(true, answer)); speak(answer); busy = false
+                        "\nUložené osobné záznamy (použi iba relevantné údaje):\n" +
+                        prefs.getString("progress_data", "").orEmpty()
+                    val answer = if (brain.isInstalled()) {
+                        runCatching { brain.answer(text, personalContext) }.getOrElse {
+                            "Pane, lokálny AI model sa nepodarilo spustiť: ${it.message ?: "neznáma chyba"}."
+                        }
+                    } else {
+                        "Pane, na bežný rozhovor potrebujem najprv stiahnuť lokálny AI model v Nastaveniach. Žiadny API kľúč netreba. Hlasové príkazy, upozornenia a vyhľadávanie cez Wi-Fi zostávajú samostatné."
+                    }
+                    chat.add(Message(true, answer))
+                    speak(answer)
+                    busy = false
                 }
             }
         }
@@ -1030,7 +1033,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                             chat.add(Message(false, instruction))
                             scope.launch {
                                 val projectContext = prefs.getString("memories", "").orEmpty() + "\nUložené osobné záznamy (iba ak relevantné):\n" + prefs.getString("progress_data", "").orEmpty()
-                                val answer = askAiWithOfflineFallback(context, endpoint, key, model, (chat.toList().takeLast(20) + Message(false, "Uprav aktívny návrh podľa tejto požiadavky: $instruction. Zachovaj užitočné časti a vysvetli konkrétne zmeny.")), projectContext)
+                                val answer = OfflineBrain(context).answer("Uprav aktívny návrh podľa tejto požiadavky: $instruction. Zachovaj užitočné časti a vysvetli konkrétne zmeny.", projectContext)
                                 workspaceDescription = answer
                                 prefs.edit().putString("workspace_description", answer).apply()
                                 chat.add(Message(true, answer)); speak(answer); busy = false
