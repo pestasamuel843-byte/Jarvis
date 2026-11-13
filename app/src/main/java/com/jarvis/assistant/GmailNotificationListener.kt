@@ -17,6 +17,9 @@ class GmailNotificationListener : NotificationListenerService() {
     override fun onListenerConnected() {
         super.onListenerConnected()
         connectedInstance = this
+        // Seed the local cache with notifications that are still active when
+        // the user grants access; do not wait for the next EduPage/message alert.
+        runCatching { activeNotifications?.forEach(::storeNotification) }
     }
 
     override fun onListenerDisconnected() {
@@ -34,10 +37,13 @@ class GmailNotificationListener : NotificationListenerService() {
             "EduPage" to "air.org.edupage",
             "EduPage Alt" to "air.org.edupagealt"
         )
-        val targetPackage = packages[appName]
+        val targetPackages = when (appName) {
+            "EduPage" -> setOf("air.org.edupage", "air.org.edupagealt")
+            else -> packages[appName]?.let(::setOf)
+        }
         return runCatching { activeNotifications?.toList().orEmpty() }
             .getOrDefault(emptyList())
-            .filter { targetPackage == null || it.packageName == targetPackage }
+            .filter { targetPackages == null || it.packageName in targetPackages }
             .sortedByDescending { it.postTime }
             .firstNotNullOfOrNull { it.notification.extras?.getCharSequence("android.title")?.toString()?.trim()?.takeIf(String::isNotBlank) }
     }
@@ -52,9 +58,12 @@ class GmailNotificationListener : NotificationListenerService() {
             "EduPage" to "air.org.edupage",
             "EduPage Alt" to "air.org.edupagealt"
         )
-        val targetPackage = packages[appName]
+        val targetPackages = when (appName) {
+            "EduPage" -> setOf("air.org.edupage", "air.org.edupagealt")
+            else -> packages[appName]?.let(::setOf)
+        }
         val notifications = runCatching { activeNotifications?.toList().orEmpty() }.getOrDefault(emptyList())
-            .filter { (targetPackage == null || it.packageName == targetPackage) &&
+            .filter { (targetPackages == null || it.packageName in targetPackages) &&
                 it.notification.extras?.getCharSequence("android.title")?.toString()?.trim() == sender }
             .sortedByDescending { it.postTime }
 
@@ -99,6 +108,10 @@ class GmailNotificationListener : NotificationListenerService() {
     )
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
+        storeNotification(sbn)
+    }
+
+    private fun storeNotification(sbn: StatusBarNotification?) {
         if (sbn == null) return
         val appName = supportedApps[sbn.packageName] ?: return
         if (sbn.isGroup) return
