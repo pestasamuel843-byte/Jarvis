@@ -110,7 +110,7 @@ class GmailNotificationListener : NotificationListenerService() {
 
         fun isConnected(): Boolean = connectedInstance != null
 
-        fun activePreviews(): List<JarvisNotificationPreview> =
+        internal fun activePreviews(): List<JarvisNotificationPreview> =
             connectedInstance?.currentActivePreviews().orEmpty()
 
         fun latestSender(appName: String?): String? = connectedInstance?.latestSender(appName)
