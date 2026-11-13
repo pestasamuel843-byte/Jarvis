@@ -15,6 +15,8 @@ import android.os.PowerManager
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import java.util.Locale
 
 /**
@@ -33,6 +35,9 @@ class JarvisVoiceService : Service() {
     private var usingOnDeviceRecognizer = false
     private var consecutiveErrors = 0
     private var cpuWakeLock: PowerManager.WakeLock? = null
+    private var speechEngine: TextToSpeech? = null
+    private var speechReady = false
+    private var pendingSpeech: String? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -47,11 +52,56 @@ class JarvisVoiceService : Service() {
                 acquire()
             }
         }
+        createSpeechEngine()
         createRecognizer()
+    }
+
+    private fun createSpeechEngine() {
+        speechEngine = TextToSpeech(applicationContext) { status ->
+            speechReady = status == TextToSpeech.SUCCESS
+            if (speechReady) {
+                speechEngine?.language = Locale("sk", "SK")
+                speechEngine?.setSpeechRate(0.96f)
+                speechEngine?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {}
+                    override fun onDone(utteranceId: String?) { resumeAfterSpeech() }
+                    @Deprecated("Deprecated in Java")
+                    override fun onError(utteranceId: String?) { resumeAfterSpeech() }
+                    override fun onError(utteranceId: String?, errorCode: Int) { resumeAfterSpeech() }
+                })
+                pendingSpeech?.let { pending ->
+                    pendingSpeech = null
+                    speakResponse(pending)
+                }
+            } else {
+                resumeAfterSpeech()
+            }
+        }
+    }
+
+    private fun speakResponse(text: String) {
+        if (!speechReady || speechEngine == null) {
+            pendingSpeech = text
+            return
+        }
+        pausedForSpeech = true
+        cancelRecognition()
+        val result = speechEngine?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis_background_response")
+        if (result == TextToSpeech.ERROR) resumeAfterSpeech()
+    }
+
+    private fun resumeAfterSpeech() {
+        pausedForSpeech = false
+        if (!stopped) scheduleRestart(350L)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
+            ACTION_SPEAK -> {
+                val response = intent.getStringExtra(EXTRA_SPEECH).orEmpty()
+                if (response.isNotBlank()) speakResponse(response)
+                return START_STICKY
+            }
             ACTION_STOP -> {
                 stopSelf()
                 return START_NOT_STICKY
@@ -297,6 +347,9 @@ class JarvisVoiceService : Service() {
         recognizer = null
         runCatching { cpuWakeLock?.let { if (it.isHeld) it.release() } }
         cpuWakeLock = null
+        runCatching { speechEngine?.stop(); speechEngine?.shutdown() }
+        speechEngine = null
+        speechReady = false
         sendStatus("HLASOVÝ MODUL VYPNUTÝ")
         super.onDestroy()
     }
@@ -327,6 +380,8 @@ class JarvisVoiceService : Service() {
         const val ACTION_PAUSE = "com.jarvis.assistant.VOICE_PAUSE"
         const val ACTION_RESUME = "com.jarvis.assistant.VOICE_RESUME"
         const val ACTION_STOP = "com.jarvis.assistant.VOICE_STOP"
+        const val ACTION_SPEAK = "com.jarvis.assistant.VOICE_SPEAK"
+        const val EXTRA_SPEECH = "speech"
         const val EXTRA_COMMAND = "command"
         const val EXTRA_STATUS = "status"
         private const val CHANNEL_ID = "jarvis_voice_service"
