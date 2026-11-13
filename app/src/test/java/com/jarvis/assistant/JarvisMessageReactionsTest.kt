@@ -31,6 +31,23 @@ class JarvisMessageReactionsTest {
         assertTrue(result.orEmpty().contains("nepríjemný"))
     }
 
+    @Test fun recognizesHostileMessageEvenWhenInsultHasExtraWords() {
+        val result = JarvisMessageReactions.comment("Instagram", "Unknown", "Si fakt trápny.")
+        assertTrue(result.orEmpty().contains("nepríjemný"))
+    }
+
+    @Test fun parsesNumberedAiCommentsAndIgnoresNone() {
+        val result = JarvisMessageReactions.parseAiOutput("1|To znie ako pozvanie.\\n2|NONE\\n3|Pýta sa na čas.", 3)
+        assertEquals("To znie ako pozvanie.", result[0])
+        assertEquals(null, result[1])
+        assertEquals("Pýta sa na čas.", result[2])
+    }
+
+    @Test fun ignoresOutOfRangeAiItems() {
+        val result = JarvisMessageReactions.parseAiOutput("4|Neplatný komentár", 2)
+        assertTrue(result.isEmpty())
+    }
+
     @Test fun doesNotCommentOnSchoolPortalNotifications() {
         assertNull(JarvisMessageReactions.comment("EduPage", "Učiteľ", "Zajtra test z matematiky"))
     }
