@@ -178,7 +178,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     var listening by remember { mutableStateOf(false) }
     var wakeMode by remember { mutableStateOf(prefs.getBoolean("voice_enabled", false)) }
     var appForeground by remember { mutableStateOf(true) }
-    var showWorkspace by remember { mutableStateOf(false) }
+    var showWorkspace by remember { mutableStateOf(prefs.getBoolean("workspace_pending_open", false)) }
     var showChat by remember { mutableStateOf(false) }
     var showIntro by remember { mutableStateOf(true) }
     var showCheckIn by remember { mutableStateOf(false) }
@@ -189,6 +189,9 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     var moodNote by remember { mutableStateOf("") }
     var scheduleSetupIndex by remember { mutableIntStateOf(-1) }
     var firstRunSetupRequested by remember { mutableStateOf(false) }
+    LaunchedEffect(showWorkspace) {
+        if (showWorkspace) prefs.edit().putBoolean("workspace_pending_open", false).apply()
+    }
     val scheduleDays = listOf("Pondelok", "Utorok", "Streda", "Štvrtok", "Piatok")
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(4700)
