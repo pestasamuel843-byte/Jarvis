@@ -301,6 +301,19 @@ class JarvisVoiceService : Service() {
         super.onDestroy()
     }
 
+    /**
+     * Removing the launcher task must not be treated as a request to stop
+     * this explicitly enabled foreground voice service. Keep the recognizer
+     * loop alive and recover it if the last recognition session ended.
+     */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        if (!stopped && !pausedForSpeech) {
+            runCatching { startForeground(NOTIFICATION_ID, buildNotification()) }
+            scheduleRestart(350L)
+        }
+        super.onTaskRemoved(rootIntent)
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
