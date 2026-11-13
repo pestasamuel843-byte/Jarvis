@@ -32,7 +32,6 @@ import kotlin.concurrent.thread
 class JarvisVoiceService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var recognizer: SpeechRecognizer? = null
-    private var keywordSpotter: KeywordSpotter? = null
     private var cpuWakeLock: PowerManager.WakeLock? = null
     @Volatile private var stopped = false
     @Volatile private var pausedForSpeech = false
@@ -102,7 +101,6 @@ class JarvisVoiceService : Service() {
                         keywordsFile = ""
                     )
                 )
-                keywordSpotter = spotter
                 val stream = spotter.createStream(WAKE_KEYWORD)
                 val minBytes = AudioRecord.getMinBufferSize(
                     SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT
@@ -138,7 +136,6 @@ class JarvisVoiceService : Service() {
                     recorder.release()
                     stream.release()
                     spotter.release()
-                    if (keywordSpotter === spotter) keywordSpotter = null
                 }
             } catch (error: Exception) {
                 if (!stopped && !pausedForSpeech) {
@@ -305,9 +302,10 @@ class JarvisVoiceService : Service() {
 
     private fun stopWakeLoop() { wakeLoopActive = false }
 
+    @Suppress("DEPRECATION")
     private fun buildNotification(): Notification {
         val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) Notification.Builder(this, CHANNEL_ID)
-        else @Suppress("DEPRECATION") Notification.Builder(this)
+        else Notification.Builder(this)
         return builder.setContentTitle("JARVIS • Lokálny hlasový modul")
             .setContentText("Lokálny detektor „Hey Jarvis“ je aktívny. Mikrofón počúva.")
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
@@ -338,8 +336,6 @@ class JarvisVoiceService : Service() {
         runCatching { recognizer?.cancel() }
         runCatching { recognizer?.destroy() }
         recognizer = null
-        runCatching { keywordSpotter?.release() }
-        keywordSpotter = null
         runCatching { cpuWakeLock?.let { if (it.isHeld) it.release() } }
         cpuWakeLock = null
         sendStatus("HLASOVÝ MODUL VYPNUTÝ")
