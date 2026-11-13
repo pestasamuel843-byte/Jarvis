@@ -119,8 +119,14 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 override fun onStart(utteranceId: String?) { speechOutputActive = true }
                 override fun onDone(utteranceId: String?) { speechOutputActive = false; if (JarvisVoiceService.isRunning) startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
                 @Deprecated("Deprecated in Java")
-                override fun onError(utteranceId: String?) { speechOutputActive = false; startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
-                override fun onError(utteranceId: String?, errorCode: Int) { speechOutputActive = false; startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
+                override fun onError(utteranceId: String?) {
+                    speechOutputActive = false
+                    if (JarvisVoiceService.isRunning) startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME))
+                }
+                override fun onError(utteranceId: String?, errorCode: Int) {
+                    speechOutputActive = false
+                    if (JarvisVoiceService.isRunning) startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME))
+                }
             })
             // Never treat the word "neural" as evidence of a male voice: that selected
             // a female Slovak voice on some Android TTS engines.
@@ -1102,9 +1108,19 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                         if (wakeMode) {
                             wakeMode = false
                             listening = false
+                            prefs.edit().putBoolean("voice_enabled", false).apply()
+                            context.stopService(Intent(context, JarvisVoiceService::class.java))
                         } else if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                             wakeMode = true
                             listening = true
+                            prefs.edit().putBoolean("voice_enabled", true).apply()
+                            runCatching { context.startForegroundService(Intent(context, JarvisVoiceService::class.java)) }
+                                .onFailure {
+                                    wakeMode = false
+                                    listening = false
+                                    prefs.edit().putBoolean("voice_enabled", false).apply()
+                                    Toast.makeText(context, "Hlasovú službu sa nepodarilo spustiť: ${it.message}", Toast.LENGTH_LONG).show()
+                                }
                         } else micPermission.launch(Manifest.permission.RECORD_AUDIO)
                     }) { Text(if (wakeMode) "🎙" else "🎤", fontSize = 22.sp) }
                     Button(onClick = { handle(input) }, enabled = !busy, contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp)) { Text("➤", fontSize = 18.sp) }
