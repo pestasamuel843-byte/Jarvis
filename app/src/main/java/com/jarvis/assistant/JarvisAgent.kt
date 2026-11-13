@@ -9,4 +9,8 @@ import android.content.Context
 object JarvisAgent {
     fun execute(context: Context, raw: String): String? =
         JarvisOrchestrator.execute(context, raw)
+
+    /** Call only after the user has explicitly approved the pending action. */
+    fun executeConfirmed(context: Context, raw: String): String? =
+        JarvisOrchestrator.execute(context, raw, confirmationGranted = true)
 }
