@@ -143,11 +143,17 @@ class JarvisVoiceService : Service() {
 
     private fun processPhrase(phrase: String) {
         val normalized = phrase.lowercase(Locale.ROOT)
+            .replace("džarvis", "jarvis")
+            .replace("džervis", "jarvis")
+            .replace("ďarvis", "jarvis")
             .replace(Regex("[^\\p{L}\\p{N} ]"), " ")
             .replace(Regex("\\s+"), " ").trim()
         if (normalized.isBlank()) return
 
-        val wake = Regex("^(?:(?:hej|hey) )?jarvis\\b[ ,:]*", RegexOption.IGNORE_CASE)
+        // Slovak recognizers sometimes return "hejjarvis" as one token,
+        // or phonetically transcribe the English name. Accept those variants
+        // without triggering on the word "jarvis" in the middle of a sentence.
+        val wake = Regex("^(?:(?:hej|hey)\\s*)?jarvis\\b[ ,:]*", RegexOption.IGNORE_CASE)
         val match = wake.find(normalized)
         if (match != null) {
             val remainder = normalized.substring(match.range.last + 1).trim()
