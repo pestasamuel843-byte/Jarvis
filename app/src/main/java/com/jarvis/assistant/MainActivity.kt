@@ -798,7 +798,8 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                                 1 -> "A máme tu ďalšiu správu. $sender píše cez $app."
                                 else -> "Ďalej sa ozval $sender."
                             }
-                            "$lead $body"
+                            val reaction = if (app == "EduPage") null else JarvisMessageReactions.comment(app, sender, body)
+                            listOfNotNull("$lead $body", reaction).joinToString(" ")
                         }
                         opening + " " + spokenMessages.joinToString(" Ďalšia správa. ")
                     }
