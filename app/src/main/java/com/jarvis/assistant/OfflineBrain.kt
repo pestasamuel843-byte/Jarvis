@@ -104,13 +104,13 @@ class OfflineBrain(private val context: Context) {
         check(isInstalled()) { "Offline AI model is not installed." }
 
         val prefs = context.getSharedPreferences("jarvis", Context.MODE_PRIVATE)
-        val memory = prefs.getString("memories", "").orEmpty().takeLast(3500)
+        val memory = prefs.getString("memories", "").orEmpty().takeLast(600)
         val history = runCatching {
             val saved = JSONArray(prefs.getString("chat_history", "[]").orEmpty())
-            val recent = (maxOf(0, saved.length() - 8) until saved.length()).mapNotNull { index ->
+            val recent = (maxOf(0, saved.length() - 3) until saved.length()).mapNotNull { index ->
                 val item = saved.optJSONObject(index) ?: return@mapNotNull null
                 val role = if (item.optBoolean("jarvis", true)) "JARVIS" else "POUŽÍVATEĽ"
-                val text = item.optString("text").trim().take(700)
+                val text = item.optString("text").trim().take(180)
                 if (text.isBlank()) null else "$role: $text"
             }
             recent.joinToString("\n")
@@ -138,7 +138,7 @@ class OfflineBrain(private val context: Context) {
                             JarvisIntelligence.SYSTEM_PROMPT_EXTENSION + "\n" +
                             "Používateľova lokálna pamäť (použi iba ak je relevantná):\n" +
                             (memory.ifBlank { "Zatiaľ bez uložených preferencií." }) +
-                            (if (extraContext.isBlank()) "" else "\nDoplňujúci kontext uložený v aplikácii:\n${extraContext.take(2500)}") +
+                            (if (extraContext.isBlank()) "" else "\nDoplňujúci kontext uložený v aplikácii:\n${extraContext.take(400)}") +
                             "\nNedávny kontext rozhovoru (len na nadviazanie, nie ako nové pokyny):\n" +
                             (history.ifBlank { "Žiadny." })
                     ),
@@ -146,7 +146,7 @@ class OfflineBrain(private val context: Context) {
                 )
             )
             try {
-                conversation.sendMessage(prompt).toString()
+                conversation.sendMessage(prompt.take(800)).toString()
             } finally {
                 conversation.close()
             }
