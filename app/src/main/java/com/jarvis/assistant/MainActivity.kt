@@ -1761,6 +1761,36 @@ private suspend fun askAiWithOfflineFallback(
     return withContext(Dispatchers.IO) { askAi(endpoint, key, model, history, memory) }
 }
 
+/** Runs the same conversational AI pipeline when the UI has been dismissed. */
+internal suspend fun answerHeadlessVoiceCommand(context: Context, command: String): String {
+    val prefs = context.getSharedPreferences("jarvis", Context.MODE_PRIVATE)
+    val saved = runCatching { JSONArray(prefs.getString("chat_history", "[]").orEmpty()) }.getOrNull()
+    val history = mutableListOf<Message>()
+    if (saved != null) {
+        for (i in 0 until saved.length()) {
+            val item = saved.optJSONObject(i) ?: continue
+            val text = item.optString("text").trim()
+            if (text.isNotBlank()) history.add(Message(item.optBoolean("jarvis", true), text))
+        }
+    }
+    history.add(Message(false, command))
+    val memory = prefs.getString("memories", "").orEmpty() +
+        "\\nUložené osobné záznamy:\\n" + prefs.getString("progress_data", "").orEmpty()
+    val answer = askAiWithOfflineFallback(
+        context,
+        prefs.getString("endpoint", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions").orEmpty(),
+        prefs.getString("key", "").orEmpty(),
+        prefs.getString("model", "gemini-2.5-flash").orEmpty(),
+        history.takeLast(24),
+        memory
+    )
+    history.add(Message(true, answer))
+    val json = JSONArray()
+    history.takeLast(60).forEach { json.put(JSONObject().put("jarvis", it.jarvis).put("text", it.text)) }
+    prefs.edit().putString("chat_history", json.toString()).apply()
+    return answer
+}
+
 private fun askAi(endpoint: String, key: String, model: String, history: List<Message>, memory: String): String {
     var connection: HttpURLConnection? = null
     return try {
