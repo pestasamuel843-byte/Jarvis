@@ -163,10 +163,18 @@ object JarvisAgent {
         if (target != null) {
             val launch = context.packageManager.getLaunchIntentForPackage(target.packageName)
             if (launch != null) return runCatching {
+                context.getSharedPreferences("jarvis_action_verification", Context.MODE_PRIVATE).edit()
+                    .putString("pending_package", target.packageName)
+                    .putLong("pending_since", System.currentTimeMillis())
+                    .apply()
                 launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(launch)
-                "Aplikácia $requested bola otvorená."
-            }.getOrElse { "Aplikáciu $requested sa nepodarilo otvoriť: ${it.message ?: "chyba Androidu"}." }
+                "Požiadavku na otvorenie $requested som odovzdal Androidu. Overujem, či sa aplikácia skutočne zobrazila."
+            }.getOrElse {
+                context.getSharedPreferences("jarvis_action_verification", Context.MODE_PRIVATE).edit()
+                    .remove("pending_package").remove("pending_since").apply()
+                "Aplikáciu $requested sa nepodarilo otvoriť: ${it.message ?: "chyba Androidu"}."
+            }
             if (target.webUrl != null) return openUrl(context, target.webUrl,
                 "Aplikácia $requested nie je nainštalovaná; otvoril som jej webovú verziu.")
         }
@@ -177,10 +185,18 @@ object JarvisAgent {
         }
         val launch = match?.let { context.packageManager.getLaunchIntentForPackage(it.activityInfo.packageName) }
         if (launch != null) return runCatching {
+            context.getSharedPreferences("jarvis_action_verification", Context.MODE_PRIVATE).edit()
+                .putString("pending_package", match!!.activityInfo.packageName)
+                .putLong("pending_since", System.currentTimeMillis())
+                .apply()
             launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(launch)
-            "Aplikácia $requested bola otvorená."
-        }.getOrElse { "Aplikáciu $requested sa nepodarilo otvoriť." }
+            "Požiadavku na otvorenie $requested som odovzdal Androidu. Overujem, či sa aplikácia skutočne zobrazila."
+        }.getOrElse {
+            context.getSharedPreferences("jarvis_action_verification", Context.MODE_PRIVATE).edit()
+                .remove("pending_package").remove("pending_since").apply()
+            "Aplikáciu $requested sa nepodarilo otvoriť."
+        }
         return "Aplikáciu $requested som v tablete nenašiel. Skontrolujte jej názov alebo inštaláciu."
     }
 
@@ -216,7 +232,20 @@ object JarvisAgent {
 
     private fun openUrl(context: Context, url: String, success: String): String =
         runCatching {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            success
-        }.getOrElse { "Odkaz sa nepodarilo otvoriť: ${it.message ?: "chyba Androidu"}." }
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val targetPackage = intent.resolveActivity(context.packageManager)?.packageName
+            if (targetPackage != null) {
+                context.getSharedPreferences("jarvis_action_verification", Context.MODE_PRIVATE).edit()
+                    .putString("pending_package", targetPackage)
+                    .putLong("pending_since", System.currentTimeMillis())
+                    .apply()
+            }
+            context.startActivity(intent)
+            if (targetPackage != null) "$success Overujem, či sa cieľová aplikácia skutočne zobrazila."
+            else "$success Android prijal požiadavku, ale cieľovú aplikáciu neviem overiť."
+        }.getOrElse {
+            context.getSharedPreferences("jarvis_action_verification", Context.MODE_PRIVATE).edit()
+                .remove("pending_package").remove("pending_since").apply()
+            "Odkaz sa nepodarilo otvoriť: ${it.message ?: "chyba Androidu"}."
+        }
 }
