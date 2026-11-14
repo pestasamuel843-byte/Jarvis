@@ -35,8 +35,19 @@ class JarvisHeadlessVoiceReceiver : BroadcastReceiver() {
             try {
                 val projectResult = runCatching { WorkspaceCommandProcessor.process(context, command) }.getOrNull()
                 if (projectResult != null) {
-                    deliverSpeech(context, projectResult.spokenResponse)
-                    runCatching { showNotification(context, "JARVIS • Projekt uložený", projectResult.spokenResponse) }
+                    val jarvisPrefs = context.getSharedPreferences("jarvis", Context.MODE_PRIVATE)
+                    val designDescription = if (jarvisPrefs.getString("key", "").orEmpty().isNotBlank() || OfflineBrain(context).isInstalled()) {
+                        runCatching { runBlocking { answerHeadlessVoiceCommand(context, command) } }.getOrNull()
+                    } else null
+                    if (!designDescription.isNullOrBlank()) {
+                        context.getSharedPreferences("jarvis_workspace", Context.MODE_PRIVATE)
+                            .edit().putString("workspace_description", designDescription).apply()
+                    }
+                    val spoken = if (!designDescription.isNullOrBlank()) {
+                        projectResult.spokenResponse + " Návrh: " + designDescription
+                    } else projectResult.spokenResponse
+                    deliverSpeech(context, spoken)
+                    runCatching { showNotification(context, "JARVIS • Projekt uložený", spoken) }
                 } else {
                     val quickResult = runCatching { JarvisAgent.execute(context, command) }.getOrNull()
                     if (!quickResult.isNullOrBlank()) {
