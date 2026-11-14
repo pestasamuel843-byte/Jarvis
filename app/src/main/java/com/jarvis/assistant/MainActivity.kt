@@ -192,7 +192,7 @@ private fun extractChatGptExportText(raw: String): String {
             is JSONArray -> for (i in 0 until value.length()) visit(value.opt(i), depth + 1)
         }
     }
-    val parsed: Any = runCatching { JSONArray(raw) }.getOrElse { JSONObject(raw) }
+    val parsed: Any = try { JSONArray(raw) } catch (_: Exception) { JSONObject(raw) }
     visit(parsed)
     return output.toString().take(140_000)
 }
