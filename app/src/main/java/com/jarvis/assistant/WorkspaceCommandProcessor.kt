@@ -47,7 +47,7 @@ object WorkspaceCommandProcessor {
             listOf("ulic", "cest", "chodník", "chodnik", "križovat", "krizovat", "budov").any(q::contains) -> "ULICA"
             listOf("dom", "strech", "komín", "komin").any(q::contains) -> "DOM"
             listOf("guľ", "gul", "lopta", "planéta", "planeta").any(q::contains) -> "GUĽA"
-            (q.contains("vymodeluj") || q.contains("nový model") || q.contains("novy model") ||
+            (q.contains("vymodeluj") || q.contains("navrhni") || q.contains("nakresli") || q.contains("nový model") || q.contains("novy model") ||
                 (!prefs.getBoolean("project_exists", false) && listOf("valec", "cylinder", "guľu", "gulu", "kužeľ", "kuzel", "torus", "kváder", "kvader", "kocku", "box").any(q::contains))) -> "CUSTOM"
             q.contains("pyram") -> "PYRAMÍDA"
             q.contains("kock") -> "KOCKA"
