@@ -6,7 +6,7 @@ Native Android prototype written in Kotlin and Jetpack Compose. It does not requ
 
 - JARVIS launcher identity and dark sci-fi/cyan home screen, configured for tablet landscape orientation.
 - Slovak Android speech recognition and text-to-speech.
-- While the main screen is open, cycles Android speech recognition looking for “Hej Jarvis” / “Hey Jarvis”; say the command after the wake phrase or in the next utterance. This is not guaranteed to work with the screen locked or in the background.
+- User-enabled Slovak voice service runs as a visible microphone foreground service. It keeps checking for “Hej Jarvis” / “Hey Jarvis” while the app UI is backgrounded; background commands are routed to a headless receiver so they are not discarded merely because the Activity is paused. Android speech-provider, battery-management and device-vendor restrictions can still stop recognition, so locked-screen reliability must be verified on the target tablet.
 - Voice commands can be paused/resumed from the conversation, and recent chat history is stored locally on the device.
 - Local commands: time, date, battery percentage, open YouTube, Android Settings, camera, Google search, create/list/delete notes, remember/forget preferences, clear chat history, arithmetic, set an alarm in the Clock app, create a calendar reminder, open an installed app by its visible name, dial a number (user confirms the call), timer via the Clock app, Wi-Fi settings/status, maps/navigation, browser, calculator (if installed), and open ChatGPT in the browser.
 - Offline AI conversation using the bundled Qwen3 1.7B INT4 model through LiteRT-LM; optional online AI through a configurable OpenAI-compatible endpoint.
@@ -52,7 +52,7 @@ The AI system prompt now includes a dedicated, context-sensitive support approac
 
 This is still an early prototype, not the full autonomous assistant described in the original brief. The latest source includes additional local voice commands, but each feature still needs testing on the target tablet.
 
-- The app cycles Android SpeechRecognizer while its main screen is open. This is not a reliable background/locked-screen wake-word service; recognition availability and offline behavior depend on the Android speech provider. It may consume battery.
+- The app uses a user-enabled foreground microphone service for background/locked-screen wake-word listening and a separate headless command receiver. This is an implemented code path, not a guarantee that every Android speech provider or tablet firmware will keep it alive; real-device testing is still required. Continuous listening can consume battery.
 - The offline 3D design view provides several rotatable wireframe primitives, not arbitrary AI-generated 3D models or a full CAD editor. The drawing canvas is a freehand sketch pad and saves locally.
 - The 3D map extrudes mapped building footprints; it is not a complete photorealistic 3D city, AR overlay, or live traffic system. Map tiles and public geocoding/routing services require internet and have coverage/usage limits.
 - AI project responses are displayed as text; the app does not yet compile generated source code or turn arbitrary prompts into complete interactive diagrams or 3D scenes. The 3D preview remains a small set of predefined wireframe primitives.
