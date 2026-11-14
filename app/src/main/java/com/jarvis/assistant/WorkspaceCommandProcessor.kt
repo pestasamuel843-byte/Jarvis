@@ -9,7 +9,7 @@ object WorkspaceCommandProcessor {
     data class ProjectState(val model: String, val edits: List<String>, val mapMode: Boolean, val lastCommand: String)
     data class Result(val state: ProjectState, val spokenResponse: String)
 
-    private val workspaceWords = listOf("projekt", "pracovný priestor", "pracovny priestor", "3d", "trojrozmer", "model", "navrhni", "navrhn", "vizualiz", "nakresli", "vymodeluj", "ukáž mi v 3d", "ukaz mi v 3d")
+    private val workspaceWords = listOf("projekt", "pracovný priestor", "pracovny priestor", "3d", "trojrozmer", "model", "navrhni", "navrhn", "vizualiz", "nakresli", "vymodeluj", "vytvor", "valec", "kužeľ", "kuzel", "guľu", "gulu", "torus", "kváder", "kvader", "ukáž mi v 3d", "ukaz mi v 3d")
     private val editWords = listOf(
         "spoiler", "krídlo", "kridlo", "svetl", "reflektor", "led", "disk", "ráfik", "rafik",
         "červen", "cerv", "modr", "zmeň farbu", "zmen farbu",
@@ -47,7 +47,8 @@ object WorkspaceCommandProcessor {
             listOf("ulic", "cest", "chodník", "chodnik", "križovat", "krizovat", "budov").any(q::contains) -> "ULICA"
             listOf("dom", "strech", "komín", "komin").any(q::contains) -> "DOM"
             listOf("guľ", "gul", "lopta", "planéta", "planeta").any(q::contains) -> "GUĽA"
-            listOf("vymodeluj", "vytvor nový model", "vytvor novy model", "nový objekt", "novy objekt").any(q::contains) -> "CUSTOM"
+            (q.contains("vymodeluj") || q.contains("nový model") || q.contains("novy model") ||
+                (!prefs.getBoolean("project_exists", false) && listOf("valec", "cylinder", "guľu", "gulu", "kužeľ", "kuzel", "torus", "kváder", "kvader", "kocku", "box").any(q::contains))) -> "CUSTOM"
             q.contains("pyram") -> "PYRAMÍDA"
             q.contains("kock") -> "KOCKA"
             else -> previous.model
