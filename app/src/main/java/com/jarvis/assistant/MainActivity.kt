@@ -95,7 +95,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        isUiAttached = true
+        // UI attachment is tracked in onResume/onPause, not onCreate/onDestroy:
+        // the Activity can remain alive while the tablet is locked or the app is backgrounded.
         // Film-style full-screen interface: hide status/navigation bars while JARVIS is open.
         window.decorView.systemUiVisibility = (
             android.view.View.SYSTEM_UI_FLAG_FULLSCREEN or
@@ -149,6 +150,17 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         val result = engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "jarvis")
         if (result == TextToSpeech.ERROR) speechOutputActive = false
     }
+    override fun onResume() {
+        super.onResume()
+        isUiAttached = true
+    }
+
+    override fun onPause() {
+        // Let the manifest receiver handle voice commands while the UI is not foregrounded.
+        isUiAttached = false
+        super.onPause()
+    }
+
     override fun onDestroy() {
         isUiAttached = false
         tts?.stop()
@@ -1164,8 +1176,13 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(receiverContext: Context?, intent: Intent?) {
                 when (intent?.action) {
-                    JarvisVoiceService.ACTION_COMMAND -> intent.getStringExtra(JarvisVoiceService.EXTRA_COMMAND)?.let { latestVoiceCommand(it) }
-                    JarvisVoiceService.ACTION_WAKE -> speak("Počúvam, pane.")
+                    JarvisVoiceService.ACTION_COMMAND -> {
+                        // The manifest receiver owns commands whenever the Activity is paused.
+                        if (isUiAttached) intent.getStringExtra(JarvisVoiceService.EXTRA_COMMAND)?.let { latestVoiceCommand(it) }
+                    }
+                    JarvisVoiceService.ACTION_WAKE -> {
+                        if (isUiAttached) speak("Počúvam, pane.")
+                    }
                     JarvisVoiceService.ACTION_STATUS -> {
                         val status = intent.getStringExtra(JarvisVoiceService.EXTRA_STATUS).orEmpty()
                         listening = status != "HLASOVÝ MODUL VYPNUTÝ"
