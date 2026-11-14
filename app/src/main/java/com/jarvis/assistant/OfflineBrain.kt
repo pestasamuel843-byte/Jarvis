@@ -12,6 +12,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.MessageDigest
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.ConversationConfig
@@ -31,6 +32,7 @@ class OfflineBrain(private val context: Context) {
         const val FALLBACK_MODEL_FILE = "Qwen3-1.7B_dynamic_wi4b32_afp32.litertlm"
         private const val GEMMA_URL = "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm"
         private const val GEMMA_BYTES = 2_588_147_712L
+        private const val GEMMA_SHA256 = "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c"
         private const val QWEN_MIN_BYTES = 850L * 1024L * 1024L
         private const val GEMMA_MIN_FREE_BYTES = 3_200L * 1024L * 1024L
         private const val MIN_RAM_FOR_GEMMA = 8L * 1024L * 1024L * 1024L
@@ -102,6 +104,19 @@ class OfflineBrain(private val context: Context) {
             temp.delete()
             throw error
         }
+    }
+
+    private fun sha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().buffered().use { input ->
+            val buffer = ByteArray(1024 * 1024)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                digest.update(buffer, 0, count)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     private fun downloadGemma(onProgress: (Int) -> Unit) {
