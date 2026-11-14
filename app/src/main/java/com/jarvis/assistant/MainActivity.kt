@@ -1802,9 +1802,9 @@ private suspend fun askAiWithOfflineFallback(
 internal suspend fun generate3DSceneSpec(context: Context, command: String): String? {
     val prefs = context.getSharedPreferences("jarvis", Context.MODE_PRIVATE)
     val prompt = """
-Vytvor 3D scénu podľa požiadavky používateľa. Vráť IBA platný JSON, bez markdownu a komentárov.
-Schéma: {"objects":[{"type":"box|sphere|cylinder|cone|torus|plane|capsule|dodecahedron|icosahedron|tetrahedron|torusKnot","name":"stručný názov","position":[x,y,z],"rotation":[x,y,z],"scale":[x,y,z],"color":"#RRGGBB"}]}
-Vytvor zmysluplnú zostavu z viacerých objektov, ak to návrh vyžaduje. Súradnice a mierky drž približne v rozsahu -10 až 10. Pre jednoduché návrhy stačí niekoľko objektov, pre zložitejšie najviac 40. Každý objekt musí mať všetky polia. Nepíš vysvetlenie, iba JSON.
+Vytvor technický 3D/CAD návrh podľa požiadavky používateľa. Vráť IBA platný JSON.
+Objekt: {"type":"box|sphere|cylinder|cone|torus|plane|capsule|dodecahedron|icosahedron|tetrahedron|torusKnot|mesh","name":"názov","position":[x,y,z],"rotation":[x,y,z],"scale":[x,y,z],"color":"#RRGGBB","dimensions":[šírka,výška,hĺbka],"vertices":[[x,y,z],...],"faces":[[index,index,index,...],...]}
+Pri CAD box použi dimensions. Pri vlastnej topológii použi type mesh, vertices ako zdieľané 3D vrcholy a faces ako polygóny s indexmi vrcholov v správnom poradí. Vytváraj uzavreté/manifold telesá, ak to tvar umožňuje. Max 40 objektov, 300 vrcholov a 600 stien na mesh; súradnice -10 až 10. Každý objekt má name,type,position,rotation,scale,color; mesh navyše vertices a faces. Iba JSON.
 Používateľova požiadavka: $command
 """.trimIndent()
     val answer = askAiWithOfflineFallback(
@@ -1822,7 +1822,7 @@ Používateľova požiadavka: $command
     val parsed = runCatching { JSONObject(raw.substring(start, end + 1)) }.getOrNull() ?: return null
     val source = parsed.optJSONArray("objects") ?: return null
     if (source.length() !in 1..40) return null
-    val allowed = setOf("box", "sphere", "cylinder", "cone", "torus", "plane", "capsule", "dodecahedron", "icosahedron", "tetrahedron", "torusKnot")
+    val allowed = setOf("box", "sphere", "cylinder", "cone", "torus", "plane", "capsule", "dodecahedron", "icosahedron", "tetrahedron", "torusKnot", "mesh")
     val objects = JSONArray()
     for (i in 0 until source.length()) {
         val item = source.optJSONObject(i) ?: continue
@@ -1832,19 +1832,50 @@ Používateľova požiadavka: $command
             val input = item.optJSONArray(key)
             return JSONArray().apply {
                 for (axis in 0..2) {
-                    val n = input?.optDouble(axis, fallback) ?: fallback
-                    put(n.coerceIn(-10.0, 10.0))
+                    val value = input?.optDouble(axis, fallback) ?: fallback
+                    put((if (value.isFinite()) value else fallback).coerceIn(-10.0, 10.0))
                 }
             }
         }
         val color = item.optString("color", "#1685A4").takeIf { it.matches(Regex("#[0-9a-fA-F]{6}")) } ?: "#1685A4"
-        objects.put(JSONObject()
-            .put("type", type)
-            .put("name", item.optString("name", "Objekt ${i + 1}").take(60))
-            .put("position", vector("position", 0.0))
-            .put("rotation", vector("rotation", 0.0))
-            .put("scale", vector("scale", 1.0))
-            .put("color", color))
+        val normalized = JSONObject().put("type", type).put("name", item.optString("name", "Objekt ${i + 1}").take(60))
+            .put("position", vector("position", 0.0)).put("rotation", vector("rotation", 0.0))
+            .put("scale", vector("scale", 1.0)).put("color", color)
+        if (type == "box") normalized.put("dimensions", vector("dimensions", 1.0))
+        if (type == "mesh") {
+            val rawVertices = item.optJSONArray("vertices") ?: continue
+            val rawFaces = item.optJSONArray("faces") ?: continue
+            if (rawVertices.length() !in 3..300 || rawFaces.length() !in 1..600) continue
+            val vertices = JSONArray(); var valid = true
+            for (v in 0 until rawVertices.length()) {
+                val point = rawVertices.optJSONArray(v)
+                if (point == null || point.length() < 3) { valid = false; break }
+                val clean = JSONArray()
+                for (axis in 0..2) {
+                    val n = point.optDouble(axis, Double.NaN)
+                    if (!n.isFinite()) { valid = false; break }
+                    clean.put(n.coerceIn(-10.0, 10.0))
+                }
+                if (!valid) break
+                vertices.put(clean)
+            }
+            val faces = JSONArray()
+            if (valid) for (f in 0 until rawFaces.length()) {
+                val face = rawFaces.optJSONArray(f)
+                if (face == null || face.length() !in 3..16) { valid = false; break }
+                val clean = JSONArray(); val used = mutableSetOf<Int>()
+                for (j in 0 until face.length()) {
+                    val index = face.optInt(j, -1)
+                    if (index !in 0 until vertices.length() || !used.add(index)) { valid = false; break }
+                    clean.put(index)
+                }
+                if (!valid) break
+                faces.put(clean)
+            }
+            if (!valid) continue
+            normalized.put("vertices", vertices).put("faces", faces)
+        }
+        objects.put(normalized)
     }
     if (objects.length() == 0) return null
     val spec = JSONObject().put("objects", objects).toString()
