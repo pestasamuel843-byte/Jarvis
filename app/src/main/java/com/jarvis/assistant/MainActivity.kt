@@ -1796,6 +1796,64 @@ private suspend fun askAiWithOfflineFallback(
     return withContext(Dispatchers.IO) { askAi(endpoint, key, model, history, memory) }
 }
 
+/** Generates a validated, editable primitive-based scene description for the 3D renderer. */
+internal suspend fun generate3DSceneSpec(context: Context, command: String): String? {
+    val prefs = context.getSharedPreferences("jarvis", Context.MODE_PRIVATE)
+    val prompt = """
+Vytvor 3D scénu podľa požiadavky používateľa. Vráť IBA platný JSON, bez markdownu a komentárov.
+Schéma: {"objects":[{"type":"box|sphere|cylinder|cone|torus|plane|capsule|dodecahedron|icosahedron|tetrahedron|torusKnot","name":"stručný názov","position":[x,y,z],"rotation":[x,y,z],"scale":[x,y,z],"color":"#RRGGBB"}]}
+Vytvor zmysluplnú zostavu z viacerých objektov, ak to návrh vyžaduje. Súradnice a mierky drž približne v rozsahu -10 až 10. Pre jednoduché návrhy stačí niekoľko objektov, pre zložitejšie najviac 40. Každý objekt musí mať všetky polia. Nepíš vysvetlenie, iba JSON.
+Používateľova požiadavka: $command
+""".trimIndent()
+    val answer = askAiWithOfflineFallback(
+        context,
+        prefs.getString("endpoint", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions").orEmpty(),
+        prefs.getString("key", "").orEmpty(),
+        prefs.getString("model", "gemini-2.5-flash").orEmpty(),
+        listOf(Message(false, prompt)),
+        "Úloha: vytvor štruktúrovaný 3D návrh z geometrických primitív."
+    )
+    val raw = answer.trim()
+    val start = raw.indexOf('{')
+    val end = raw.lastIndexOf('}')
+    if (start < 0 || end <= start) return null
+    val parsed = runCatching { JSONObject(raw.substring(start, end + 1)) }.getOrNull() ?: return null
+    val source = parsed.optJSONArray("objects") ?: return null
+    if (source.length() !in 1..40) return null
+    val allowed = setOf("box", "sphere", "cylinder", "cone", "torus", "plane", "capsule", "dodecahedron", "icosahedron", "tetrahedron", "torusKnot")
+    val objects = JSONArray()
+    for (i in 0 until source.length()) {
+        val item = source.optJSONObject(i) ?: continue
+        val type = item.optString("type")
+        if (type !in allowed) continue
+        fun vector(key: String, fallback: Double): JSONArray {
+            val input = item.optJSONArray(key)
+            return JSONArray().apply {
+                for (axis in 0..2) {
+                    val n = input?.optDouble(axis, fallback) ?: fallback
+                    put(n.coerceIn(-10.0, 10.0))
+                }
+            }
+        }
+        val color = item.optString("color", "#1685A4").takeIf { it.matches(Regex("#[0-9a-fA-F]{6}")) } ?: "#1685A4"
+        objects.put(JSONObject()
+            .put("type", type)
+            .put("name", item.optString("name", "Objekt ${i + 1}").take(60))
+            .put("position", vector("position", 0.0))
+            .put("rotation", vector("rotation", 0.0))
+            .put("scale", vector("scale", 1.0))
+            .put("color", color))
+    }
+    if (objects.length() == 0) return null
+    val spec = JSONObject().put("objects", objects).toString()
+    val workspace = context.getSharedPreferences("jarvis_workspace", Context.MODE_PRIVATE)
+    val edits = runCatching { JSONArray(workspace.getString("project_edits", "[]").orEmpty()) }.getOrElse { JSONArray() }
+    edits.put(spec)
+    while (edits.length() > 40) edits.remove(0)
+    workspace.edit().putString("project_edits", edits.toString()).putString("workspace_last_scene_spec", spec).apply()
+    return spec
+}
+
 /** Runs the same conversational AI pipeline when the UI has been dismissed. */
 internal suspend fun answerHeadlessVoiceCommand(context: Context, command: String): String {
     val prefs = context.getSharedPreferences("jarvis", Context.MODE_PRIVATE)
