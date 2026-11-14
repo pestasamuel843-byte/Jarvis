@@ -1487,7 +1487,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         TextButton(onClick = { settings = false; showCheckIn = true }) { Text("OSOBNÝ PROFIL • IMPORT ROZHOVOROV", color = Cyan) }
                         Text("OFFLINE AI MOZOG", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text("Model Qwen3 1.7B INT4 (približne 932 MB) je súčasťou APK. JARVIS ho automaticky pripraví pri prvom spustení, bez API kľúča a bez internetu. Vyžaduje približne 1,05 GB voľného miesta navyše a dostatok RAM.", color = Muted, fontSize = 11.sp)
+                        Text("Offline AI nevyžaduje účet ani API kľúč. Na zariadení s aspoň 8 GB RAM sa JARVIS pokúsi stiahnuť Gemma 4 E2B (približne 2,59 GB); ak to zlyhá alebo sa model nespustí, automaticky použije záložný Qwen3 1.7B INT4 (približne 932 MB), ktorý je súčasťou APK. Pri prvom stiahnutí Gemma je potrebný internet a približne 3,2 GB voľného miesta.", color = Muted, fontSize = 11.sp)
                         Button(
                             onClick = {
                                 apiTesting = true
@@ -1497,7 +1497,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                                         OfflineBrain(context).download { percent ->
                                             apiTestResult = "Sťahujem offline AI model: $percent %"
                                         }
-                                        apiTestResult = "Offline AI model Qwen3 1.7B je pripravený."
+                                        apiTestResult = "Offline AI model je pripravený."
                                     } catch (error: Exception) {
                                         apiTestResult = "Príprava offline modelu zlyhala: ${error.message ?: "neznáma chyba"}"
                                     } finally {
@@ -1508,7 +1508,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                             enabled = !apiTesting
                         ) { Text(if (apiTesting) "PRACUJEM…" else "PRIPRAVIŤ OFFLINE AI MOZOG") }
                         Text("Základná AI funguje lokálne bez účtu a API kľúča. Online služba je iba voliteľná.", color = Muted, fontSize = 12.sp)
-                        Text("Predvolená služba: Google Gemini API • model Gemini 2.5 Flash", color = Cyan, fontSize = 12.sp)
+                        Text("Voliteľné online AI spojenie: Google Gemini API • offline AI funguje aj bez neho.", color = Cyan, fontSize = 12.sp)
                         OutlinedTextField(key, { key = it }, label = { Text("Google Gemini API kľúč") }, placeholder = { Text("Vložte svoj kľúč z Google AI Studio") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
                         TextButton(onClick = {
                             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://aistudio.google.com/app/apikey"))) }
