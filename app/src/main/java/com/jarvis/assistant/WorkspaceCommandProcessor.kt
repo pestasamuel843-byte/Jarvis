@@ -10,7 +10,14 @@ object WorkspaceCommandProcessor {
     data class Result(val state: ProjectState, val spokenResponse: String)
 
     private val workspaceWords = listOf("projekt", "pracovný priestor", "pracovny priestor", "3d", "trojrozmer", "model", "navrhni", "navrhn", "vizualiz", "nakresli", "vymodeluj", "ukáž mi v 3d", "ukaz mi v 3d")
-    private val editWords = listOf("spoiler", "krídlo", "kridlo", "svetl", "reflektor", "led", "disk", "ráfik", "rafik", "červen", "cerv", "modr", "zmeň farbu", "zmen farbu")
+    private val editWords = listOf(
+        "spoiler", "krídlo", "kridlo", "svetl", "reflektor", "led", "disk", "ráfik", "rafik",
+        "červen", "cerv", "modr", "zmeň farbu", "zmen farbu",
+        "pridaj", "vytvor", "odstráň", "odstran", "vymaž", "vymaz", "zväčši", "zvacsi",
+        "zmenši", "zmensi", "otoč", "otoc", "posuň", "posun", "presuň", "presun",
+        "valec", "guľu", "gulu", "kužeľ", "kuzel", "kocku", "kváder", "kvader",
+        "torus", "prstenec", "rovinu", "plochu", "model", "objekt", "geometriu"
+    )
     private val mapWords = listOf("mapu", "mapa", "zemeguľ", "zemegul", "ulic", "trasu", "trasa", "polohu")
 
     fun load(context: Context): ProjectState {
@@ -40,6 +47,7 @@ object WorkspaceCommandProcessor {
             listOf("ulic", "cest", "chodník", "chodnik", "križovat", "krizovat", "budov").any(q::contains) -> "ULICA"
             listOf("dom", "strech", "komín", "komin").any(q::contains) -> "DOM"
             listOf("guľ", "gul", "lopta", "planéta", "planeta").any(q::contains) -> "GUĽA"
+            listOf("vymodeluj", "vytvor nový model", "vytvor novy model", "nový objekt", "novy objekt").any(q::contains) -> "CUSTOM"
             q.contains("pyram") -> "PYRAMÍDA"
             q.contains("kock") -> "KOCKA"
             else -> previous.model
