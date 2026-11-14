@@ -265,8 +265,10 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             if (key.isNotBlank() || OfflineBrain(context).isInstalled()) {
                 busy = true
                 scope.launch {
-                    val designDescription = runCatching { answerHeadlessVoiceCommand(context, text) }.getOrNull()
-                    if (!designDescription.isNullOrBlank()) {
+                    val sceneSpec = runCatching { generate3DSceneSpec(context, text) }.getOrNull()
+                    if (!sceneSpec.isNullOrBlank()) {
+                        val designDescription = "AI návrh 3D scény je pripravený a uložený. Počet objektov: " +
+                            runCatching { JSONObject(sceneSpec).optJSONArray("objects")?.length() ?: 0 }.getOrDefault(0) + "."
                         workspaceDescription = designDescription
                         prefs.edit().putString("workspace_description", designDescription).apply()
                         chat.add(Message(true, designDescription))
