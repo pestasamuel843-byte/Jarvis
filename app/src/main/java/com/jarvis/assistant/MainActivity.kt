@@ -2086,6 +2086,24 @@ internal suspend fun answerHeadlessVoiceCommand(context: Context, command: Strin
         }
     }
     history.add(Message(false, command))
+    val personNote = Regex("(?i)^(?:zapamätaj si o|ulož poznámku o)\\s+([^:]{1,70}):\\s*(.+)$").find(command.trim())
+    if (personNote != null) return JarvisPersonalProfiles.addPersonNote(context, personNote.groupValues[1], personNote.groupValues[2])
+    val healthNote = Regex("(?i)^(?:zapamätaj si moje zdravie|ulož zdravotnú poznámku):\\s*(.+)$").find(command.trim())
+    if (healthNote != null) return JarvisPersonalProfiles.addHealthNote(context, healthNote.groupValues[1])
+    val personQuery = Regex("(?i)^(?:čo vieš o|ukáž profil)\\s+(.+)$").find(command.trim())
+    if (personQuery != null) return JarvisPersonalProfiles.personSummary(context, personQuery.groupValues[1])
+    val forgetPerson = Regex("(?i)^(?:zabudni profil|vymaž profil osoby|vymaz profil osoby)\\s+(.+)$").find(command.trim())
+    if (forgetPerson != null) return JarvisPersonalProfiles.removePerson(context, forgetPerson.groupValues[1])
+    if (command.contains("vymaž zdravotné poznámky", true) || command.contains("vymaz zdravotne poznamky", true))
+        return JarvisPersonalProfiles.clearHealthNotes(context)
+    if (command.contains("povoľ zdieľanie osobného profilu online", true) || command.contains("povol zdielanie osobneho profilu online", true)) {
+        prefs.edit().putBoolean("share_personal_context_with_online", true).apply()
+        return "Zdieľanie osobného profilu s online AI je povolené."
+    }
+    if (command.contains("zakáž zdieľanie osobného profilu online", true) || command.contains("zakaz zdielanie osobneho profilu online", true)) {
+        prefs.edit().putBoolean("share_personal_context_with_online", false).apply()
+        return "Zdieľanie osobného profilu s online AI je vypnuté."
+    }
     JarvisProtection.detectRequest(command)?.let { JarvisProtection.setLevel(context, it) }
     if (JarvisProtection.isExitRequest(command)) JarvisProtection.clear(context)
     val memory = prefs.getString("memories", "").orEmpty() +
