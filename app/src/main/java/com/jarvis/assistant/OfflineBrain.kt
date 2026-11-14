@@ -37,6 +37,8 @@ class OfflineBrain(private val context: Context) {
         private const val GEMMA_MIN_FREE_BYTES = 3_200L * 1024L * 1024L
         private const val MIN_RAM_FOR_GEMMA = 8L * 1024L * 1024L * 1024L
         private const val MODEL_CHOICE_PREF = "jarvis_offline_model_choice"
+        private const val GEMMA_VERIFIED_SIZE_PREF = "jarvis_gemma_verified_size"
+        private const val GEMMA_VERIFIED_MODIFIED_PREF = "jarvis_gemma_verified_modified"
         private val preparationMutex = Mutex()
     }
 
@@ -60,8 +62,24 @@ class OfflineBrain(private val context: Context) {
     private fun expectedMinimumBytes(): Long =
         if (useQwenFallback()) QWEN_MIN_BYTES else GEMMA_BYTES
 
-    fun isPrepared(): Boolean =
-        modelFile.exists() && modelFile.length() >= expectedMinimumBytes()
+    fun isPrepared(): Boolean {
+        val file = modelFile
+        if (!file.exists() || file.length() < expectedMinimumBytes()) return false
+        if (useQwenFallback()) return true
+
+        // SHA-256 is checked when Gemma is first accepted. Cache that verification
+        // against file size + modification time so we do not hash 2.6 GB on every chat turn.
+        val prefs = context.getSharedPreferences("jarvis", Context.MODE_PRIVATE)
+        return prefs.getLong(GEMMA_VERIFIED_SIZE_PREF, -1L) == file.length() &&
+            prefs.getLong(GEMMA_VERIFIED_MODIFIED_PREF, -1L) == file.lastModified()
+    }
+
+    private fun markGemmaVerified(file: File) {
+        context.getSharedPreferences("jarvis", Context.MODE_PRIVATE).edit()
+            .putLong(GEMMA_VERIFIED_SIZE_PREF, file.length())
+            .putLong(GEMMA_VERIFIED_MODIFIED_PREF, file.lastModified())
+            .apply()
+    }
 
     /** True when a local model is already prepared or a bundled fallback can be prepared. */
     fun isInstalled(): Boolean =
@@ -122,6 +140,7 @@ class OfflineBrain(private val context: Context) {
         val destination = File(context.filesDir, MODEL_FILE)
         if (destination.exists() && destination.length() >= GEMMA_BYTES) {
             if (sha256(destination).equals(GEMMA_SHA256, ignoreCase = true)) {
+                markGemmaVerified(destination)
                 onProgress(100)
                 return
             }
@@ -168,6 +187,7 @@ class OfflineBrain(private val context: Context) {
             }
             if (destination.exists()) destination.delete()
             check(temporary.renameTo(destination)) { "Nepodarilo sa uložiť model Gemma 4." }
+            markGemmaVerified(destination)
             onProgress(100)
         } finally {
             connection.disconnect()
