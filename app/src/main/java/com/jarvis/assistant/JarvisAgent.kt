@@ -161,7 +161,7 @@ object JarvisAgent {
                 launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(launch)
                 "Aplikácia $requested bola otvorená."
-            }.getOrElse { "Aplikáciu $requested sa nepodarilo otvoriť: \${it.message ?: "chyba Androidu"}." }
+            }.getOrElse { "Aplikáciu $requested sa nepodarilo otvoriť: ${it.message ?: "chyba Androidu"}." }
             if (target.webUrl != null) return openUrl(context, target.webUrl,
                 "Aplikácia $requested nie je nainštalovaná; otvoril som jej webovú verziu.")
         }
@@ -206,12 +206,12 @@ object JarvisAgent {
         return runCatching {
             context.startActivity(intent)
             "Otvoril som nový e-mail ako koncept. Pred odoslaním ho skontrolujte."
-        }.getOrElse { "E-mailovú aplikáciu sa nepodarilo otvoriť: \${it.message ?: "chyba Androidu"}." }
+        }.getOrElse { "E-mailovú aplikáciu sa nepodarilo otvoriť: ${it.message ?: "chyba Androidu"}." }
     }
 
     private fun openUrl(context: Context, url: String, success: String): String =
         runCatching {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             success
-        }.getOrElse { "Odkaz sa nepodarilo otvoriť: \${it.message ?: "chyba Androidu"}." }
+        }.getOrElse { "Odkaz sa nepodarilo otvoriť: ${it.message ?: "chyba Androidu"}." }
 }
