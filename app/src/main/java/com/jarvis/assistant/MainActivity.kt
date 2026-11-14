@@ -237,7 +237,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
         kotlinx.coroutines.delay(4700)
         showIntro = false
         // The school timetable is collected once, by voice. Never force a grades/mood form on startup.
-        showCheckIn = !prefs.getBoolean("first_run_completed", false)
+        showCheckIn = !prefs.getBoolean("profile_setup_completed", false)
     }
     var lastWorkspaceRequest by remember { mutableStateOf(prefs.getString("workspace_last_command", "").orEmpty()) }
     var workspaceDescription by remember { mutableStateOf(prefs.getString("workspace_description", "Povedzte JARVISu, čo chcete navrhnúť. Návrh AI sa zobrazí tu a náčrt môžete kresliť prstom.") ?: "") }
@@ -1044,7 +1044,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             context.startForegroundService(Intent(context, JarvisVoiceService::class.java))
             if (firstRunSetupRequested) {
                 firstRunSetupRequested = false
-                prefs.edit().putBoolean("first_run_completed", true).apply()
+                prefs.edit().putBoolean("first_run_completed", true).putBoolean("profile_setup_completed", true).apply()
                 scheduleSetupIndex = 0
                 val prompt = "Dobrý deň, pane. Vitajte v JARVIS. Najprv nastavíme váš školský rozvrh. Začneme pondelkom. Aký predmet máte na prvej hodine?"
                 chat.add(Message(true, prompt))
