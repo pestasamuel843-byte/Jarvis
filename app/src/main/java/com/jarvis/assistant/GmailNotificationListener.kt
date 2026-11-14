@@ -7,6 +7,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.Locale
 
 /**
  * Saves notification previews from Gmail, Messenger, Instagram, Facebook, WhatsApp and EduPage.
@@ -111,6 +112,23 @@ class GmailNotificationListener : NotificationListenerService() {
             ?.joinToString(". ").orEmpty()
         val preview = (bigText.ifBlank { lines.ifBlank { text } }).take(900)
         if (title.isBlank() && preview.isBlank()) return
+
+        // Strongly worded incoming threats are flagged for the user to review.
+        // A message alone never triggers OMEGA or any external action.
+        val riskText = preview.lowercase(Locale.ROOT)
+        val possibleThreat = listOf(
+            "ublížim ti", "ublizim ti", "zbijem ťa", "zbijem ta", "zabijem ťa", "zabijem ta",
+            "počkám si na teba", "pockam si na teba", "viem kde bývaš", "viem kde byvas",
+            "prídem za tebou a", "pridem za tebou a", "vyhrážam sa ti", "vyhrazam sa ti"
+        ).any { riskText.contains(it) }
+        if (possibleThreat) {
+            JarvisProtection.setLevel(this, JarvisProtection.BLACKOUT)
+            getSharedPreferences("jarvis_protection", MODE_PRIVATE).edit()
+                .putString("last_flagged_sender", title.take(100))
+                .putString("last_flagged_preview", preview.take(500))
+                .putLong("last_flagged_at", System.currentTimeMillis()).apply()
+            sendBroadcast(Intent("com.jarvis.assistant.PROTECTION_ALERT").setPackage(packageName))
+        }
 
         val prefs = getSharedPreferences("jarvis_gmail", MODE_PRIVATE)
         val old = runCatching {
