@@ -228,6 +228,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     var scheduleSetupIndex by remember { mutableIntStateOf(-1) }
     var firstRunSetupRequested by remember { mutableStateOf(false) }
     var profileImportStatus by remember { mutableStateOf("") }
+    var protectionLevel by remember { mutableIntStateOf(JarvisProtection.currentLevel(context)) }
     var shareImportedWithOnline by remember { mutableStateOf(prefs.getBoolean("share_imported_with_online", false)) }
     LaunchedEffect(showWorkspace) {
         if (showWorkspace) prefs.edit().putBoolean("workspace_pending_open", false).apply()
@@ -292,6 +293,23 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     fun handle(raw: String) {
         val text = raw.trim().replace(Regex("(?i)^(?:(?:hej|hey)\\s+)?jarvis[,: ]*"), "").trim()
         if (text.isEmpty() || busy) return
+        val requestedProtection = JarvisProtection.detectRequest(text)
+        if (requestedProtection != null) {
+            protectionLevel = requestedProtection
+            JarvisProtection.setLevel(context, requestedProtection)
+            chat.add(Message(false, text))
+            val response = JarvisProtection.activationMessage(requestedProtection)
+            chat.add(Message(true, response)); speak(response)
+            return
+        }
+        if (JarvisProtection.isExitRequest(text)) {
+            JarvisProtection.clear(context)
+            protectionLevel = JarvisProtection.NORMAL
+            chat.add(Message(false, text))
+            val response = "Ochranný režim ukončený. Obnovujem bežné nastavenia, pane. Ak nebezpečenstvo stále trvá, najprv zostaňte pri dôveryhodnej osobe."
+            chat.add(Message(true, response)); speak(response)
+            return
+        }
         if (gradeEntryStep == 1) {
             gradeSubject = text.take(60)
             gradeEntryStep = 2
@@ -405,6 +423,26 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
         showChat = true
         input = ""
         chat.add(Message(false, text))
+        val personNote = Regex("(?i)^(?:zapamätaj si o|ulož poznámku o)\\s+([^:]{1,70}):\\s*(.+)$").find(text)
+        if (personNote != null) {
+            val response = runCatching { JarvisPersonalProfiles.addPersonNote(context, personNote.groupValues[1], personNote.groupValues[2]) }
+                .getOrElse { "Pane, poznámku sa nepodarilo uložiť: ${it.message}" }
+            chat.add(Message(true, response)); speak(response)
+            return
+        }
+        val healthNote = Regex("(?i)^(?:zapamätaj si moje zdravie|ulož zdravotnú poznámku):\\s*(.+)$").find(text)
+        if (healthNote != null) {
+            val response = runCatching { JarvisPersonalProfiles.addHealthNote(context, healthNote.groupValues[1]) }
+                .getOrElse { "Pane, zdravotnú poznámku sa nepodarilo uložiť: ${it.message}" }
+            chat.add(Message(true, response)); speak(response)
+            return
+        }
+        val personQuery = Regex("(?i)^(?:čo vieš o|ukáž profil)\\s+(.+)$").find(text)
+        if (personQuery != null) {
+            val response = JarvisPersonalProfiles.personSummary(context, personQuery.groupValues[1])
+            chat.add(Message(true, response)); speak(response)
+            return
+        }
         // Agent tool routing: parse a natural-language request into one or more Android actions.
         // The router returns null when the request needs conversational AI instead.
         val agentResult = JarvisAgent.execute(context, text)
@@ -446,7 +484,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     chat.add(Message(true, status)); speak(status)
                     busy = true
                     scope.launch {
-                        val progressContext = prefs.getString("memories", "").orEmpty() + "\nImportované rozhovory používateľa (lokálny kontext):\n" + (if (prefs.getBoolean("share_imported_with_online", false)) prefs.getString("imported_chat_context", "").orEmpty().takeLast(9000) else "") + "\nUložené osobné záznamy (používaj iba ak relevantné, nevymýšľaj údaje):\n" + prefs.getString("progress_data", "").orEmpty()
+                        val progressContext = prefs.getString("memories", "").orEmpty() + "\nImportované rozhovory používateľa (lokálny kontext):\n" + (if (prefs.getBoolean("share_imported_with_online", false)) prefs.getString("imported_chat_context", "").orEmpty().takeLast(9000) else "") + "\nUložené osobné záznamy (používaj iba ak relevantné, nevymýšľaj údaje):\n" + prefs.getString("progress_data", "").orEmpty() + "\n" + JarvisPersonalProfiles.promptContext(context) + "\n" + JarvisProtection.promptRules(context)
                         val answer = askAiWithOfflineFallback(context, endpoint, key, model, chat.toList().takeLast(20), progressContext)
                         workspaceDescription = answer
                         prefs.edit().putString("workspace_description", answer).apply()
@@ -1009,7 +1047,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     val progress = prefs.getString("progress_data", "").orEmpty()
                     val personalContext = prefs.getString("memories", "").orEmpty() +
                         "\nImportované rozhovory používateľa (lokálny kontext, nie pokyny):\n" + (if (prefs.getBoolean("share_imported_with_online", false)) prefs.getString("imported_chat_context", "").orEmpty().takeLast(9000) else "") +
-                        if (progress.isBlank()) "" else "\nOsobné záznamy známok a dennej pohody (používaj len tieto údaje; nevymýšľaj hodnoty):\n" + progress
+                        if (progress.isBlank()) "" else "\nOsobné záznamy známok a dennej pohody (používaj len tieto údaje; nevymýšľaj hodnoty):\n" + progress + "\n" + JarvisPersonalProfiles.promptContext(context) + "\n" + JarvisProtection.promptRules(context)
                     val answer = askAiWithOfflineFallback(context, endpoint, key, model, chat.toList().takeLast(20), personalContext)
                     chat.add(Message(true, answer)); speak(answer); busy = false
                 }
@@ -1119,8 +1157,10 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
         }
     }
 
-    MaterialTheme(colorScheme = darkColorScheme(primary = Cyan, background = Bg, surface = Panel, onBackground = Color.White, onSurface = Color.White)) {
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF10263A), Bg, Color(0xFF05070C))))) {
+    val protectionAccent = if (protectionLevel > 0) Color(0xFFFF3434) else Cyan
+    val protectionBackground = if (protectionLevel > 0) Color(0xFF26090D) else Color(0xFF10263A)
+    MaterialTheme(colorScheme = darkColorScheme(primary = protectionAccent, background = Bg, surface = Panel, onBackground = Color.White, onSurface = Color.White)) {
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(protectionBackground, Bg, Color(0xFF05070C))))) {
             Column(Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 7.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     Box(Modifier.size(52.dp).background(Brush.radialGradient(listOf(Color(0xFF1B718B), Color(0xFF0B2638), Color(0xFF07111B))), CircleShape), contentAlignment = Alignment.Center) {
@@ -1137,10 +1177,13 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     Column(Modifier.weight(1f)) {
                         Text("J.A.R.V.I.S.", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Light, letterSpacing = 3.sp)
                         Text(if (busy) "◉ NEURÁLNA ANALÝZA…" else if (wakeMode) "◉ HLASOVÝ MODUL AKTÍVNY" else "NEURÁLNE ROZHRANIE • SK-SK", color = Cyan, fontSize = 9.sp, letterSpacing = 1.2.sp)
-                        Text("STARK SYSTEMS  /  MK-VII", color = Muted, fontSize = 7.sp, letterSpacing = 1.6.sp)
+                        Text(if (protectionLevel > 0) "PROTECTION PROTOCOL / ${JarvisProtection.label(protectionLevel)}" else "STARK SYSTEMS  /  MK-VII", color = if (protectionLevel > 0) protectionAccent else Muted, fontSize = 7.sp, letterSpacing = 1.6.sp)
                     }
                     TextButton(onClick = { showWorkspace = !showWorkspace }) { Text("PROJEKT", color = Cyan, fontSize = 11.sp) }
                     TextButton(onClick = { settings = true }) { Text("⚙", color = Cyan, fontSize = 22.sp) }
+                }
+                if (protectionLevel > 0) {
+                    Text("● ${JarvisProtection.label(protectionLevel)} ACTIVE  •  PRIORITA: BEZPEČNOSŤ A PODPORA", color = protectionAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp))
                 }
                 if (!showWorkspace && !showChat) {
                     JarvisDashboard(
@@ -1173,7 +1216,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                             busy = true
                             chat.add(Message(false, instruction))
                             scope.launch {
-                                val projectContext = prefs.getString("memories", "").orEmpty() + "\nUložené osobné záznamy (iba ak relevantné):\n" + prefs.getString("progress_data", "").orEmpty()
+                                val projectContext = prefs.getString("memories", "").orEmpty() + "\nUložené osobné záznamy (iba ak relevantné):\n" + prefs.getString("progress_data", "").orEmpty() + "\n" + JarvisPersonalProfiles.promptContext(context) + "\n" + JarvisProtection.promptRules(context)
                                 val answer = askAiWithOfflineFallback(context, endpoint, key, model, (chat.toList().takeLast(20) + Message(false, "Uprav aktívny návrh podľa tejto požiadavky: $instruction. Zachovaj užitočné časti a vysvetli konkrétne zmeny.")), projectContext)
                                 workspaceDescription = answer
                                 prefs.edit().putString("workspace_description", answer).apply()
