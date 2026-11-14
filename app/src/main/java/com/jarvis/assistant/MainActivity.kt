@@ -618,10 +618,19 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 }
             }
             text.contains("otvor mapy", true) || text.contains("otvor google maps", true) || text == "mapy" -> {
-                val answer = "Otváram mapy, pane."
+                val answer = "Otváram Google Maps, pane."
                 chat.add(Message(true, answer)); speak(answer)
-                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://maps.google.com"))) }
-                    .onFailure { Toast.makeText(context, "Mapy sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show() }
+                runCatching {
+                    val mapsIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps"))
+                        .setPackage("com.google.android.apps.maps")
+                    try {
+                        context.startActivity(mapsIntent)
+                    } catch (_: Exception) {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps")))
+                    }
+                }.onFailure {
+                    Toast.makeText(context, "Google Maps sa nepodarilo otvoriť.", Toast.LENGTH_SHORT).show()
+                }
             }
             text.contains("otvor kalkulačku", true) || text.contains("spusti kalkulačku", true) -> {
                 val answer = "Pokúšam sa otvoriť kalkulačku, pane."
