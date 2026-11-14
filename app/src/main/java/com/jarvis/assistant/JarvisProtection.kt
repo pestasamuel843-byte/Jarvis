@@ -26,11 +26,11 @@ internal object JarvisProtection {
     fun detectRequest(raw: String): Int? {
         val text = normalize(raw)
         return when {
-            listOf("aktivuj sovereign", "aktivuj sovereign protocol", "prevezmi to cele", "ja uz to nedam", "uz to nedavam", "ja to uz nezvladam", "nechcem uz nic riesit").any { text.contains(it) } -> SOVEREIGN
+            listOf("aktivuj sovereign", "aktivuj sovereign protocol", "prevezmi to cele", "zober to cele do ruk", "vsetko prevezmi", "ja uz to nedam", "ja to uz nedam", "uz to nedam", "uz to nedavam", "ja to uz nezvladam", "nechcem uz nic riesit").any { text.contains(it) } -> SOVEREIGN
             listOf("aktivuj omega", "omega protocol").any { text.contains(it) } -> OMEGA
             listOf("aktivuj blackout", "blackout protocol").any { text.contains(it) } -> BLACKOUT
             listOf("aktivuj guardian", "guardian rezim", "guardian mode").any { text.contains(it) } -> GUARDIAN
-            listOf("som v nebezpeci", "niekto mi hrozi", "bojim sa ze mi niekto ublizi", "niekto ma napadol", "hrozi mi bezprostredne nebezpecenstvo").any { text.contains(it) } -> OMEGA
+            listOf("som v nebezpeci", "neviem ci som v bezpeci", "niekto mi hrozi", "bojim sa ze mi niekto ublizi", "niekto ma napadol", "hrozi mi bezprostredne nebezpecenstvo").any { text.contains(it) } -> OMEGA
             listOf("som pretazeny", "som uplne vycerpany", "uz nevladzem", "mam toho prilis vela", "nezvladam to").any { text.contains(it) } -> GUARDIAN
             else -> null
         }
@@ -50,7 +50,7 @@ internal object JarvisProtection {
     }
 
     fun activationMessage(level: Int): String = when (level) {
-        GUARDIAN -> "GUARDIAN aktivovaný. Stíšim nepodstatné rozptýlenia a pomôžem vám rozdeliť situáciu na zvládnuteľné kroky. Čo sa stalo?"
+        GUARDIAN -> "GUARDIAN aktivovaný. Nebudem vás zaťažovať nepodstatnými témami a pomôžem vám rozdeliť situáciu na zvládnuteľné kroky. Systémové upozornenia Androidu sa týmto automaticky nemenia. Čo sa stalo?"
         BLACKOUT -> "BLACKOUT aktivovaný. Zameriam sa na aktuálny problém a bezpečný postup. Nebudem eskalovať konflikt ani konať bez vášho súhlasu."
         OMEGA -> "OMEGA aktivovaný. Najprv bezpečnosť: ste teraz na bezpečnom mieste? Ak hrozí bezprostredné nebezpečenstvo, presuňte sa k dôveryhodnému dospelému a volajte 112."
         SOVEREIGN -> "SOVEREIGN aktivovaný. Preberám organizáciu ďalších krokov, nie rozhodovanie za vás. Nebudem vás zahlcovať. Najprv mi, prosím, povedzte: ste teraz v bezpečí?"
