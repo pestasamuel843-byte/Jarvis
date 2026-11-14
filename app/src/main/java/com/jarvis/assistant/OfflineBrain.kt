@@ -93,7 +93,7 @@ class OfflineBrain(private val context: Context) {
         check(isInstalled()) { "Offline AI model is not installed." }
 
         val prefs = context.getSharedPreferences("jarvis", Context.MODE_PRIVATE)
-        val memory = prefs.getString("memories", "").orEmpty().takeLast(3500)
+        val memory = (prefs.getString("memories", "").orEmpty() + "\nImportované rozhovory používateľa (lokálny kontext):\n" + prefs.getString("imported_chat_context", "").orEmpty()).takeLast(9000)
         val history = runCatching {
             val saved = JSONArray(prefs.getString("chat_history", "[]").orEmpty())
             val recent = (maxOf(0, saved.length() - 8) until saved.length()).mapNotNull { index ->
