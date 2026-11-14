@@ -3,6 +3,8 @@ package com.jarvis.assistant
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -23,21 +25,25 @@ class OfflineBrain(private val context: Context) {
         const val MODEL_FILE = "Qwen3-1.7B_dynamic_wi4b32_afp32.litertlm"
         const val MODEL_SIZE_LABEL = "súčasť aplikácie (približne 932 MB)"
         private const val MIN_MODEL_BYTES = 850L * 1024L * 1024L
+        private val preparationMutex = Mutex()
     }
 
     private val modelFile: File
         get() = File(context.filesDir, MODEL_FILE)
 
+    fun isPrepared(): Boolean = modelFile.exists() && modelFile.length() > MIN_MODEL_BYTES
+
     fun isInstalled(): Boolean {
-        if (modelFile.exists() && modelFile.length() > MIN_MODEL_BYTES) return true
+        if (isPrepared()) return true
         return runCatching { context.assets.open(MODEL_FILE).use { true } }.getOrDefault(false)
     }
 
     /** Copies the model already bundled in the APK. No network connection is used. */
     suspend fun download(onProgress: (Int) -> Unit = {}): Unit = withContext(Dispatchers.IO) {
-        if (modelFile.exists() && modelFile.length() > MIN_MODEL_BYTES) {
+        preparationMutex.withLock {
+        if (isPrepared()) {
             onProgress(100)
-            return@withContext
+            return@withLock
         }
         val requiredSpace = 1_050L * 1024L * 1024L
         if (context.filesDir.usableSpace < requiredSpace) {
@@ -68,6 +74,7 @@ class OfflineBrain(private val context: Context) {
         } catch (error: Exception) {
             temp.delete()
             throw error
+        }
         }
     }
 
