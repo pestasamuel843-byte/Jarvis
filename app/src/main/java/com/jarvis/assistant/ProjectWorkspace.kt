@@ -45,6 +45,46 @@ private class JarvisGlbExporter(context: Context, private val onSaved: (String) 
     private val appContext = context.applicationContext
 
     @JavascriptInterface
+    fun saveTopology(json: String) {
+        runCatching {
+            require(json.length <= 3_000_000) { "Topológia je príliš veľká" }
+            val edit = JSONObject(json)
+            val name = edit.optString("name")
+            val vertices = edit.optJSONArray("vertices") ?: error("Chýbajú vrcholy")
+            val faces = edit.optJSONArray("faces") ?: error("Chýbajú steny")
+            require(name.isNotBlank() && vertices.length() in 3..300 && faces.length() in 1..600) { "Neplatná topológia" }
+            val prefs = appContext.getSharedPreferences("jarvis_workspace", Context.MODE_PRIVATE)
+            val spec = JSONObject(prefs.getString("workspace_last_scene_spec", "{}").orEmpty())
+            val objects = spec.optJSONArray("objects") ?: JSONArray()
+            var replaced = false
+            for (i in 0 until objects.length()) {
+                val item = objects.optJSONObject(i) ?: continue
+                if (item.optString("name") == name && item.optString("type") == "mesh") {
+                    item.put("vertices", vertices).put("faces", faces)
+                    replaced = true
+                    break
+                }
+            }
+            if (!replaced) error("Model sa už nenachádza v projekte")
+            val specText = spec.toString()
+            val edits = JSONArray(prefs.getString("project_edits", "[]").orEmpty())
+            var replacedEdit = false
+            for (i in edits.length() - 1 downTo 0) {
+                if (runCatching { JSONObject(edits.optString(i)).optJSONArray("objects") != null }.getOrDefault(false)) {
+                    edits.put(i, specText)
+                    replacedEdit = true
+                    break
+                }
+            }
+            if (!replacedEdit) edits.put(specText)
+            prefs.edit().putString("workspace_last_scene_spec", specText).putString("project_edits", edits.toString()).apply()
+            Handler(Looper.getMainLooper()).post { onSaved("Topológia uložená v projekte") }
+        }.onFailure {
+            Handler(Looper.getMainLooper()).post { onSaved("Uloženie topológie zlyhalo: ${it.message}") }
+        }
+    }
+
+    @JavascriptInterface
     fun saveGlb(encoded: String) {
         runCatching {
             require(encoded.length <= 70_000_000) { "Model je príliš veľký na export z tabletu" }
@@ -582,14 +622,15 @@ function geometryFromTopology(vertices,faces){
 }
 let topologyMode=false,activeTopologyMesh=null,selectedVertex=-1,selectedFace=-1,draggingVertex=false;
 const topologyHandles=new THREE.Group();scene.add(topologyHandles);const topoRay=new THREE.Raycaster(),topoNdc=new THREE.Vector2(),topoPlane=new THREE.Plane();
-function refreshTopologyHandles(target){topologyHandles.clear();activeTopologyMesh=target||null;selectedVertex=-1;selectedFace=-1;if(!topologyMode||!activeTopologyMesh?.userData.topology)return;activeTopologyMesh.userData.topology.vertices.forEach((v,index)=>{const h=new THREE.Mesh(new THREE.SphereGeometry(.06,10,8),new THREE.MeshBasicMaterial({color:0x4deBff,depthTest:false}));h.position.set(...v);h.userData.vertexIndex=index;topologyHandles.add(h);});}
-function updateTopologyMesh(target){const d=target.userData.topology;target.geometry.dispose();target.geometry=geometryFromTopology(d.vertices,d.faces);const old=target.children.find(c=>c.userData.topologyEdges);if(old){target.remove(old);old.geometry.dispose();}const line=new THREE.LineSegments(new THREE.EdgesGeometry(target.geometry),edgeMaterial);line.userData.topologyEdges=true;target.add(line);refreshTopologyHandles(target);}
+function refreshTopologyHandles(target){const keepVertex=selectedVertex,keepFace=selectedFace;topologyHandles.clear();activeTopologyMesh=target||null;if(!topologyMode||!activeTopologyMesh?.userData.topology)return;activeTopologyMesh.userData.topology.vertices.forEach((v,index)=>{const h=new THREE.Mesh(new THREE.SphereGeometry(.06,10,8),new THREE.MeshBasicMaterial({color:0x4deBff,depthTest:false}));h.position.copy(activeTopologyMesh.localToWorld(new THREE.Vector3(v[0],v[1],v[2])));h.userData.vertexIndex=index;topologyHandles.add(h);});selectedVertex=keepVertex;selectedFace=keepFace;}
+function saveTopologyState(target){if(!window.JarvisExport?.saveTopology)return;const d=target.userData.topology;window.JarvisExport.saveTopology(JSON.stringify({name:target.name,vertices:d.vertices,faces:d.faces}));}
+function updateTopologyMesh(target){const d=target.userData.topology,keep=selectedVertex;target.geometry.dispose();target.geometry=geometryFromTopology(d.vertices,d.faces);const old=target.children.find(c=>c.userData.topologyEdges);if(old){target.remove(old);old.geometry.dispose();}const line=new THREE.LineSegments(new THREE.EdgesGeometry(target.geometry),edgeMaterial);line.userData.topologyEdges=true;target.add(line);refreshTopologyHandles(target);selectedVertex=keep;saveTopologyState(target);}
 function topoPointer(e){const r=renderer.domElement.getBoundingClientRect();topoNdc.set((e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height*2-1));topoRay.setFromCamera(topoNdc,camera);}
 renderer.domElement.addEventListener('pointerdown',e=>{if(!topologyMode||!activeTopologyMesh)return;topoPointer(e);const h=topoRay.intersectObjects(topologyHandles.children)[0];if(h){selectedVertex=h.object.userData.vertexIndex;draggingVertex=true;topoPlane.setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()),h.object.getWorldPosition(new THREE.Vector3()));renderer.domElement.setPointerCapture(e.pointerId);e.preventDefault();return;}const hit=topoRay.intersectObject(activeTopologyMesh)[0];if(hit&&hit.faceIndex!==undefined){selectedFace=activeTopologyMesh.geometry.userData.triangleFaces[hit.faceIndex]??-1;document.getElementById('hud').textContent='JARVIS • VYBRANÁ STENA '+(selectedFace+1);}});
 renderer.domElement.addEventListener('pointermove',e=>{if(!draggingVertex||selectedVertex<0||!activeTopologyMesh)return;topoPointer(e);const point=new THREE.Vector3();if(!topoRay.ray.intersectPlane(topoPlane,point))return;const local=activeTopologyMesh.worldToLocal(point),d=activeTopologyMesh.userData.topology;d.vertices[selectedVertex]=[local.x,local.y,local.z];updateTopologyMesh(activeTopologyMesh);});
 renderer.domElement.addEventListener('pointerup',()=>{draggingVertex=false;});
 window.toggleJarvisTopology=function(){topologyMode=!topologyMode;if(!topologyMode){topologyHandles.clear();activeTopologyMesh=null;}else refreshTopologyHandles(object?.children.find(c=>c.isMesh&&c.userData.topology)||null);document.getElementById('hud').textContent=topologyMode?'JARVIS • VRCHOLY: POTIAHNITE BOD':'JARVIS • CAD / TOPOLOGY';};
-window.extrudeJarvisFace=function(distance){if(!activeTopologyMesh||selectedFace<0){document.getElementById('hud').textContent='JARVIS • VYBERTE STENU';return;}const d=activeTopologyMesh.userData.topology,face=d.faces[selectedFace];if(!face)return;const a=new THREE.Vector3(...d.vertices[face[0]]),b=new THREE.Vector3(...d.vertices[face[1]]),c=new THREE.Vector3(...d.vertices[face[2]]);const offset=new THREE.Vector3().subVectors(b,a).cross(new THREE.Vector3().subVectors(c,a)).normalize().multiplyScalar(THREE.MathUtils.clamp(Number(distance)||.5,-5,5));const top=face.map(i=>{const v=new THREE.Vector3(...d.vertices[i]).add(offset);d.vertices.push([v.x,v.y,v.z]);return d.vertices.length-1;});d.faces[selectedFace]=top.slice().reverse();d.faces.push(top);for(let i=0;i<face.length;i++){const j=(i+1)%face.length;d.faces.push([face[i],face[j],top[j],top[i]]);}selectedFace=-1;updateTopologyMesh(activeTopologyMesh);document.getElementById('hud').textContent='JARVIS • EXTRÚZIA HOTOVÁ';};
+window.extrudeJarvisFace=function(distance){if(!activeTopologyMesh||selectedFace<0){document.getElementById('hud').textContent='JARVIS • VYBERTE STENU';return;}const d=activeTopologyMesh.userData.topology,face=d.faces[selectedFace];if(!face)return;const a=new THREE.Vector3(...d.vertices[face[0]]),b=new THREE.Vector3(...d.vertices[face[1]]),c=new THREE.Vector3(...d.vertices[face[2]]);const offset=new THREE.Vector3().subVectors(b,a).cross(new THREE.Vector3().subVectors(c,a)).normalize().multiplyScalar(THREE.MathUtils.clamp(Number(distance)||.5,-5,5));const top=face.map(i=>{const v=new THREE.Vector3(...d.vertices[i]).add(offset);d.vertices.push([v.x,v.y,v.z]);return d.vertices.length-1;});d.faces[selectedFace]=top;for(let i=0;i<face.length;i++){const j=(i+1)%face.length;d.faces.push([face[i],face[j],top[j],top[i]]);}selectedFace=-1;updateTopologyMesh(activeTopologyMesh);document.getElementById('hud').textContent='JARVIS • EXTRÚZIA HOTOVÁ';};
 function addEdges(mesh){const edges=new THREE.EdgesGeometry(mesh.geometry);const line=new THREE.LineSegments(edges,edgeMaterial);if(mesh.userData.topology)line.userData.topologyEdges=true;mesh.add(line);}
 function build(name){
  appliedEdits.clear();
