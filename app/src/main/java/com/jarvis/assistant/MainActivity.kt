@@ -395,7 +395,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
         if (waitingReply != null && (text.equals("áno", true) || text.equals("potvrď", true) || text.equals("odošli", true) || text.equals("odoslať", true))) {
             pendingReply = null
             val sent = GmailNotificationListener.sendReply(waitingReply.appName, waitingReply.sender, waitingReply.text)
-            val answer = if (sent) "Správa bola odoslaná cez rýchlu odpoveď oznámenia, pane."
+            val answer = if (sent) "Android prijal požiadavku na odoslanie rýchlej odpovede, pane. To ešte nepotvrdzuje doručenie správy; JARVIS ho cez oznámenie nevie spoľahlivo overiť."
                 else "Oznámenie neposkytuje použiteľné tlačidlo rýchlej odpovede alebo už nie je aktívne. Správu som neodoslal. Otvorte príslušnú konverzáciu v aplikácii a odošlite ju tam."
             chat.add(Message(true, answer)); speak(answer)
             return
