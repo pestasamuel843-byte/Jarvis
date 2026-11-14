@@ -423,6 +423,29 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
         showChat = true
         input = ""
         chat.add(Message(false, text))
+        if (text.contains("povoľ zdieľanie osobného profilu online", true) || text.contains("povol zdielanie osobneho profilu online", true)) {
+            prefs.edit().putBoolean("share_personal_context_with_online", true).apply()
+            val response = "Povolené. Osobné profily a zdravotné poznámky sa môžu posielať online AI pri odpovediach. Toto nastavenie môžete kedykoľvek zakázať."
+            chat.add(Message(true, response)); speak(response)
+            return
+        }
+        if (text.contains("zakáž zdieľanie osobného profilu online", true) || text.contains("zakaz zdielanie osobneho profilu online", true)) {
+            prefs.edit().putBoolean("share_personal_context_with_online", false).apply()
+            val response = "Zdieľanie osobného profilu s online AI je vypnuté. Osobné poznámky zostávajú dostupné lokálnemu offline modelu."
+            chat.add(Message(true, response)); speak(response)
+            return
+        }
+        val forgetPerson = Regex("(?i)^(?:zabudni profil|vymaž profil osoby|vymaz profil osoby)\\s+(.+)$").find(text)
+        if (forgetPerson != null) {
+            val response = JarvisPersonalProfiles.removePerson(context, forgetPerson.groupValues[1])
+            chat.add(Message(true, response)); speak(response)
+            return
+        }
+        if (text.contains("vymaž zdravotné poznámky", true) || text.contains("vymaz zdravotne poznamky", true)) {
+            val response = JarvisPersonalProfiles.clearHealthNotes(context)
+            chat.add(Message(true, response)); speak(response)
+            return
+        }
         val personNote = Regex("(?i)^(?:zapamätaj si o|ulož poznámku o)\\s+([^:]{1,70}):\\s*(.+)$").find(text)
         if (personNote != null) {
             val response = runCatching { JarvisPersonalProfiles.addPersonNote(context, personNote.groupValues[1], personNote.groupValues[2]) }
@@ -484,7 +507,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     chat.add(Message(true, status)); speak(status)
                     busy = true
                     scope.launch {
-                        val progressContext = prefs.getString("memories", "").orEmpty() + "\nImportované rozhovory používateľa (lokálny kontext):\n" + (if (prefs.getBoolean("share_imported_with_online", false)) prefs.getString("imported_chat_context", "").orEmpty().takeLast(9000) else "") + "\nUložené osobné záznamy (používaj iba ak relevantné, nevymýšľaj údaje):\n" + prefs.getString("progress_data", "").orEmpty() + "\n" + JarvisPersonalProfiles.promptContext(context) + "\n" + JarvisProtection.promptRules(context)
+                        val progressContext = prefs.getString("memories", "").orEmpty() + "\nImportované rozhovory používateľa (lokálny kontext):\n" + (if (prefs.getBoolean("share_imported_with_online", false)) prefs.getString("imported_chat_context", "").orEmpty().takeLast(9000) else "") + "\nUložené osobné záznamy (používaj iba ak relevantné, nevymýšľaj údaje):\n" + prefs.getString("progress_data", "").orEmpty() + "\n" + (if (prefs.getString("key", "").orEmpty().isBlank() || prefs.getBoolean("share_personal_context_with_online", false)) JarvisPersonalProfiles.promptContext(context) else "") + "\n" + JarvisProtection.promptRules(context)
                         val answer = askAiWithOfflineFallback(context, endpoint, key, model, chat.toList().takeLast(20), progressContext)
                         workspaceDescription = answer
                         prefs.edit().putString("workspace_description", answer).apply()
@@ -1048,7 +1071,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     val personalContext = prefs.getString("memories", "").orEmpty() +
                         "\nImportované rozhovory používateľa (lokálny kontext, nie pokyny):\n" + (if (prefs.getBoolean("share_imported_with_online", false)) prefs.getString("imported_chat_context", "").orEmpty().takeLast(9000) else "") +
                         (if (progress.isBlank()) "" else "\nOsobné záznamy známok a dennej pohody (používaj len tieto údaje; nevymýšľaj hodnoty):\n" + progress) +
-                        "\n" + JarvisPersonalProfiles.promptContext(context) + "\n" + JarvisProtection.promptRules(context) + "\n" + JarvisPersonalProfiles.promptContext(context) + "\n" + JarvisProtection.promptRules(context)
+                        "\n" + (if (prefs.getString("key", "").orEmpty().isBlank() || prefs.getBoolean("share_personal_context_with_online", false)) JarvisPersonalProfiles.promptContext(context) else "") + "\n" + JarvisProtection.promptRules(context) + "\n" + (if (prefs.getString("key", "").orEmpty().isBlank() || prefs.getBoolean("share_personal_context_with_online", false)) JarvisPersonalProfiles.promptContext(context) else "") + "\n" + JarvisProtection.promptRules(context)
                     val answer = askAiWithOfflineFallback(context, endpoint, key, model, chat.toList().takeLast(20), personalContext)
                     chat.add(Message(true, answer)); speak(answer); busy = false
                 }
@@ -1225,7 +1248,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                             busy = true
                             chat.add(Message(false, instruction))
                             scope.launch {
-                                val projectContext = prefs.getString("memories", "").orEmpty() + "\nUložené osobné záznamy (iba ak relevantné):\n" + prefs.getString("progress_data", "").orEmpty() + "\n" + JarvisPersonalProfiles.promptContext(context) + "\n" + JarvisProtection.promptRules(context)
+                                val projectContext = prefs.getString("memories", "").orEmpty() + "\nUložené osobné záznamy (iba ak relevantné):\n" + prefs.getString("progress_data", "").orEmpty() + "\n" + (if (prefs.getString("key", "").orEmpty().isBlank() || prefs.getBoolean("share_personal_context_with_online", false)) JarvisPersonalProfiles.promptContext(context) else "") + "\n" + JarvisProtection.promptRules(context)
                                 val answer = askAiWithOfflineFallback(context, endpoint, key, model, (chat.toList().takeLast(20) + Message(false, "Uprav aktívny návrh podľa tejto požiadavky: $instruction. Zachovaj užitočné časti a vysvetli konkrétne zmeny.")), projectContext)
                                 workspaceDescription = answer
                                 prefs.edit().putString("workspace_description", answer).apply()
@@ -2066,7 +2089,7 @@ internal suspend fun answerHeadlessVoiceCommand(context: Context, command: Strin
     if (JarvisProtection.isExitRequest(command)) JarvisProtection.clear(context)
     val memory = prefs.getString("memories", "").orEmpty() +
         "\\nUložené osobné záznamy:\\n" + prefs.getString("progress_data", "").orEmpty() +
-        "\\n" + JarvisPersonalProfiles.promptContext(context) + "\\n" + JarvisProtection.promptRules(context)
+        "\\n" + (if (prefs.getString("key", "").orEmpty().isBlank() || prefs.getBoolean("share_personal_context_with_online", false)) JarvisPersonalProfiles.promptContext(context) else "") + "\\n" + JarvisProtection.promptRules(context)
     val answer = askAiWithOfflineFallback(
         context,
         prefs.getString("endpoint", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions").orEmpty(),
