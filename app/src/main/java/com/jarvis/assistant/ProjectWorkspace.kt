@@ -47,7 +47,10 @@ private class JarvisGlbExporter(context: Context, private val onSaved: (String) 
     @JavascriptInterface
     fun saveGlb(encoded: String) {
         runCatching {
+            require(encoded.length <= 70_000_000) { "Model je príliš veľký na export z tabletu" }
             val bytes = Base64.decode(encoded, Base64.DEFAULT)
+            require(bytes.size >= 12 && bytes[0] == 0x67.toByte() && bytes[1] == 0x6C.toByte() &&
+                bytes[2] == 0x54.toByte() && bytes[3] == 0x46.toByte()) { "Súbor nemá platnú GLB hlavičku" }
             val name = "JARVIS-model-${System.currentTimeMillis()}.glb"
             val savedPath = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val values = ContentValues().apply {
