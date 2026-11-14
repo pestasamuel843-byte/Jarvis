@@ -102,6 +102,12 @@ fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, on
             mapMode = restored.mapMode
         }
     }
+    LaunchedEffect(description) {
+        val restored = WorkspaceCommandProcessor.load(context)
+        sceneModel = restored.model
+        sceneEdits = restored.edits
+        mapMode = restored.mapMode
+    }
     Column(
         Modifier.fillMaxWidth().background(Color(0xFF050A11), RoundedCornerShape(20.dp)).padding(12.dp)
     ) {
