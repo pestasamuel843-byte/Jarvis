@@ -527,7 +527,7 @@ window.applyJarvisEdit=function(raw){
  appliedEdits.add(q);
  const editGroup=new THREE.Group();object.add(editGroup);
  const metal=new THREE.MeshStandardMaterial({color:0x9cefff,metalness:.85,roughness:.18});
- const addMatch=q.match(/(?:pridaj|vytvor|vymodeluj|create|add)\\s+(?:mi\\s+)?(?:nový\\s+|novy\\s+)?(valec|cylinder|guľu|gulu|sphere|kužeľ|kuzel|cone|torus|prstenec|rovinu|plochu|plane|kváder|kvader|kocku|box)/i);
+ const addMatch=q.match(/(?:pridaj|vytvor|vymodeluj|create|add)\s+(?:mi\s+)?(?:nový\s+|novy\s+)?(valec|cylinder|guľu|gulu|sphere|kužeľ|kuzel|cone|torus|prstenec|rovinu|plochu|plane|kváder|kvader|kocku|box)/i);
  if(addMatch){
   const kind=addMatch[1].toLocaleLowerCase('sk');let geometry;
   if(kind.includes('valec')||kind.includes('cylinder'))geometry=new THREE.CylinderGeometry(.65,.65,1.8,48);
@@ -544,11 +544,11 @@ window.applyJarvisEdit=function(raw){
  if(q.includes('odstráň posledný')||q.includes('odstran posledny')||q.includes('vymaž posledný')||q.includes('vymaz posledny')){
   const last=object.children.filter(o=>o.isMesh||o.isGroup).slice(-1)[0];if(last){object.remove(last);last.traverse(o=>{if(o.geometry)o.geometry.dispose()});}
  }
- const scaleMatch=q.match(/(?:zväčši|zvacsi|zmenši|zmensi)(?:\\s+objekt)?(?:\\s+na|\\s+o)?\\s+(\\d+(?:[.,]\\d+)?)/);
+ const scaleMatch=q.match(/(?:zväčši|zvacsi|zmenši|zmensi)(?:\s+objekt)?(?:\s+na|\s+o)?\s+(\d+(?:[.,]\d+)?)/);
  if(scaleMatch){const amount=Math.max(.1,Math.min(10,Number(scaleMatch[1].replace(',','.'))));const factor=(q.includes('zmenši')||q.includes('zmensi'))?1/amount:amount;object.scale.multiplyScalar(factor);}
- const moveMatch=q.match(/posuň\\s+(?:objekt\\s+)?(-?\\d+(?:[.,]\\d+)?)\\s+(-?\\d+(?:[.,]\\d+)?)\\s+(-?\\d+(?:[.,]\\d+)?)/);
+ const moveMatch=q.match(/posuň\s+(?:objekt\s+)?(-?\d+(?:[.,]\d+)?)\s+(-?\d+(?:[.,]\d+)?)\s+(-?\d+(?:[.,]\d+)?)/);
  if(moveMatch)object.position.set(Number(moveMatch[1].replace(',','.')),Number(moveMatch[2].replace(',','.')),Number(moveMatch[3].replace(',','.')));
- const rotateMatch=q.match(/otoč(?:\\s+objekt)?\\s+(\\d+(?:[.,]\\d+)?)/);
+ const rotateMatch=q.match(/otoč(?:\s+objekt)?\s+(\d+(?:[.,]\d+)?)/);
  if(rotateMatch)object.rotation.y=THREE.MathUtils.degToRad(Number(rotateMatch[1].replace(',','.')));
  if(q.includes('červen')) object.traverse(o=>{if(o.isMesh&&o.material&&o.material.color&&o.material.color.getHex()===0x1685a4)o.material.color.set(0xb52c42);});
  if(q.includes('modr')) object.traverse(o=>{if(o.isMesh&&o.material&&o.material.color&&o.material.color.getHex()===0x1685a4)o.material.color.set(0x176fc1);});
@@ -615,7 +615,7 @@ new ResizeObserver(()=>{const w=host.clientWidth,h=host.clientHeight;camera.aspe
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(exportStatus, color = Color(0xFF9BAFC2), fontSize = 10.sp, modifier = Modifier.weight(1f))
-            TextButton(onClick = { /* Export is triggered by the viewport button. */ }) { Text("GLB / 3D SÚBOR", color = WorkCyan) }
+            Text("EXPORT: GLB", color = WorkCyan, fontSize = 10.sp)
         }
         AndroidView(
         modifier = Modifier.fillMaxWidth().height(300.dp)
