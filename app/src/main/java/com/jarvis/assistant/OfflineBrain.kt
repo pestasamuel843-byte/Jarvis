@@ -129,7 +129,7 @@ class OfflineBrain(private val context: Context) {
         check(modelFile.exists() && modelFile.length() > MIN_MODEL_BYTES) { "Bundled offline AI model is unavailable." }
 
         val prefs = context.getSharedPreferences("jarvis", Context.MODE_PRIVATE)
-        val memory = (prefs.getString("memories", "").orEmpty() + "\nImportované rozhovory používateľa (lokálny kontext):\n" + prefs.getString("imported_chat_context", "").orEmpty()).takeLast(4500)
+        val memory = (prefs.getString("memories", "").orEmpty() + "\nImportované rozhovory používateľa (lokálny kontext):\n" + prefs.getString("imported_chat_context", "").orEmpty() + "\n" + JarvisPersonalProfiles.promptContext(context) + "\n" + JarvisProtection.promptRules(context)).takeLast(7000)
         val history = runCatching {
             val saved = JSONArray(prefs.getString("chat_history", "[]").orEmpty())
             val recent = (maxOf(0, saved.length() - 6) until saved.length()).mapNotNull { index ->
@@ -156,7 +156,7 @@ class OfflineBrain(private val context: Context) {
                             "Humor obmieňaj podľa kontextu, neopakuj naučené vtipy ani rovnaké úvodné frázy. " +
                             "Nie každá odpoveď potrebuje vtip. Pri smútku, strachu, zdraví, bezpečnosti, vážnych konfliktoch a citlivých správach humor úplne vypni. " +
                             "Pri profesionálnych úlohách buď vecný. Oslovuj používateľa pane prirodzene, nie v každej vete. " +
-                            JarvisIntelligence.SYSTEM_PROMPT_EXTENSION + "\n" +
+                            JarvisIntelligence.SYSTEM_PROMPT_EXTENSION + "\n" + JarvisProtection.promptRules(context) + "\n" + JarvisPersonalProfiles.promptContext(context) + "\n" +
                             "Používateľova lokálna pamäť (použi iba ak je relevantná):\n" +
                             (memory.ifBlank { "Zatiaľ bez uložených preferencií." }) +
                             (if (extraContext.isBlank()) "" else "\nDoplňujúci kontext uložený v aplikácii:\n${extraContext.take(2500)}") +
