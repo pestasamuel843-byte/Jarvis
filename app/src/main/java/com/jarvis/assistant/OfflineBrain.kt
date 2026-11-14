@@ -72,6 +72,55 @@ class OfflineBrain(private val context: Context) {
     }
 
     /**
+     * Initializes LiteRT-LM on the GPU first (preferred for this INT4 model),
+     * then falls back to CPU when the device cannot initialize the GPU backend.
+     */
+    private fun createInitializedEngine(): Engine {
+        var gpuError: Throwable? = null
+        try {
+            val gpuEngine = Engine(
+                EngineConfig(
+                    modelPath = modelFile.absolutePath,
+                    backend = Backend.GPU(),
+                    cacheDir = context.cacheDir.absolutePath
+                )
+            )
+            gpuEngine.initialize()
+            return gpuEngine
+        } catch (error: Exception) {
+            gpuError = error
+            android.util.Log.w("JARVIS-OfflineAI", "GPU interpreter initialization failed; trying CPU.", error)
+        } catch (error: LinkageError) {
+            gpuError = error
+            android.util.Log.w("JARVIS-OfflineAI", "GPU native runtime unavailable; trying CPU.", error)
+        }
+
+        try {
+            val cpuEngine = Engine(
+                EngineConfig(
+                    modelPath = modelFile.absolutePath,
+                    backend = Backend.CPU(),
+                    cacheDir = context.cacheDir.absolutePath
+                )
+            )
+            cpuEngine.initialize()
+            return cpuEngine
+        } catch (cpuError: Exception) {
+            android.util.Log.e("JARVIS-OfflineAI", "CPU interpreter initialization failed.", cpuError)
+            throw IllegalStateException(
+                "Nepodarilo sa spustiť AI ani cez GPU, ani cez CPU. GPU: ${gpuError?.message ?: "neznáma chyba"}. CPU: ${cpuError.message ?: "neznáma chyba"}",
+                cpuError
+            )
+        } catch (cpuError: LinkageError) {
+            android.util.Log.e("JARVIS-OfflineAI", "CPU native runtime unavailable.", cpuError)
+            throw IllegalStateException(
+                "LiteRT runtime sa v zariadení nepodarilo načítať. GPU: ${gpuError?.message ?: "neznáma chyba"}. CPU: ${cpuError.message ?: "neznáma chyba"}",
+                cpuError
+            )
+        }
+    }
+
+    /**
      * Uses only local app data for continuity. No conversation or memory is uploaded.
      * The on-device model has a limited context window, so only a short recent history is supplied.
      */
@@ -92,14 +141,10 @@ class OfflineBrain(private val context: Context) {
             recent.joinToString("\n")
         }.getOrDefault("")
 
-        val engine = Engine(
-            EngineConfig(
-                modelPath = modelFile.absolutePath,
-                backend = Backend.CPU(),
-                cacheDir = context.cacheDir.absolutePath
-            )
-        )
-        engine.initialize()
+        // This Qwen3 INT4 export is optimized for the GPU path. CPU inference
+        // can require around 2.5 GB of resident memory, which is too much for
+        // many Android tablets. Try GPU first, then fall back to CPU if needed.
+        val engine = createInitializedEngine()
         try {
             val conversation = engine.createConversation(
                 ConversationConfig(
