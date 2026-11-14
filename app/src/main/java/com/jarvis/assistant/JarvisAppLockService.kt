@@ -12,6 +12,22 @@ class JarvisAppLockService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null || event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val foreground = event.packageName?.toString() ?: return
+        val verification = getSharedPreferences("jarvis_action_verification", MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        verification.edit()
+            .putString("last_foreground_package", foreground)
+            .putLong("last_foreground_at", now)
+            .apply()
+        val expectedPackage = verification.getString("pending_package", "").orEmpty()
+        val pendingSince = verification.getLong("pending_since", 0L)
+        if (expectedPackage.isNotBlank() && foreground == expectedPackage && now >= pendingSince) {
+            verification.edit().remove("pending_package").remove("pending_since").apply()
+            sendBroadcast(
+                Intent(ACTION_VERIFIED)
+                    .setPackage(packageName)
+                    .putExtra(EXTRA_PACKAGE, foreground)
+            )
+        }
         val prefs = getSharedPreferences("jarvis_app_lock", MODE_PRIVATE)
         val protected = prefs.getStringSet("protected_packages", emptySet()).orEmpty()
         val unlocked = prefs.getString("unlocked_package", "").orEmpty()
@@ -29,4 +45,9 @@ class JarvisAppLockService : AccessibilityService() {
     }
 
     override fun onInterrupt() = Unit
+
+    companion object {
+        const val ACTION_VERIFIED = "com.jarvis.assistant.ACTION_VERIFIED"
+        const val EXTRA_PACKAGE = "verified_package"
+    }
 }
