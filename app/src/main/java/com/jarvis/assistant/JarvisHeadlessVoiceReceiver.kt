@@ -1,5 +1,7 @@
 package com.jarvis.assistant
 
+import org.json.JSONObject
+
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -36,15 +38,19 @@ class JarvisHeadlessVoiceReceiver : BroadcastReceiver() {
                 val projectResult = runCatching { WorkspaceCommandProcessor.process(context, command) }.getOrNull()
                 if (projectResult != null) {
                     val jarvisPrefs = context.getSharedPreferences("jarvis", Context.MODE_PRIVATE)
-                    val designDescription = if (jarvisPrefs.getString("key", "").orEmpty().isNotBlank() || OfflineBrain(context).isInstalled()) {
-                        runCatching { runBlocking { answerHeadlessVoiceCommand(context, command) } }.getOrNull()
+                    val sceneSpec = if (jarvisPrefs.getString("key", "").orEmpty().isNotBlank() || OfflineBrain(context).isInstalled()) {
+                        runCatching { runBlocking { generate3DSceneSpec(context, command) } }.getOrNull()
+                    } else null
+                    val designDescription = if (!sceneSpec.isNullOrBlank()) {
+                        "AI návrh 3D scény je pripravený. Počet objektov: " +
+                            runCatching { JSONObject(sceneSpec).optJSONArray("objects")?.length() ?: 0 }.getOrDefault(0) + "."
                     } else null
                     if (!designDescription.isNullOrBlank()) {
                         context.getSharedPreferences("jarvis_workspace", Context.MODE_PRIVATE)
                             .edit().putString("workspace_description", designDescription).apply()
                     }
                     val spoken = if (!designDescription.isNullOrBlank()) {
-                        projectResult.spokenResponse + " Návrh: " + designDescription
+                        projectResult.spokenResponse + " " + designDescription
                     } else projectResult.spokenResponse
                     deliverSpeech(context, spoken)
                     runCatching { showNotification(context, "JARVIS • Projekt uložený", spoken) }
