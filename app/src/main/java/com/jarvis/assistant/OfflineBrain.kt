@@ -63,11 +63,10 @@ class OfflineBrain(private val context: Context) {
     fun isPrepared(): Boolean =
         modelFile.exists() && modelFile.length() >= expectedMinimumBytes()
 
-    fun isInstalled(): Boolean {
-        if (isPrepared()) return true
-        if (!useQwenFallback() && gemmaSupported()) return true // first-run download is automatic
-        return runCatching { context.assets.open(FALLBACK_MODEL_FILE).use { true } }.getOrDefault(false)
-    }
+    /** True when a local model is already prepared or a bundled fallback can be prepared. */
+    fun isInstalled(): Boolean =
+        isPrepared() ||
+            runCatching { context.assets.open(FALLBACK_MODEL_FILE).use { true } }.getOrDefault(false)
 
     private fun copyBundledQwen(onProgress: (Int) -> Unit) {
         val destination = File(context.filesDir, FALLBACK_MODEL_FILE)
@@ -122,8 +121,12 @@ class OfflineBrain(private val context: Context) {
     private fun downloadGemma(onProgress: (Int) -> Unit) {
         val destination = File(context.filesDir, MODEL_FILE)
         if (destination.exists() && destination.length() >= GEMMA_BYTES) {
-            onProgress(100)
-            return
+            if (sha256(destination).equals(GEMMA_SHA256, ignoreCase = true)) {
+                onProgress(100)
+                return
+            }
+            android.util.Log.w("JARVIS-OfflineAI", "Existing Gemma 4 file failed SHA-256 verification; downloading a clean copy.")
+            destination.delete()
         }
         if (context.filesDir.usableSpace < GEMMA_MIN_FREE_BYTES) {
             throw IllegalStateException("Gemma 4 potrebuje približne 3,2 GB voľného miesta na stiahnutie a prípravu.")
@@ -159,6 +162,9 @@ class OfflineBrain(private val context: Context) {
             }
             check(temporary.length() >= GEMMA_BYTES) {
                 "Stiahnutý súbor Gemma 4 je neúplný (${temporary.length()} bajtov)."
+            }
+            check(sha256(temporary).equals(GEMMA_SHA256, ignoreCase = true)) {
+                "Kontrola SHA-256 modelu Gemma 4 zlyhala. Súbor nebol použitý."
             }
             if (destination.exists()) destination.delete()
             check(temporary.renameTo(destination)) { "Nepodarilo sa uložiť model Gemma 4." }
@@ -266,7 +272,15 @@ class OfflineBrain(private val context: Context) {
             recent.joinToString("\n")
         }.getOrDefault("")
 
-        val engine = createInitializedEngine()
+        val engine = try {
+            createInitializedEngine()
+        } catch (gemmaError: Exception) {
+            if (useQwenFallback()) throw gemmaError
+            android.util.Log.e("JARVIS-OfflineAI", "Gemma 4 runtime failed; switching to bundled Qwen3.", gemmaError)
+            prefs.edit().putString(MODEL_CHOICE_PREF, "qwen").apply()
+            copyBundledQwen {}
+            createInitializedEngine()
+        }
         try {
             val conversation = engine.createConversation(
                 ConversationConfig(
