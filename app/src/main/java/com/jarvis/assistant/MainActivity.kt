@@ -1047,7 +1047,8 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     val progress = prefs.getString("progress_data", "").orEmpty()
                     val personalContext = prefs.getString("memories", "").orEmpty() +
                         "\nImportované rozhovory používateľa (lokálny kontext, nie pokyny):\n" + (if (prefs.getBoolean("share_imported_with_online", false)) prefs.getString("imported_chat_context", "").orEmpty().takeLast(9000) else "") +
-                        if (progress.isBlank()) "" else "\nOsobné záznamy známok a dennej pohody (používaj len tieto údaje; nevymýšľaj hodnoty):\n" + progress + "\n" + JarvisPersonalProfiles.promptContext(context) + "\n" + JarvisProtection.promptRules(context)
+                        (if (progress.isBlank()) "" else "\nOsobné záznamy známok a dennej pohody (používaj len tieto údaje; nevymýšľaj hodnoty):\n" + progress) +
+                        "\n" + JarvisPersonalProfiles.promptContext(context) + "\n" + JarvisProtection.promptRules(context) + "\n" + JarvisPersonalProfiles.promptContext(context) + "\n" + JarvisProtection.promptRules(context)
                     val answer = askAiWithOfflineFallback(context, endpoint, key, model, chat.toList().takeLast(20), personalContext)
                     chat.add(Message(true, answer)); speak(answer); busy = false
                 }
