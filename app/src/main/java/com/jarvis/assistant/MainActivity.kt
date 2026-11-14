@@ -222,6 +222,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     var showProgress by remember { mutableStateOf(false) }
     var gradeSubject by remember { mutableStateOf("") }
     var gradeValue by remember { mutableStateOf("") }
+    var gradeEntryStep by remember { mutableIntStateOf(0) }
     var moodValue by remember { mutableFloatStateOf(3f) }
     var moodNote by remember { mutableStateOf("") }
     var scheduleSetupIndex by remember { mutableIntStateOf(-1) }
@@ -291,6 +292,29 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     fun handle(raw: String) {
         val text = raw.trim().replace(Regex("(?i)^(?:(?:hej|hey)\\s+)?jarvis[,: ]*"), "").trim()
         if (text.isEmpty() || busy) return
+        if (gradeEntryStep == 1) {
+            gradeSubject = text.take(60)
+            gradeEntryStep = 2
+            val question = "Akú známku ste dostali z predmetu $gradeSubject? Povedzte číslo od 1 do 5."
+            chat.add(Message(true, question)); speak(question)
+            return
+        }
+        if (gradeEntryStep == 2) {
+            val grade = Regex("[1-5]").find(text)?.value?.toIntOrNull()
+            if (grade == null) {
+                val question = "Rozpoznal som neplatnú známku. Povedzte číslo od 1 do 5."
+                chat.add(Message(true, question)); speak(question)
+                return
+            }
+            val date = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+            val old = prefs.getString("progress_data", "").orEmpty()
+            val record = "$date | ZNÁMKA | $gradeSubject | $grade"
+            prefs.edit().putString("progress_data", (old.lines().filter { it.isNotBlank() } + record).joinToString("\\n")).apply()
+            val answer = "Zapísal som známku $grade z predmetu $gradeSubject."
+            gradeSubject = ""; gradeEntryStep = 0
+            chat.add(Message(true, answer)); speak(answer)
+            return
+        }
         // Project commands are executed by the headless project layer first.
         // The workspace UI is only opened as a visual renderer when available.
         val projectResult = WorkspaceCommandProcessor.process(context, text)
