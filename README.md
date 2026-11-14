@@ -56,6 +56,8 @@ This is still an early prototype, not the full autonomous assistant described in
 New source code adds:
 - Locally stored, user-entered notes about family members and friends. Voice commands: `Zapamätaj si o Kim: dôverujem jej a vie ma vypočuť` and `Čo vieš o Kim?`.
 - Explicitly entered health notes: `Zapamätaj si moje zdravie: ...`. These are personal notes, not diagnoses or a live Da Fit/Health Connect integration.
+- Delete a person profile with `Zabudni profil Kim`; delete health notes with `Vymaž zdravotné poznámky`.
+- Personal profiles and health notes stay out of online AI by default. To share them with the configured online provider, explicitly say `Povoľ zdieľanie osobného profilu online`; to revoke it, say `Zakáž zdieľanie osobného profilu online`.
 - Four support levels: GUARDIAN, BLACKOUT, OMEGA and SOVEREIGN. Say `Aktivuj Guardian/Blackout/Omega/Sovereign`; phrases such as `Ja už to nedám` or `Prevezmi to celé` request SOVEREIGN. `Situácia vyriešená` returns to normal mode.
 - Protection level is saved locally and influences the online/offline AI context and the app's main background/accent.
 - Notification previews are checked for a short list of explicit threat phrases. A possible match raises BLACKOUT and asks the user to review the message; it does not establish that a threat is real and does not contact anyone.
