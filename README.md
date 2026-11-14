@@ -32,14 +32,14 @@ Open Android Settings from the notification-access prompt and explicitly enable 
 
 ## Offline AI brain
 
-- The APK build downloads and bundles the LiteRT Community `Qwen3-1.7B_dynamic_wi4b32_afp32.litertlm` model (about 932 MB). The model is licensed under Apache 2.0.
-- On the tablet, JARVIS automatically copies the bundled model into its private app storage on first launch. No API key, account, or internet connection is required for this preparation step.
-- The first APK is very large because the model is included. The first launch also needs about 1.05 GB of additional free storage for the private copy.
-- The model is a small local language model, not a ChatGPT-equivalent model. Its answer quality and Slovak performance are not guaranteed to match a cloud model.
-- This INT4 export is optimized for GPU inference. The app tries GPU first and CPU as fallback; published measurements for this model show roughly 1 GB peak memory on GPU and around 2.5 GB on CPU, on specific tested phones. Actual performance and compatibility depend on the tablet's chipset, RAM, and drivers.
-- The model and conversation processing stay on the device when offline mode is used. Online AI remains optional and requires a separately configured provider and API key.
-- The APK build workflow verifies that the model file is present in the APK, but a successful build does not prove the model runs correctly on every tablet. Device testing is still required.
-
+- On tablets reporting at least 8 GB of physical RAM, JARVIS selects Gemma 4 E2B, the stronger mobile-oriented model, and downloads it automatically on first launch (about 2.59 GB). The model is provided by LiteRT Community under Apache 2.0.
+- The app checks available storage before downloading Gemma 4. The download requires internet once; after it is saved in app-private storage, text conversations can run offline without an API key.
+- On devices below the 8 GB RAM threshold, or if the Gemma download fails, JARVIS falls back to the Qwen3 1.7B INT4 model already bundled in the APK (about 932 MB). The fallback is smaller and less capable.
+- The APK still contains the Qwen fallback, so it remains large. Gemma 4 is downloaded separately rather than embedded in the APK, avoiding an additional 2.59 GB increase to the installer.
+- LiteRT-LM 0.19.1 is used for the Gemma 4 runtime. The app attempts GPU inference and falls back to CPU if GPU initialization fails. Actual speed and stability depend on the tablet's chipset, memory and drivers.
+- This is a local language model, not a ChatGPT-equivalent model. It can improve general conversation and reasoning, but it can still make mistakes and does not automatically gain control of apps or access to live information.
+- The current chat integration sends text prompts to the model. Although the Gemma 4 model family has multimodal capabilities, image/audio input is not yet wired into JARVIS's chat UI.
+- A successful APK build does not prove the model runs correctly on the target tablet. Device testing is still required.
 ## AI setup
 
 Online AI is optional. The bundled offline model works without an API key. If you want to use online Gemini instead, open Settings inside JARVIS and paste a valid **Google Gemini API key** into the API-key field, then save. The default endpoint is Google's OpenAI-compatible Gemini endpoint and the default model is `gemini-2.5-flash`. Create/manage a key through Google AI Studio: https://aistudio.google.com/apikey. Availability, quotas, and pricing are controlled by Google and may change. Test the connection in JARVIS settings before relying on it. Never commit tokens to GitHub or send them in chat. Advanced settings are available if you deliberately use a different OpenAI-compatible provider.
