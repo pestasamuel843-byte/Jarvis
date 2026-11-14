@@ -26,19 +26,19 @@ internal object JarvisProtection {
     fun detectRequest(raw: String): Int? {
         val text = normalize(raw)
         return when {
-            listOf("aktivuj sovereign", "aktivuj sovereign protocol", "prevezmi to cele", "ja uz to nedam", "uz to nedavam", "ja to uz nezvladam", "nechcem uz nic riesit").any(text::contains) -> SOVEREIGN
-            listOf("aktivuj omega", "omega protocol").any(text::contains) -> OMEGA
-            listOf("aktivuj blackout", "blackout protocol").any(text::contains) -> BLACKOUT
-            listOf("aktivuj guardian", "guardian rezim", "guardian mode").any(text::contains) -> GUARDIAN
-            listOf("som v nebezpeci", "niekto mi hrozi", "bojim sa ze mi niekto ublizi", "niekto ma napadol", "hrozi mi bezprostredne nebezpecenstvo").any(text::contains) -> OMEGA
-            listOf("som pretazeny", "som uplne vycerpany", "uz nevladzem", "mam toho prilis vela", "nezvladam to").any(text::contains) -> GUARDIAN
+            listOf("aktivuj sovereign", "aktivuj sovereign protocol", "prevezmi to cele", "ja uz to nedam", "uz to nedavam", "ja to uz nezvladam", "nechcem uz nic riesit").any { text.contains(it) } -> SOVEREIGN
+            listOf("aktivuj omega", "omega protocol").any { text.contains(it) } -> OMEGA
+            listOf("aktivuj blackout", "blackout protocol").any { text.contains(it) } -> BLACKOUT
+            listOf("aktivuj guardian", "guardian rezim", "guardian mode").any { text.contains(it) } -> GUARDIAN
+            listOf("som v nebezpeci", "niekto mi hrozi", "bojim sa ze mi niekto ublizi", "niekto ma napadol", "hrozi mi bezprostredne nebezpecenstvo").any { text.contains(it) } -> OMEGA
+            listOf("som pretazeny", "som uplne vycerpany", "uz nevladzem", "mam toho prilis vela", "nezvladam to").any { text.contains(it) } -> GUARDIAN
             else -> null
         }
     }
 
     fun isExitRequest(raw: String): Boolean {
         val text = normalize(raw)
-        return listOf("ukonci ochranny rezim", "ukonci guardian", "ukonci blackout", "ukonci omega", "ukonci sovereign", "situacia vyriesena", "obnov normalny rezim").any(text::contains)
+        return listOf("ukonci ochranny rezim", "ukonci guardian", "ukonci blackout", "ukonci omega", "ukonci sovereign", "situacia vyriesena", "obnov normalny rezim").any { text.contains(it) }
     }
 
     fun label(level: Int): String = when (level) {
