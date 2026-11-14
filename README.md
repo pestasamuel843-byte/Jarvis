@@ -9,7 +9,7 @@ Native Android prototype written in Kotlin and Jetpack Compose. It does not requ
 - While the main screen is open, cycles Android speech recognition looking for “Hej Jarvis” / “Hey Jarvis”; say the command after the wake phrase or in the next utterance. This is not guaranteed to work with the screen locked or in the background.
 - Voice commands can be paused/resumed from the conversation, and recent chat history is stored locally on the device.
 - Local commands: time, date, battery percentage, open YouTube, Android Settings, camera, Google search, create/list/delete notes, remember/forget preferences, clear chat history, arithmetic, set an alarm in the Clock app, create a calendar reminder, open an installed app by its visible name, dial a number (user confirms the call), timer via the Clock app, Wi-Fi settings/status, maps/navigation, browser, calculator (if installed), and open ChatGPT in the browser.
-- AI conversation through a configurable OpenAI-compatible Chat Completions endpoint, with recent conversation context.
+- Offline AI conversation using the bundled Qwen3 1.7B INT4 model through LiteRT-LM; optional online AI through a configurable OpenAI-compatible endpoint.
 - Notification previews for Gmail, Messenger, Instagram, Facebook, WhatsApp, and EduPage through Android NotificationListener access. WhatsApp quick replies are sent only when Android exposes a reply action and only after explicit confirmation.
 - Voice commands to read the latest notification previews by app, including EduPage grade alerts.
 - Project workspace: AI-generated project brief, rotatable wireframe 3D primitives (cube, pyramid, house, sphere), finger-drawn canvas, and locally saved sketch.
@@ -30,9 +30,19 @@ The APK is available only after the workflow succeeds. A green run is required b
 
 Open Android Settings from the notification-access prompt and explicitly enable JARVIS under notification access. Allow notifications for the source apps as well. Android and each source app control which message/grade preview text is visible. WhatsApp quick reply works only when its notification exposes a compatible reply action. For privacy, notification text is stored locally in JARVIS preferences.
 
+## Offline AI brain
+
+- The APK build downloads and bundles the LiteRT Community `Qwen3-1.7B_dynamic_wi4b32_afp32.litertlm` model (about 932 MB). The model is licensed under Apache 2.0.
+- On the tablet, JARVIS automatically copies the bundled model into its private app storage on first launch. No API key, account, or internet connection is required for this preparation step.
+- The first APK is very large because the model is included. The first launch also needs about 1.05 GB of additional free storage for the private copy.
+- The model is a small local language model, not a ChatGPT-equivalent model. Its answer quality and Slovak performance are not guaranteed to match a cloud model.
+- This INT4 export is optimized for GPU inference. The app tries GPU first and CPU as fallback; published measurements for this model show roughly 1 GB peak memory on GPU and around 2.5 GB on CPU, on specific tested phones. Actual performance and compatibility depend on the tablet's chipset, RAM, and drivers.
+- The model and conversation processing stay on the device when offline mode is used. Online AI remains optional and requires a separately configured provider and API key.
+- The APK build workflow verifies that the model file is present in the APK, but a successful build does not prove the model runs correctly on every tablet. Device testing is still required.
+
 ## AI setup
 
-Open Settings inside JARVIS and paste a valid **Google Gemini API key** into the API-key field, then save. The default endpoint is Google's OpenAI-compatible Gemini endpoint and the default model is `gemini-2.5-flash`, so the intended basic setup requires only the Gemini API key. Create/manage a key through Google AI Studio: https://aistudio.google.com/apikey. Availability, quotas, and pricing are controlled by Google and may change. Test the connection in JARVIS settings before relying on it. Never commit tokens to GitHub or send them in chat. Advanced settings are available if you deliberately use a different OpenAI-compatible provider.
+Online AI is optional. The bundled offline model works without an API key. If you want to use online Gemini instead, open Settings inside JARVIS and paste a valid **Google Gemini API key** into the API-key field, then save. The default endpoint is Google's OpenAI-compatible Gemini endpoint and the default model is `gemini-2.5-flash`. Create/manage a key through Google AI Studio: https://aistudio.google.com/apikey. Availability, quotas, and pricing are controlled by Google and may change. Test the connection in JARVIS settings before relying on it. Never commit tokens to GitHub or send them in chat. Advanced settings are available if you deliberately use a different OpenAI-compatible provider.
 
 ## Psychological support mode
 
