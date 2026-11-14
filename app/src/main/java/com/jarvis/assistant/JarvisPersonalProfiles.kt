@@ -41,6 +41,27 @@ internal object JarvisPersonalProfiles {
             ". Tieto poznámky sú vaše pozorovania, nie overený psychologický profil."
     }
 
+    fun removePerson(context: Context, nameRaw: String): String {
+        val name = nameRaw.trim()
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val profiles = readProfiles(prefs)
+        val next = JSONArray()
+        var removed = false
+        for (i in 0 until profiles.length()) {
+            val item = profiles.optJSONObject(i) ?: continue
+            if (!removed && item.optString("name").equals(name, true)) {
+                removed = true
+            } else next.put(item)
+        }
+        prefs.edit().putString("people", next.toString()).apply()
+        return if (removed) "Profil osoby $name som odstránil." else "Profil osoby $name som nenašiel."
+    }
+
+    fun clearHealthNotes(context: Context): String {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove("health_notes").apply()
+        return "Lokálne zdravotné poznámky som vymazal."
+    }
+
     fun addHealthNote(context: Context, noteRaw: String): String {
         val note = noteRaw.trim().take(1200)
         require(note.isNotBlank()) { "Chýba zdravotná poznámka." }
