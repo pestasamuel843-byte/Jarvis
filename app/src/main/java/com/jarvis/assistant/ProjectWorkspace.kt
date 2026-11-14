@@ -511,9 +511,9 @@ private fun ThreeDScene(model: String, edits: List<String> = emptyList()) {
 <style>
 html,body,#v{margin:0;width:100%;height:100%;overflow:hidden;background:#07101a}
 #hud{position:absolute;z-index:2;left:10px;top:8px;color:#4deBff;font:10px system-ui;letter-spacing:1.5px;text-shadow:0 0 8px #00dfff}
-</style></head><body><div id="hud">JARVIS • REAL-TIME WEBGL GEOMETRY</div><div id="v"></div>
-<button id="export" onclick="exportJarvisModel()">EXPORT GLB</button>
-<style>#export{position:absolute;z-index:3;right:10px;top:8px;border:1px solid #4deBff;border-radius:7px;background:#082334;color:#4deBff;padding:7px 10px;font-weight:700;font-size:10px;letter-spacing:1px}</style>
+</style></head><body><div id="hud">JARVIS • CAD / POLYGONÁLNA TOPOLOGIA</div><div id="v"></div>
+<div id="tools"><button onclick="toggleJarvisTopology()">VRCHOLY</button><button onclick="extrudeJarvisFace(.5)">EXTRUDOVAŤ STENU</button><button id="export" onclick="exportJarvisModel()">EXPORT GLB</button></div>
+<style>#tools{position:absolute;z-index:3;right:8px;top:8px;display:flex;gap:5px}#tools button{border:1px solid #4deBff;border-radius:7px;background:#082334;color:#4deBff;padding:7px 8px;font-weight:700;font-size:9px;letter-spacing:.5px}#tools #export{position:static}</style>
 <script type="module">
 import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
@@ -576,7 +576,21 @@ window.applyJarvisEdit=function(raw){
  if(q.includes('disk')||q.includes('ráfik')||q.includes('rafik')) object.traverse(o=>{if(o.isMesh&&o.geometry&&o.geometry.type==='CylinderGeometry'){const rim=new THREE.Mesh(new THREE.TorusGeometry(.22,.045,10,28),metal);rim.rotation.y=Math.PI/2;rim.position.copy(o.position);editGroup.add(rim);}});
  document.getElementById('hud').textContent='JARVIS • VOICE EDIT • '+raw.slice(0,45);
 };
-function addEdges(mesh){const edges=new THREE.EdgesGeometry(mesh.geometry);mesh.add(new THREE.LineSegments(edges,edgeMaterial));}
+function geometryFromTopology(vertices,faces){
+ const positions=[],triangleFaces=[];faces.forEach((face,fi)=>{for(let i=1;i<face.length-1;i++){[face[0],face[i],face[i+1]].forEach(k=>{const v=vertices[k];positions.push(v[0],v[1],v[2]);});triangleFaces.push(fi);}});
+ const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.computeVertexNormals();g.computeBoundingSphere();g.userData.triangleFaces=triangleFaces;return g;
+}
+let topologyMode=false,activeTopologyMesh=null,selectedVertex=-1,selectedFace=-1,draggingVertex=false;
+const topologyHandles=new THREE.Group();scene.add(topologyHandles);const topoRay=new THREE.Raycaster(),topoNdc=new THREE.Vector2(),topoPlane=new THREE.Plane();
+function refreshTopologyHandles(target){topologyHandles.clear();activeTopologyMesh=target||null;selectedVertex=-1;selectedFace=-1;if(!topologyMode||!activeTopologyMesh?.userData.topology)return;activeTopologyMesh.userData.topology.vertices.forEach((v,index)=>{const h=new THREE.Mesh(new THREE.SphereGeometry(.06,10,8),new THREE.MeshBasicMaterial({color:0x4deBff,depthTest:false}));h.position.set(...v);h.userData.vertexIndex=index;topologyHandles.add(h);});}
+function updateTopologyMesh(target){const d=target.userData.topology;target.geometry.dispose();target.geometry=geometryFromTopology(d.vertices,d.faces);const old=target.children.find(c=>c.userData.topologyEdges);if(old){target.remove(old);old.geometry.dispose();}const line=new THREE.LineSegments(new THREE.EdgesGeometry(target.geometry),edgeMaterial);line.userData.topologyEdges=true;target.add(line);refreshTopologyHandles(target);}
+function topoPointer(e){const r=renderer.domElement.getBoundingClientRect();topoNdc.set((e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height*2-1));topoRay.setFromCamera(topoNdc,camera);}
+renderer.domElement.addEventListener('pointerdown',e=>{if(!topologyMode||!activeTopologyMesh)return;topoPointer(e);const h=topoRay.intersectObjects(topologyHandles.children)[0];if(h){selectedVertex=h.object.userData.vertexIndex;draggingVertex=true;topoPlane.setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()),h.object.getWorldPosition(new THREE.Vector3()));renderer.domElement.setPointerCapture(e.pointerId);e.preventDefault();return;}const hit=topoRay.intersectObject(activeTopologyMesh)[0];if(hit&&hit.faceIndex!==undefined){selectedFace=activeTopologyMesh.geometry.userData.triangleFaces[hit.faceIndex]??-1;document.getElementById('hud').textContent='JARVIS • VYBRANÁ STENA '+(selectedFace+1);}});
+renderer.domElement.addEventListener('pointermove',e=>{if(!draggingVertex||selectedVertex<0||!activeTopologyMesh)return;topoPointer(e);const point=new THREE.Vector3();if(!topoRay.ray.intersectPlane(topoPlane,point))return;const local=activeTopologyMesh.worldToLocal(point),d=activeTopologyMesh.userData.topology;d.vertices[selectedVertex]=[local.x,local.y,local.z];updateTopologyMesh(activeTopologyMesh);});
+renderer.domElement.addEventListener('pointerup',()=>{draggingVertex=false;});
+window.toggleJarvisTopology=function(){topologyMode=!topologyMode;if(!topologyMode){topologyHandles.clear();activeTopologyMesh=null;}else refreshTopologyHandles(object?.children.find(c=>c.isMesh&&c.userData.topology)||null);document.getElementById('hud').textContent=topologyMode?'JARVIS • VRCHOLY: POTIAHNITE BOD':'JARVIS • CAD / TOPOLOGY';};
+window.extrudeJarvisFace=function(distance){if(!activeTopologyMesh||selectedFace<0){document.getElementById('hud').textContent='JARVIS • VYBERTE STENU';return;}const d=activeTopologyMesh.userData.topology,face=d.faces[selectedFace];if(!face)return;const a=new THREE.Vector3(...d.vertices[face[0]]),b=new THREE.Vector3(...d.vertices[face[1]]),c=new THREE.Vector3(...d.vertices[face[2]]);const offset=new THREE.Vector3().subVectors(b,a).cross(new THREE.Vector3().subVectors(c,a)).normalize().multiplyScalar(THREE.MathUtils.clamp(Number(distance)||.5,-5,5));const top=face.map(i=>{const v=new THREE.Vector3(...d.vertices[i]).add(offset);d.vertices.push([v.x,v.y,v.z]);return d.vertices.length-1;});d.faces[selectedFace]=top.slice().reverse();d.faces.push(top);for(let i=0;i<face.length;i++){const j=(i+1)%face.length;d.faces.push([face[i],face[j],top[j],top[i]]);}selectedFace=-1;updateTopologyMesh(activeTopologyMesh);document.getElementById('hud').textContent='JARVIS • EXTRÚZIA HOTOVÁ';};
+function addEdges(mesh){const edges=new THREE.EdgesGeometry(mesh.geometry);const line=new THREE.LineSegments(edges,edgeMaterial);if(mesh.userData.topology)line.userData.topologyEdges=true;mesh.add(line);}
 function build(name){
  appliedEdits.clear();
  if(object){scene.remove(object);object.traverse(o=>{if(o.geometry)o.geometry.dispose()});}
@@ -610,6 +624,8 @@ window.applyJarvisSceneSpec=function(spec){
  (spec.objects||[]).forEach(def=>{
   let geometry;
   switch(def.type){
+   case 'mesh':geometry=geometryFromTopology(def.vertices||[],def.faces||[]);break;
+   case 'box':{const d=def.dimensions||[1.4,1.4,1.4];geometry=new THREE.BoxGeometry(Math.max(.01,d[0]),Math.max(.01,d[1]),Math.max(.01,d[2]));break;}
    case 'sphere':geometry=new THREE.SphereGeometry(.8,40,28);break;
    case 'cylinder':geometry=new THREE.CylinderGeometry(.65,.65,1.6,40);break;
    case 'cone':geometry=new THREE.ConeGeometry(.8,1.6,40);break;
@@ -623,8 +639,9 @@ window.applyJarvisSceneSpec=function(spec){
    default:geometry=new THREE.BoxGeometry(1.4,1.4,1.4);
   }
   const color=new THREE.Color(def.color||'#1685a4');
-  const mesh=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color,metalness:.5,roughness:.32}));
+  const mesh=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color,metalness:.5,roughness:.32,side:THREE.DoubleSide}));
   mesh.name=def.name||'JARVIS object';
+  if(def.type==='mesh')mesh.userData.topology={vertices:(def.vertices||[]).map(v=>[Number(v[0]),Number(v[1]),Number(v[2])]),faces:(def.faces||[]).map(f=>f.map(Number))};
   const p=def.position||[0,0,0],r=def.rotation||[0,0,0],s=def.scale||[1,1,1];
   mesh.position.set(Number(p[0])||0,Number(p[1])||0,Number(p[2])||0);
   mesh.rotation.set(Number(r[0])||0,Number(r[1])||0,Number(r[2])||0);
