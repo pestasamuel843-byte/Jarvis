@@ -1178,10 +1178,10 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 when (intent?.action) {
                     JarvisVoiceService.ACTION_COMMAND -> {
                         // The manifest receiver owns commands whenever the Activity is paused.
-                        if (isUiAttached) intent.getStringExtra(JarvisVoiceService.EXTRA_COMMAND)?.let { latestVoiceCommand(it) }
+                        if (MainActivity.isUiAttached) intent.getStringExtra(JarvisVoiceService.EXTRA_COMMAND)?.let { latestVoiceCommand(it) }
                     }
                     JarvisVoiceService.ACTION_WAKE -> {
-                        if (isUiAttached) speak("Počúvam, pane.")
+                        if (MainActivity.isUiAttached) speak("Počúvam, pane.")
                     }
                     JarvisVoiceService.ACTION_STATUS -> {
                         val status = intent.getStringExtra(JarvisVoiceService.EXTRA_STATUS).orEmpty()
