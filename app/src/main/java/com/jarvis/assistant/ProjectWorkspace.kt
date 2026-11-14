@@ -494,6 +494,8 @@ private fun WireframeScene(model: String, onModelChange: (String) -> Unit) {
  */
 @Composable
 private fun ThreeDScene(model: String, edits: List<String> = emptyList()) {
+    val context = LocalContext.current
+    var exportStatus by remember { mutableStateOf("Model sa ukladá lokálne v projekte.") }
     val html = remember {
         """
 <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
@@ -501,9 +503,12 @@ private fun ThreeDScene(model: String, edits: List<String> = emptyList()) {
 html,body,#v{margin:0;width:100%;height:100%;overflow:hidden;background:#07101a}
 #hud{position:absolute;z-index:2;left:10px;top:8px;color:#4deBff;font:10px system-ui;letter-spacing:1.5px;text-shadow:0 0 8px #00dfff}
 </style></head><body><div id="hud">JARVIS • REAL-TIME WEBGL GEOMETRY</div><div id="v"></div>
+<button id="export" onclick="exportJarvisModel()">EXPORT GLB</button>
+<style>#export{position:absolute;z-index:3;right:10px;top:8px;border:1px solid #4deBff;border-radius:7px;background:#082334;color:#4deBff;padding:7px 10px;font-weight:700;font-size:10px;letter-spacing:1px}</style>
 <script type="module">
 import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+import { GLTFExporter } from 'https://unpkg.com/three@0.160.0/examples/jsm/exporters/GLTFExporter.js';
 const host=document.getElementById('v');
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x07101a);
 const camera=new THREE.PerspectiveCamera(42,host.clientWidth/host.clientHeight,.1,1000);camera.position.set(5,4,7);
@@ -522,6 +527,29 @@ window.applyJarvisEdit=function(raw){
  appliedEdits.add(q);
  const editGroup=new THREE.Group();object.add(editGroup);
  const metal=new THREE.MeshStandardMaterial({color:0x9cefff,metalness:.85,roughness:.18});
+ const addMatch=q.match(/(?:pridaj|vytvor|vymodeluj|create|add)\\s+(?:mi\\s+)?(?:nový\\s+|novy\\s+)?(valec|cylinder|guľu|gulu|sphere|kužeľ|kuzel|cone|torus|prstenec|rovinu|plochu|plane|kváder|kvader|kocku|box)/i);
+ if(addMatch){
+  const kind=addMatch[1].toLocaleLowerCase('sk');let geometry;
+  if(kind.includes('valec')||kind.includes('cylinder'))geometry=new THREE.CylinderGeometry(.65,.65,1.8,48);
+  else if(kind.includes('guľ')||kind.includes('gul')||kind==='sphere')geometry=new THREE.SphereGeometry(.9,48,32);
+  else if(kind.includes('kuže')||kind.includes('kuzel')||kind==='cone')geometry=new THREE.ConeGeometry(.8,1.8,48);
+  else if(kind==='torus'||kind.includes('prstenec'))geometry=new THREE.TorusGeometry(.75,.2,20,64);
+  else if(kind==='plane'||kind.includes('rovinu')||kind.includes('plochu'))geometry=new THREE.PlaneGeometry(2,2,12,12);
+  else if(kind.includes('kváder')||kind.includes('kvader'))geometry=new THREE.BoxGeometry(2,1,1);
+  else geometry=new THREE.BoxGeometry(1.5,1.5,1.5);
+  const color=q.includes('červen')?0xb52c42:q.includes('modr')?0x176fc1:q.includes('zelen')?0x238b62:0x1685a4;
+  const part=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color,metalness:.55,roughness:.3}));
+  part.position.y=.1;part.castShadow=true;part.receiveShadow=true;editGroup.add(part);addEdges(part);
+ }
+ if(q.includes('odstráň posledný')||q.includes('odstran posledny')||q.includes('vymaž posledný')||q.includes('vymaz posledny')){
+  const last=object.children.filter(o=>o.isMesh||o.isGroup).slice(-1)[0];if(last){object.remove(last);last.traverse(o=>{if(o.geometry)o.geometry.dispose()});}
+ }
+ const scaleMatch=q.match(/(?:zväčši|zvacsi|zmenši|zmensi)(?:\\s+objekt)?(?:\\s+na|\\s+o)?\\s+(\\d+(?:[.,]\\d+)?)/);
+ if(scaleMatch){const amount=Math.max(.1,Math.min(10,Number(scaleMatch[1].replace(',','.'))));const factor=(q.includes('zmenši')||q.includes('zmensi'))?1/amount:amount;object.scale.multiplyScalar(factor);}
+ const moveMatch=q.match(/posuň\\s+(?:objekt\\s+)?(-?\\d+(?:[.,]\\d+)?)\\s+(-?\\d+(?:[.,]\\d+)?)\\s+(-?\\d+(?:[.,]\\d+)?)/);
+ if(moveMatch)object.position.set(Number(moveMatch[1].replace(',','.')),Number(moveMatch[2].replace(',','.')),Number(moveMatch[3].replace(',','.')));
+ const rotateMatch=q.match(/otoč(?:\\s+objekt)?\\s+(\\d+(?:[.,]\\d+)?)/);
+ if(rotateMatch)object.rotation.y=THREE.MathUtils.degToRad(Number(rotateMatch[1].replace(',','.')));
  if(q.includes('červen')) object.traverse(o=>{if(o.isMesh&&o.material&&o.material.color&&o.material.color.getHex()===0x1685a4)o.material.color.set(0xb52c42);});
  if(q.includes('modr')) object.traverse(o=>{if(o.isMesh&&o.material&&o.material.color&&o.material.color.getHex()===0x1685a4)o.material.color.set(0x176fc1);});
  if(q.includes('spoiler')||q.includes('krídlo')||q.includes('kridlo')){
@@ -558,23 +586,43 @@ function build(name){
   const floor=new THREE.Mesh(new THREE.BoxGeometry(3.8,.12,2.8),material.clone());floor.position.y=-.9;object.add(floor);addEdges(floor);
   const bed=new THREE.Mesh(new THREE.BoxGeometry(1.7,.35,1.1),material.clone());bed.position.set(-.65,-.62,-.35);object.add(bed);addEdges(bed);
   const desk=new THREE.Mesh(new THREE.BoxGeometry(1.0,.12,.65),material.clone());desk.position.set(1,-.15,-.7);object.add(desk);addEdges(desk);
- } else mesh=new THREE.Mesh(new THREE.BoxGeometry(2.2,2.2,2.2),material.clone());
- if(name!=='DOM'&&name!=='AUTO'&&name!=='ULICA'&&name!=='IZBA'){object.add(mesh);addEdges(mesh);}
+ } else if(name==='CUSTOM'){ /* Start with an empty editable scene. */ }
+ else mesh=new THREE.Mesh(new THREE.BoxGeometry(2.2,2.2,2.2),material.clone());
+ if(name!=='DOM'&&name!=='AUTO'&&name!=='ULICA'&&name!=='IZBA'&&name!=='CUSTOM'){object.add(mesh);addEdges(mesh);}
  document.getElementById('hud').textContent='JARVIS • '+name+' • WEBGL SCENE';
 }
 window.setJarvisModel=build;
 window.applyJarvisEdits=function(items){(items||[]).forEach(item=>window.applyJarvisEdit(item));};
+window.exportJarvisModel=function(){
+ if(!object){document.getElementById('hud').textContent='JARVIS • NIČ NA EXPORT';return;}
+ const exporter=new GLTFExporter();
+ exporter.parse(object,result=>{
+  try{
+   const bytes=new Uint8Array(result);let binary='';const chunk=0x8000;
+   for(let i=0;i<bytes.length;i+=chunk)binary+=String.fromCharCode.apply(null,bytes.subarray(i,Math.min(i+chunk,bytes.length)));
+   const encoded=btoa(binary);
+   if(window.JarvisExport&&window.JarvisExport.saveGlb){window.JarvisExport.saveGlb(encoded);document.getElementById('hud').textContent='JARVIS • GLB EXPORT ODOSLANÝ';}
+   else document.getElementById('hud').textContent='JARVIS • EXPORT BRIDGE NEDOSTUPNÝ';
+  }catch(e){document.getElementById('hud').textContent='JARVIS • EXPORT CHYBA: '+e.message;}
+ },error=>{document.getElementById('hud').textContent='JARVIS • EXPORT CHYBA: '+error;},{binary:true,onlyVisible:true});
+};
 build('KOCKA');
 function tick(){requestAnimationFrame(tick);if(object)object.rotation.y+=.002;controls.update();renderer.render(scene,camera)}tick();
 new ResizeObserver(()=>{const w=host.clientWidth,h=host.clientHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h)}).observe(host);
 </script></body></html>
         """.trimIndent()
     }
-    AndroidView(
-        modifier = Modifier.fillMaxWidth().height(260.dp)
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(exportStatus, color = Color(0xFF9BAFC2), fontSize = 10.sp, modifier = Modifier.weight(1f))
+            TextButton(onClick = { /* Export is triggered by the viewport button. */ }) { Text("GLB / 3D SÚBOR", color = WorkCyan) }
+        }
+        AndroidView(
+        modifier = Modifier.fillMaxWidth().height(300.dp)
             .background(Color(0xFF07101A), RoundedCornerShape(12.dp)),
         factory = { ctx ->
             WebView(ctx).apply {
+                addJavascriptInterface(JarvisGlbExporter(context) { exportStatus = it }, "JarvisExport")
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView, url: String) {
                         view.evaluateJavascript("if(window.setJarvisModel)window.setJarvisModel(${JSONObject.quote(model)});", null)
@@ -598,4 +646,5 @@ new ResizeObserver(()=>{const w=host.clientWidth,h=host.clientHeight;camera.aspe
             webView.evaluateJavascript("if(window.applyJarvisEdits)window.applyJarvisEdits($editsJson);", null)
         }
     )
+    }
 }
