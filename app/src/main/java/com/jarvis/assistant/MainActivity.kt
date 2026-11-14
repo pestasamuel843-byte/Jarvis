@@ -998,7 +998,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     val answer = if (brain.isInstalled()) {
                         runCatching { brain.answer(text) }.getOrElse { "Pane, offline AI model sa nepodarilo spustiť: ${it.message ?: "neznáma chyba"}" }
                     } else {
-                        "Pane, lokálne príkazy fungujú. Ak chcete aj konverzačnú AI bez API kľúča, otvorte Nastavenia a stiahnite Offline AI mozog (približne 330 MB)."
+                        "Pane, lokálne príkazy fungujú. Ak chcete aj konverzačnú AI bez API kľúča, otvorte Nastavenia a stiahnite väčší Offline AI mozog (približne 932 MB)."
                     }
                     chat.add(Message(true, answer)); speak(answer); busy = false
                 }
