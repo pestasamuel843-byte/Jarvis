@@ -2053,8 +2053,11 @@ internal suspend fun answerHeadlessVoiceCommand(context: Context, command: Strin
         }
     }
     history.add(Message(false, command))
+    JarvisProtection.detectRequest(command)?.let { JarvisProtection.setLevel(context, it) }
+    if (JarvisProtection.isExitRequest(command)) JarvisProtection.clear(context)
     val memory = prefs.getString("memories", "").orEmpty() +
-        "\\nUložené osobné záznamy:\\n" + prefs.getString("progress_data", "").orEmpty()
+        "\\nUložené osobné záznamy:\\n" + prefs.getString("progress_data", "").orEmpty() +
+        "\\n" + JarvisPersonalProfiles.promptContext(context) + "\\n" + JarvisProtection.promptRules(context)
     val answer = askAiWithOfflineFallback(
         context,
         prefs.getString("endpoint", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions").orEmpty(),
