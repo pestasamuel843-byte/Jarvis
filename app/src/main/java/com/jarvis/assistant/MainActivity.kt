@@ -1166,6 +1166,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             addAction(JarvisVoiceService.ACTION_COMMAND)
             addAction(JarvisVoiceService.ACTION_WAKE)
             addAction(JarvisVoiceService.ACTION_STATUS)
+            addAction("com.jarvis.assistant.PROTECTION_ALERT")
         }
         if (android.os.Build.VERSION.SDK_INT >= 33) {
             context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
