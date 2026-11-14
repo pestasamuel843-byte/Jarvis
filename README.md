@@ -51,6 +51,22 @@ This is still an early prototype, not the full autonomous assistant described in
 - The API key and recent chat history are stored in app preferences on the device. The key is not included in source control, but a production release should use encrypted storage or a secure backend.
 - Build success does not substitute for installing and testing the app on the target tablet.
 
+## Personal profiles and four-level protection modes
+
+New source code adds:
+- Locally stored, user-entered notes about family members and friends. Voice commands: `Zapamätaj si o Kim: dôverujem jej a vie ma vypočuť` and `Čo vieš o Kim?`.
+- Explicitly entered health notes: `Zapamätaj si moje zdravie: ...`. These are personal notes, not diagnoses or a live Da Fit/Health Connect integration.
+- Four support levels: GUARDIAN, BLACKOUT, OMEGA and SOVEREIGN. Say `Aktivuj Guardian/Blackout/Omega/Sovereign`; phrases such as `Ja už to nedám` or `Prevezmi to celé` request SOVEREIGN. `Situácia vyriešená` returns to normal mode.
+- Protection level is saved locally and influences the online/offline AI context and the app's main background/accent.
+- Notification previews are checked for a short list of explicit threat phrases. A possible match raises BLACKOUT and asks the user to review the message; it does not establish that a threat is real and does not contact anyone.
+
+Important limits:
+- The app cannot know everything about the user automatically. People profiles must be entered by the user or imported from a file the user chooses. Recommendations about whom to contact are only as reliable as those notes.
+- Health notes are manual. Da Fit watch data, Health Connect, sleep, heart rate and SpO₂ are not connected by this change.
+- Threat phrase detection is deliberately narrow and can miss context or produce false positives. It is an alert for review, not a security guarantee.
+- These changes do not yet silence Android system notifications, run a full autonomous agent, contact family/emergency services, or execute actions without confirmation.
+- The visual protection state is a first implementation, not a complete redesign of every screen. No build or on-device test is claimed until the GitHub Actions build succeeds and the APK is installed on the target tablet.
+
 ## Technical details
 
 - Kotlin, Jetpack Compose, Java 17, Android SDK 35.
