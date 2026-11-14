@@ -309,7 +309,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             val date = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
             val old = prefs.getString("progress_data", "").orEmpty()
             val record = "$date | ZNÁMKA | $gradeSubject | $grade"
-            prefs.edit().putString("progress_data", (old.lines().filter { it.isNotBlank() } + record).joinToString("\\n")).apply()
+            prefs.edit().putString("progress_data", (old.lines().filter { it.isNotBlank() } + record).joinToString("\n")).apply()
             val answer = "Zapísal som známku $grade z predmetu $gradeSubject."
             gradeSubject = ""; gradeEntryStep = 0
             chat.add(Message(true, answer)); speak(answer)
@@ -387,7 +387,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             val period = scheduleSetupIndex % 8 + 1
             val saved = prefs.getString("school_timetable", "").orEmpty().lines().filter { it.isNotBlank() }.toMutableList()
             if (!text.equals("voľno", true) && !text.equals("preskoč", true) && !text.equals("ďalej", true)) saved.add("$day | $period. hodina | $text")
-            prefs.edit().putString("school_timetable", saved.joinToString("\\n")).apply()
+            prefs.edit().putString("school_timetable", saved.joinToString("\n")).apply()
             scheduleSetupIndex++
             if (scheduleSetupIndex >= 40) {
                 scheduleSetupIndex = -1
@@ -583,7 +583,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 val query = text.substringAfter(' ').trim()
                 val old = prefs.getString("memories", "").orEmpty()
                 val remaining = old.lines().filter { it.isNotBlank() && !it.contains(query, ignoreCase = true) }
-                prefs.edit().putString("memories", remaining.joinToString("\\n")).apply()
+                prefs.edit().putString("memories", remaining.joinToString("\n")).apply()
                 val answer = "Odstránil som z pamäti položky zodpovedajúce zadaniu, pane."
                 chat.add(Message(true, answer)); speak(answer)
             }
@@ -599,7 +599,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             }
             text.startsWith("vymaž poslednú poznámku", true) || text.startsWith("zmaž poslednú poznámku", true) -> {
                 val remaining = prefs.getString("notes", "").orEmpty().lines().filter { it.isNotBlank() }.dropLast(1)
-                prefs.edit().putString("notes", remaining.joinToString("\\n")).apply()
+                prefs.edit().putString("notes", remaining.joinToString("\n")).apply()
                 val answer = if (remaining.isEmpty()) "Zoznam poznámok je teraz prázdny, pane." else "Poslednú poznámku som odstránil, pane."
                 chat.add(Message(true, answer)); speak(answer)
             }
