@@ -65,9 +65,10 @@ object JarvisAgent {
                 prefs.edit().remove(KEY_GOAL).apply()
                 return "Aktuálny cieľ som vymazal. Režim zostáva " + if (prefs.getBoolean(KEY_ACTIVE, false)) "aktívny." else "vypnutý."
             }
-            normalized.startsWith("novy ciel ") || normalized.startsWith("zmen ciel na ") -> {
+            normalized.startsWith("novy ciel ") || normalized.startsWith("novy ciel:") || normalized.startsWith("zmen ciel na ") -> {
                 if (!prefs.getBoolean(KEY_ACTIVE, false)) return "Najprv aktivujte AUTONOMOUS MODE."
-                val goal = raw.substringAfter("cieľ", raw.substringAfter("ciel", "")).trim().trimStart(':', ',', ' ')
+                val goalMatch = Regex("""(?i)^(?:nový|novy)\\s+c(?:ieľ|iel)\\s*[:,-]?\\s*(.+)$|^zmeň\\s+c(?:ieľ|iel)\\s+na\\s+(.+)$""").find(raw.trim())
+                val goal = (goalMatch?.groupValues?.getOrNull(1).orEmpty().ifBlank { goalMatch?.groupValues?.getOrNull(2).orEmpty() }).trim()
                 if (goal.isBlank()) return "Povedzte, aký nový cieľ mám riešiť."
                 prefs.edit().putString(KEY_GOAL, goal.take(1200)).apply()
                 return null
