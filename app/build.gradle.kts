@@ -1,4 +1,46 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.net.HttpURLConnection
+import java.net.URL
+
+val offlineModelName = "Qwen3-1.7B_dynamic_wi4b32_afp32.litertlm"
+val offlineModelUrl = "https://huggingface.co/litert-community/Qwen3-1.7B/resolve/main/$offlineModelName"
+val offlineModelAssets = layout.buildDirectory.dir("generated/jarvisOfflineAssets")
+
+val downloadJarvisOfflineModel by tasks.registering {
+    val outputModel = offlineModelAssets.map { it.file(offlineModelName) }
+    outputs.file(outputModel)
+    doLast {
+        val destination = outputModel.get().asFile
+        if (destination.exists() && destination.length() > 850L * 1024L * 1024L) {
+            logger.lifecycle("JARVIS offline model already downloaded.")
+        } else {
+            destination.parentFile.mkdirs()
+            val temporary = File(destination.parentFile, offlineModelName + ".part")
+            val connection = (URL(offlineModelUrl).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 30_000
+                readTimeout = 180_000
+                instanceFollowRedirects = true
+                setRequestProperty("User-Agent", "JARVIS-Android-Build")
+                setRequestProperty("Accept-Encoding", "identity")
+            }
+            try {
+                connection.connect()
+                check(connection.responseCode in 200..299) { "Could not download bundled Qwen3 model: HTTP " + connection.responseCode }
+                connection.inputStream.use { input ->
+                    temporary.outputStream().buffered().use { output -> input.copyTo(output, 1024 * 1024) }
+                }
+                check(temporary.length() > 850L * 1024L * 1024L) { "Downloaded Qwen3 model is incomplete (" + temporary.length() + " bytes)." }
+                if (destination.exists()) destination.delete()
+                check(temporary.renameTo(destination)) { "Could not move bundled Qwen3 model into assets." }
+                logger.lifecycle("Bundled Qwen3 model: " + destination.length() + " bytes")
+            } finally {
+                connection.disconnect()
+                temporary.delete()
+            }
+        }
+    }
+}
+
 
 plugins {
     id("com.android.application")
@@ -27,7 +69,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     buildFeatures { compose = true }
+    androidResources { noCompress += "litertlm" }
+    sourceSets.getByName("main").assets.srcDir(offlineModelAssets)
 }
+
+tasks.named("preBuild").configure { dependsOn(downloadJarvisOfflineModel) }
 
 kotlin {
     compilerOptions {
