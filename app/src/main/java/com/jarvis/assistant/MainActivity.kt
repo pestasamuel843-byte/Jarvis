@@ -201,6 +201,7 @@ private fun extractChatGptExportText(raw: String): String {
 private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("jarvis", Context.MODE_PRIVATE) }
+    val offlineBrain = remember { OfflineBrain(context) }
     val scope = rememberCoroutineScope()
     var input by remember { mutableStateOf("") }
     var endpoint by remember { mutableStateOf(prefs.getString("endpoint", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions")?.let { if (it.contains("api.cloudflare.com/client/v4/accounts/09f7e11cc7eaf76d61294654d547bd8a") || it == "https://api.openai.com/v1/chat/completions") "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions" else it } ?: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions") }
@@ -230,8 +231,26 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     var profileImportStatus by remember { mutableStateOf("") }
     var protectionLevel by remember { mutableIntStateOf(JarvisProtection.currentLevel(context)) }
     var shareImportedWithOnline by remember { mutableStateOf(prefs.getBoolean("share_imported_with_online", false)) }
+    var offlineModelReady by remember { mutableStateOf(offlineBrain.isPrepared()) }
+    var offlineModelProgress by remember { mutableIntStateOf(0) }
+    var offlineModelStatus by remember { mutableStateOf(if (offlineModelReady) "" else "AUTOMATICKÁ PRÍPRAVA OFFLINE AI…") }
     LaunchedEffect(showWorkspace) {
         if (showWorkspace) prefs.edit().putBoolean("workspace_pending_open", false).apply()
+    }
+    LaunchedEffect(Unit) {
+        if (!offlineModelReady) {
+            try {
+                offlineModelStatus = "PRIPRAVUJEM OFFLINE AI MOZOG…"
+                offlineBrain.download { percent ->
+                    Handler(Looper.getMainLooper()).post { offlineModelProgress = percent }
+                }
+                offlineModelReady = true
+                offlineModelProgress = 100
+                offlineModelStatus = ""
+            } catch (error: Exception) {
+                offlineModelStatus = "OFFLINE AI SA NEPODARILO PRIPRAVIŤ: ${error.message ?: \"nedostatok miesta alebo chyba modelu\"}"
+            }
+        }
     }
     val scheduleDays = listOf("Pondelok", "Utorok", "Streda", "Štvrtok", "Piatok")
     LaunchedEffect(Unit) {
@@ -1215,6 +1234,14 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     TextButton(onClick = { showWorkspace = !showWorkspace }) { Text("PROJEKT", color = Cyan, fontSize = 11.sp) }
                     TextButton(onClick = { settings = true }) { Text("⚙", color = Cyan, fontSize = 22.sp) }
                 }
+                if (!offlineModelReady && offlineModelStatus.isNotBlank()) {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(offlineModelStatus, color = if (offlineModelStatus.startsWith("OFFLINE AI SA")) Color(0xFFFFB36B) else Cyan, fontSize = 9.sp)
+                        Box(Modifier.fillMaxWidth().height(3.dp).background(Color(0xFF17394A), RoundedCornerShape(3.dp))) {
+                            Box(Modifier.fillMaxWidth(offlineModelProgress.coerceIn(0, 100) / 100f).fillMaxHeight().background(Cyan, RoundedCornerShape(3.dp)))
+                        }
+                    }
+                }
                 if (protectionLevel > 0) {
                     Text("● ${JarvisProtection.label(protectionLevel)} ACTIVE  •  PRIORITA: BEZPEČNOSŤ A PODPORA", color = protectionAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp))
                 }
@@ -1460,7 +1487,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         TextButton(onClick = { settings = false; showCheckIn = true }) { Text("OSOBNÝ PROFIL • IMPORT ROZHOVOROV", color = Cyan) }
                         Text("OFFLINE AI MOZOG", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text("Model Qwen3 1.7B INT4 (približne 932 MB) je vložený priamo v APK. Pri prvom použití sa pripraví v úložisku zariadenia; potom funguje bez API kľúča a bez internetu. Vyžaduje dostatok voľného miesta a operačnej pamäte.", color = Muted, fontSize = 11.sp)
+                        Text("Model Qwen3 1.7B INT4 (približne 932 MB) je súčasťou APK. JARVIS ho automaticky pripraví pri prvom spustení, bez API kľúča a bez internetu. Vyžaduje približne 1,05 GB voľného miesta navyše a dostatok RAM.", color = Muted, fontSize = 11.sp)
                         Button(
                             onClick = {
                                 apiTesting = true
