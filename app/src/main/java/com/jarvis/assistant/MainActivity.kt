@@ -1384,7 +1384,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         TextButton(onClick = { settings = false; showCheckIn = true }) { Text("OSOBNÝ PROFIL • IMPORT ROZHOVOROV", color = Cyan) }
                         Text("OFFLINE AI MOZOG", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text("Stiahne väčší model Qwen3 1.7B INT4 (približne 932 MB). Lokálna AI potom funguje bez API kľúča a bez internetu. Model potrebuje viac operačnej pamäte; rýchlosť závisí od tabletu.", color = Muted, fontSize = 11.sp)
+                        Text("Model Qwen3 1.7B INT4 (približne 932 MB) je vložený priamo v APK. Pri prvom použití sa pripraví v úložisku zariadenia; potom funguje bez API kľúča a bez internetu. Vyžaduje dostatok voľného miesta a operačnej pamäte.", color = Muted, fontSize = 11.sp)
                         Button(
                             onClick = {
                                 apiTesting = true
@@ -1394,17 +1394,17 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                                         OfflineBrain(context).download { percent ->
                                             apiTestResult = "Sťahujem offline AI model: $percent %"
                                         }
-                                        apiTestResult = "Väčší offline AI model Qwen3 1.7B je stiahnutý."
+                                        apiTestResult = "Offline AI model Qwen3 1.7B je pripravený."
                                     } catch (error: Exception) {
-                                        apiTestResult = "Stiahnutie modelu zlyhalo: ${error.message ?: "neznáma chyba"}"
+                                        apiTestResult = "Príprava offline modelu zlyhala: ${error.message ?: "neznáma chyba"}"
                                     } finally {
                                         apiTesting = false
                                     }
                                 }
                             },
                             enabled = !apiTesting
-                        ) { Text(if (apiTesting) "PRACUJEM…" else "STIAHNUŤ OFFLINE AI MOZOG") }
-                        Text("JARVIS môže používať lokálnu AI bez kľúča alebo voliteľnú online AI službu. Offline model sa stiahne iba raz a zostane uložený v zariadení.", color = Muted, fontSize = 12.sp)
+                        ) { Text(if (apiTesting) "PRACUJEM…" else "PRIPRAVIŤ OFFLINE AI MOZOG") }
+                        Text("Základná AI funguje lokálne bez účtu a API kľúča. Online služba je iba voliteľná.", color = Muted, fontSize = 12.sp)
                         Text("Predvolená služba: Google Gemini API • model Gemini 2.5 Flash", color = Cyan, fontSize = 12.sp)
                         OutlinedTextField(key, { key = it }, label = { Text("Google Gemini API kľúč") }, placeholder = { Text("Vložte svoj kľúč z Google AI Studio") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
                         TextButton(onClick = {
@@ -1892,7 +1892,7 @@ private suspend fun askAiWithOfflineFallback(
         return if (offline.isInstalled()) {
             offline.answer(lastPrompt, memory)
         } else {
-            "Pane, offline AI model ešte nie je stiahnutý. Otvorte Nastavenia a vyberte „Stiahnuť offline AI mozog“."
+            "Pane, offline AI model z APK sa nepodarilo pripraviť. Skontrolujte voľné miesto v zariadení."
         }
     }
 
@@ -1901,7 +1901,7 @@ private suspend fun askAiWithOfflineFallback(
         return if (offline.isInstalled()) {
             offline.answer(lastPrompt, memory)
         } else {
-            "Pane, internet nie je dostupný a offline AI model ešte nie je stiahnutý. V Nastaveniach ho môžete stiahnuť, keď budete online."
+            "Pane, internet nie je dostupný a offline AI model z APK sa nepodarilo pripraviť. Skontrolujte voľné miesto v zariadení."
         }
     }
 
