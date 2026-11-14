@@ -1147,7 +1147,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                         wakeMode = wakeMode,
                         busy = busy,
-                        aiReady = endpoint.isNotBlank() && key.isNotBlank() && model.isNotBlank(),
+                        aiReady = (endpoint.isNotBlank() && key.isNotBlank() && model.isNotBlank()) || OfflineBrain(context).isInstalled(),
                         model = model,
                         onToggleVoice = {
                             if (wakeMode) {
