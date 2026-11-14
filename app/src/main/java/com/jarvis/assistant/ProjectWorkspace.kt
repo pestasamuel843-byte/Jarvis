@@ -597,7 +597,39 @@ function build(name){
  document.getElementById('hud').textContent='JARVIS • '+name+' • WEBGL SCENE';
 }
 window.setJarvisModel=build;
-window.applyJarvisEdits=function(items){(items||[]).forEach(item=>window.applyJarvisEdit(item));};
+window.applyJarvisSceneSpec=function(spec){
+ (spec.objects||[]).forEach(def=>{
+  let geometry;
+  switch(def.type){
+   case 'sphere':geometry=new THREE.SphereGeometry(.8,40,28);break;
+   case 'cylinder':geometry=new THREE.CylinderGeometry(.65,.65,1.6,40);break;
+   case 'cone':geometry=new THREE.ConeGeometry(.8,1.6,40);break;
+   case 'torus':geometry=new THREE.TorusGeometry(.7,.18,18,56);break;
+   case 'plane':geometry=new THREE.PlaneGeometry(1.8,1.8,10,10);break;
+   case 'capsule':geometry=new THREE.CapsuleGeometry(.45,1,8,20);break;
+   case 'dodecahedron':geometry=new THREE.DodecahedronGeometry(.85,0);break;
+   case 'icosahedron':geometry=new THREE.IcosahedronGeometry(.85,0);break;
+   case 'tetrahedron':geometry=new THREE.TetrahedronGeometry(1,0);break;
+   case 'torusKnot':geometry=new THREE.TorusKnotGeometry(.6,.15,120,16);break;
+   default:geometry=new THREE.BoxGeometry(1.4,1.4,1.4);
+  }
+  const color=new THREE.Color(def.color||'#1685a4');
+  const mesh=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color,metalness:.5,roughness:.32}));
+  mesh.name=def.name||'JARVIS object';
+  const p=def.position||[0,0,0],r=def.rotation||[0,0,0],s=def.scale||[1,1,1];
+  mesh.position.set(Number(p[0])||0,Number(p[1])||0,Number(p[2])||0);
+  mesh.rotation.set(Number(r[0])||0,Number(r[1])||0,Number(r[2])||0);
+  mesh.scale.set(Math.max(.05,Math.abs(Number(s[0])||1)),Math.max(.05,Math.abs(Number(s[1])||1)),Math.max(.05,Math.abs(Number(s[2])||1)));
+  mesh.castShadow=true;mesh.receiveShadow=true;object.add(mesh);addEdges(mesh);
+ });
+ document.getElementById('hud').textContent='JARVIS • AI SCENE • '+(spec.objects||[]).length+' OBJECTS';
+};
+window.applyJarvisEdits=function(items){
+ (items||[]).forEach(item=>{
+  try{const spec=JSON.parse(item);if(spec&&Array.isArray(spec.objects)){window.applyJarvisSceneSpec(spec);return;}}catch(e){}
+  window.applyJarvisEdit(item);
+ });
+};
 window.exportJarvisModel=function(){
  if(!object){document.getElementById('hud').textContent='JARVIS • NIČ NA EXPORT';return;}
  const exporter=new GLTFExporter();
