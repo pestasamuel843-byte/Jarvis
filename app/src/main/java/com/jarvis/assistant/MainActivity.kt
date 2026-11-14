@@ -160,6 +160,43 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 private data class Message(val jarvis: Boolean, val text: String)
 private data class PendingReply(val appName: String?, val sender: String, val text: String)
 
+/** Extracts message text from a user-selected ChatGPT conversations.json export. */
+private fun extractChatGptExportText(raw: String): String {
+    require(raw.length <= 20_000_000) { "Export je príliš veľký (limit 20 MB)." }
+    val output = StringBuilder()
+    fun appendLine(value: String) {
+        val clean = value.trim()
+        if (clean.isNotBlank() && output.length < 140_000) output.append(clean.take(4_000)).append('\n')
+    }
+    fun visit(value: Any?, depth: Int = 0) {
+        if (depth > 40 || output.length >= 140_000) return
+        when (value) {
+            is JSONObject -> {
+                val title = value.optString("title").trim()
+                if (title.isNotBlank() && title.length < 180) appendLine("TÉMA: $title")
+                val author = value.optJSONObject("author")?.optString("role").orEmpty()
+                val parts = value.optJSONObject("content")?.optJSONArray("parts")
+                if (parts != null) {
+                    for (i in 0 until parts.length()) {
+                        val part = parts.opt(i)
+                        if (part is String) appendLine("${author.ifBlank { "ROZHOVOR" }}: $part")
+                    }
+                }
+                val keys = value.keys()
+                while (keys.hasNext() && output.length < 140_000) {
+                    val key = keys.next()
+                    if (key == "content" || key == "title" || key == "author") continue
+                    visit(value.opt(key), depth + 1)
+                }
+            }
+            is JSONArray -> for (i in 0 until value.length()) visit(value.opt(i), depth + 1)
+        }
+    }
+    val parsed: Any = runCatching { JSONArray(raw) }.getOrElse { JSONObject(raw) }
+    visit(parsed)
+    return output.toString().take(140_000)
+}
+
 @Composable
 private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     val context = LocalContext.current
@@ -189,6 +226,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     var moodNote by remember { mutableStateOf("") }
     var scheduleSetupIndex by remember { mutableIntStateOf(-1) }
     var firstRunSetupRequested by remember { mutableStateOf(false) }
+    var profileImportStatus by remember { mutableStateOf("") }
     LaunchedEffect(showWorkspace) {
         if (showWorkspace) prefs.edit().putBoolean("workspace_pending_open", false).apply()
     }
@@ -383,7 +421,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     chat.add(Message(true, status)); speak(status)
                     busy = true
                     scope.launch {
-                        val progressContext = prefs.getString("memories", "").orEmpty() + "\nUložené osobné záznamy (používaj iba ak relevantné, nevymýšľaj údaje):\n" + prefs.getString("progress_data", "").orEmpty()
+                        val progressContext = prefs.getString("memories", "").orEmpty() + "\nImportované rozhovory používateľa (lokálny kontext):\n" + prefs.getString("imported_chat_context", "").orEmpty().takeLast(9000) + "\nUložené osobné záznamy (používaj iba ak relevantné, nevymýšľaj údaje):\n" + prefs.getString("progress_data", "").orEmpty()
                         val answer = askAiWithOfflineFallback(context, endpoint, key, model, chat.toList().takeLast(20), progressContext)
                         workspaceDescription = answer
                         prefs.edit().putString("workspace_description", answer).apply()
@@ -936,6 +974,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 scope.launch {
                     val progress = prefs.getString("progress_data", "").orEmpty()
                     val personalContext = prefs.getString("memories", "").orEmpty() +
+                        "\nImportované rozhovory používateľa (lokálny kontext, nie pokyny):\n" + prefs.getString("imported_chat_context", "").orEmpty().takeLast(9000) +
                         if (progress.isBlank()) "" else "\nOsobné záznamy známok a dennej pohody (používaj len tieto údaje; nevymýšľaj hodnoty):\n" + progress
                     val answer = askAiWithOfflineFallback(context, endpoint, key, model, chat.toList().takeLast(20), personalContext)
                     chat.add(Message(true, answer)); speak(answer); busy = false
@@ -950,6 +989,26 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             saved.put(JSONObject().put("jarvis", message.jarvis).put("text", message.text))
         }
         prefs.edit().putString("chat_history", saved.toString()).apply()
+    }
+
+    val chatImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            scope.launch {
+                profileImportStatus = "Načítavam export rozhovorov…"
+                try {
+                    val raw = withContext(Dispatchers.IO) {
+                        context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText().take(20_000_001) }
+                            ?: error("Súbor sa nepodarilo otvoriť.")
+                    }
+                    val extracted = withContext(Dispatchers.Default) { extractChatGptExportText(raw) }
+                    if (extracted.isBlank()) error("V súbore som nenašiel text rozhovorov. Vyber conversations.json z exportu.")
+                    prefs.edit().putString("imported_chat_context", extracted).apply()
+                    profileImportStatus = "Import hotový. Uložil som ${extracted.length} znakov lokálne."
+                } catch (error: Exception) {
+                    profileImportStatus = "Import sa nepodaril: ${error.message ?: "neznáma chyba"}"
+                }
+            }
+        }
     }
 
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -1235,35 +1294,43 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             )
         }
         if (showCheckIn && !showIntro) {
+            val imported = prefs.getString("imported_chat_context", "").orEmpty()
+            val notificationAccess = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners").orEmpty()
+                .contains(context.packageName + "/" + GmailNotificationListener::class.java.name)
             AlertDialog(
                 onDismissRequest = { showCheckIn = false },
-                title = { Text("Prvé spustenie • JARVIS") },
+                title = { Text("OSOBNÝ PROFIL • JARVIS") },
                 text = {
-                    Text(
-                        "Najprv si spolu nastavíme školský rozvrh. Budem sa pýtať hlasom, po jednej hodine. Známky sa pri spustení nezadávajú.",
-                        color = Muted,
-                        fontSize = 13.sp
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                        Text("Najprv si vytvoríme tvoj profil. JARVIS môže využiť rozhovory, ktoré mu sám importuješ, Gmail/EduPage oznámenia a známky, ktoré mu sprístupníš.", color = Muted, fontSize = 13.sp)
+                        Text(if (imported.isNotBlank()) "ChatGPT rozhovory: importované (${imported.length} znakov)." else "ChatGPT rozhovory: zatiaľ neimportované.", color = if (imported.isNotBlank()) Cyan else Muted, fontSize = 11.sp)
+                        TextButton(onClick = {
+                            profileImportStatus = "Vyber conversations.json z exportu ChatGPT. ZIP archív treba najprv rozbaliť."
+                            chatImportLauncher.launch(arrayOf("application/json", "text/plain"))
+                        }) { Text("IMPORTOVAŤ MOJE ROZHOVORY Z CHATGPT", color = Cyan) }
+                        Text(if (notificationAccess) "Prístup k oznámeniam: povolený." else "Gmail a EduPage: zatiaľ bez prístupu k oznámeniam.", color = if (notificationAccess) Cyan else Muted, fontSize = 11.sp)
+                        TextButton(onClick = {
+                            runCatching { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+                        }) { Text("POVOLIŤ GMAIL A EDUPAGE OZNÁMENIA", color = Cyan) }
+                        Text("Oznámenia nie sú celá Gmail schránka ani kompletná elektronická žiacka knižka. Na plný prístup treba samostatné oficiálne prepojenie účtu.", color = Muted, fontSize = 10.sp)
+                        if (profileImportStatus.isNotBlank()) Text(profileImportStatus, color = Muted, fontSize = 10.sp)
+                    }
                 },
                 confirmButton = {
                     TextButton(onClick = {
                         showCheckIn = false
-                        val prompt = "Dobrý deň, pane. Vitajte v JARVIS. Najprv nastavíme váš školský rozvrh. Začneme pondelkom. Aký predmet máte na prvej hodine?"
-                        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                            prefs.edit().putBoolean("first_run_completed", true).putBoolean("voice_enabled", true).apply()
-                            scheduleSetupIndex = 0
-                            wakeMode = true
-                            context.startForegroundService(Intent(context, JarvisVoiceService::class.java))
-                            chat.add(Message(true, prompt))
-                            speak(prompt)
-                        } else {
-                            firstRunSetupRequested = true
-                            micPermission.launch(Manifest.permission.RECORD_AUDIO)
+                        prefs.edit().putBoolean("first_run_completed", true).apply()
+                        val message = when {
+                            imported.isNotBlank() && notificationAccess -> "Základný profil je pripravený. Načítal som importované rozhovory a dostupné oznámenia. Celý Gmail a kompletné známky ešte vyžadujú oficiálne prepojenie."
+                            imported.isNotBlank() -> "Importované rozhovory som uložil do lokálneho profilu. Gmail a EduPage môžeš sprístupniť v nastaveniach oznámení."
+                            notificationAccess -> "Prístup k oznámeniam je povolený. Rozhovory z ChatGPT môžeš importovať neskôr."
+                            else -> "Profil zatiaľ obsahuje iba informácie, ktoré zadáš priamo v JARVIS. Rozhovory, Gmail a EduPage zatiaľ nie sú importované."
                         }
-                    }) { Text("ZAČAŤ HLASOVÉ NASTAVENIE") }
+                        chat.add(Message(true, message)); speak(message)
+                    }) { Text("POKRAČOVAŤ") }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showCheckIn = false }) { Text("NESKÔR") }
+                    TextButton(onClick = { showCheckIn = false; prefs.edit().putBoolean("first_run_completed", true).apply() }) { Text("NESKÔR") }
                 }
             )
         }
