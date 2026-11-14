@@ -248,7 +248,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 offlineModelProgress = 100
                 offlineModelStatus = ""
             } catch (error: Exception) {
-                offlineModelStatus = "OFFLINE AI SA NEPODARILO PRIPRAVIŤ: ${error.message ?: \"nedostatok miesta alebo chyba modelu\"}"
+                offlineModelStatus = "OFFLINE AI SA NEPODARILO PRIPRAVIŤ: ${error.message ?: "nedostatok miesta alebo chyba modelu"}"
             }
         }
     }
