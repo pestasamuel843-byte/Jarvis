@@ -1384,7 +1384,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         TextButton(onClick = { settings = false; showCheckIn = true }) { Text("OSOBNÝ PROFIL • IMPORT ROZHOVOROV", color = Cyan) }
                         Text("OFFLINE AI MOZOG", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text("Stiahne model Qwen3 INT4 (približne 330 MB). Potom bude lokálna AI fungovať bez API kľúča a bez internetu.", color = Muted, fontSize = 11.sp)
+                        Text("Stiahne väčší model Qwen3 1.7B INT4 (približne 932 MB). Lokálna AI potom funguje bez API kľúča a bez internetu. Model potrebuje viac operačnej pamäte; rýchlosť závisí od tabletu.", color = Muted, fontSize = 11.sp)
                         Button(
                             onClick = {
                                 apiTesting = true
@@ -1394,7 +1394,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                                         OfflineBrain(context).download { percent ->
                                             apiTestResult = "Sťahujem offline AI model: $percent %"
                                         }
-                                        apiTestResult = "Offline AI model je stiahnutý."
+                                        apiTestResult = "Väčší offline AI model Qwen3 1.7B je stiahnutý."
                                     } catch (error: Exception) {
                                         apiTestResult = "Stiahnutie modelu zlyhalo: ${error.message ?: "neznáma chyba"}"
                                     } finally {
