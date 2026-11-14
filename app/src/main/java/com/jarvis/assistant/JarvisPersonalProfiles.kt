@@ -82,7 +82,9 @@ internal object JarvisPersonalProfiles {
         return buildString {
             if (people.isNotBlank()) append("OSOBNÉ POZNÁMKY O ĽUĎOCH (používateľom zadané; nie objektívne diagnózy):\n").append(people).append('\n')
             if (health.isNotBlank()) append("ZDRAVOTNÉ POZNÁMKY (používateľom výslovne uložené; nevyvodzuj diagnózy):\n").append(health).append('\n')
-        }.take(9000)
+            val autonomousContext = JarvisAgent.promptContext(context)
+            if (autonomousContext.isNotBlank()) append(autonomousContext).append('\n')
+        }.take(11000)
     }
 
     private fun readProfiles(prefs: android.content.SharedPreferences): JSONArray =
