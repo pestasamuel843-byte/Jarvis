@@ -1127,6 +1127,14 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                         val status = intent.getStringExtra(JarvisVoiceService.EXTRA_STATUS).orEmpty()
                         listening = status != "HLASOVÝ MODUL VYPNUTÝ"
                     }
+                    "com.jarvis.assistant.PROTECTION_ALERT" -> {
+                        protectionLevel = JarvisProtection.currentLevel(context)
+                        showChat = true
+                        val flagged = context.getSharedPreferences("jarvis_protection", Context.MODE_PRIVATE)
+                        val sender = flagged.getString("last_flagged_sender", "Neznámy odosielateľ").orEmpty()
+                        val notice = "Pane, v oznámení od $sender som zachytil možnú vyhrážku. Zatiaľ ide iba o automatické upozornenie, nie o potvrdenie hrozby. Skontrolujte správu a ak sa cítite ohrozený, obráťte sa na dôveryhodného dospelého."
+                        chat.add(Message(true, notice)); speak(notice)
+                    }
                 }
             }
         }
