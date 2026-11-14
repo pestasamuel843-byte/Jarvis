@@ -110,9 +110,14 @@ object JarvisAgent {
         val steps = mutableListOf<Step>()
         val emailMatch = Regex("""(?is)^(?:napíš|napis|vytvor)\s+(?:nový\s+)?email(?:\s+s\s+predmetom\s+(.+?))?(?:\s+a\s+textom\s+(.+))?$""").find(raw.trim())
         val searchMatch = Regex("""(?i)^(?:vyhľadaj|vyhladaj|hľadaj|hladaj|nájdi|najdi)\s+(.+)$""").find(raw.trim())
+        val compoundYoutubeMatch = Regex("""(?i)^(?:otvor|spusti)\s+youtube\s+a\s+(?:vyhľadaj|vyhladaj|hľadaj|hladaj|nájdi|najdi)\s+(.+)$""").find(raw.trim())
 
         when {
             emailMatch != null -> steps.add(Step.EmailDraft(emailMatch.groupValues.getOrNull(1).orEmpty(), emailMatch.groupValues.getOrNull(2).orEmpty()))
+            compoundYoutubeMatch != null -> {
+                steps.add(Step.OpenApp("YouTube"))
+                steps.add(Step.Search(compoundYoutubeMatch.groupValues[1].trim(), SearchTarget.YOUTUBE))
+            }
             searchMatch != null -> {
                 var query = searchMatch.groupValues[1].trim()
                 val target = when {
