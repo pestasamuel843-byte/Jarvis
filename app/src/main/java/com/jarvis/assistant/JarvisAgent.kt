@@ -70,7 +70,7 @@ object JarvisAgent {
                 val goal = raw.substringAfter("cieľ", raw.substringAfter("ciel", "")).trim().trimStart(':', ',', ' ')
                 if (goal.isBlank()) return "Povedzte, aký nový cieľ mám riešiť."
                 prefs.edit().putString(KEY_GOAL, goal.take(1200)).apply()
-                return "Nový cieľ som uložil: $goal. Teraz pripravím postup."
+                return null
             }
         }
 
