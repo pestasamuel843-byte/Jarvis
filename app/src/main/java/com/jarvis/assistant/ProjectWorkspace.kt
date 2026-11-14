@@ -1,6 +1,15 @@
 package com.jarvis.assistant
 
 import android.content.Context
+import android.content.ContentValues
+import android.os.Build
+import android.os.Environment
+import android.os.Handler
+import android.os.Looper
+import android.provider.MediaStore
+import android.util.Base64
+import android.webkit.JavascriptInterface
+import java.io.File
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.webkit.WebChromeClient
@@ -31,6 +40,37 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 private val WorkCyan = Color(0xFF4DEBFF)
+
+private class JarvisGlbExporter(context: Context, private val onSaved: (String) -> Unit) {
+    private val appContext = context.applicationContext
+
+    @JavascriptInterface
+    fun saveGlb(encoded: String) {
+        runCatching {
+            val bytes = Base64.decode(encoded, Base64.DEFAULT)
+            val name = "JARVIS-model-${System.currentTimeMillis()}.glb"
+            val savedPath = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val values = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+                    put(MediaStore.MediaColumns.MIME_TYPE, "model/gltf-binary")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/JARVIS")
+                }
+                val uri = appContext.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                    ?: error("Android nevytvoril súbor v priečinku Stiahnuté")
+                appContext.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+                    ?: error("Súbor sa nepodarilo zapísať")
+                "Stiahnuté/JARVIS/$name"
+            } else {
+                val dir = File(appContext.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "JARVIS")
+                if (!dir.exists()) dir.mkdirs()
+                File(dir, name).apply { writeBytes(bytes) }.absolutePath
+            }
+            Handler(Looper.getMainLooper()).post { onSaved(savedPath) }
+        }.onFailure {
+            Handler(Looper.getMainLooper()).post { onSaved("Export zlyhal: ${it.message ?: "neznáma chyba"}") }
+        }
+    }
+}
 
 @Composable
 fun ProjectWorkspace(title: String, description: String, onClose: () -> Unit, onRefine: (String) -> Unit, initialMapMode: Boolean = false, voiceCommand: String = "") {
