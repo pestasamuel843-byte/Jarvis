@@ -262,6 +262,19 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             chat.add(Message(false, text))
             chat.add(Message(true, projectResult.spokenResponse))
             speak(projectResult.spokenResponse)
+            if (key.isNotBlank() || OfflineBrain(context).isInstalled()) {
+                busy = true
+                scope.launch {
+                    val designDescription = runCatching { answerHeadlessVoiceCommand(context, text) }.getOrNull()
+                    if (!designDescription.isNullOrBlank()) {
+                        workspaceDescription = designDescription
+                        prefs.edit().putString("workspace_description", designDescription).apply()
+                        chat.add(Message(true, designDescription))
+                        speak(designDescription)
+                    }
+                    busy = false
+                }
+            }
             return
         }
         val waitingReply = pendingReply
