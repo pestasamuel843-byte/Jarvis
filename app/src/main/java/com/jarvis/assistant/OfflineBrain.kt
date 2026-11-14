@@ -7,8 +7,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
-import java.net.HttpURLConnection
-import java.net.URL
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.ConversationConfig
@@ -17,50 +15,37 @@ import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.SamplerConfig
 
 /**
- * Optional on-device JARVIS language model.
- * The model is downloaded separately from the APK and stays in app-private storage.
+ * On-device JARVIS language model bundled inside the APK.
+ * It is copied once from APK assets to app-private storage for LiteRT-LM.
  */
 class OfflineBrain(private val context: Context) {
     companion object {
-        // Larger local model than the previous 0.6B build. The INT4 artifact is about 932 MB.
         const val MODEL_FILE = "Qwen3-1.7B_dynamic_wi4b32_afp32.litertlm"
-        const val MODEL_URL =
-            "https://huggingface.co/litert-community/Qwen3-1.7B/resolve/main/$MODEL_FILE"
-        const val MODEL_SIZE_LABEL = "približne 932 MB"
+        const val MODEL_SIZE_LABEL = "súčasť aplikácie (približne 932 MB)"
         private const val MIN_MODEL_BYTES = 850L * 1024L * 1024L
     }
 
     private val modelFile: File
         get() = File(context.filesDir, MODEL_FILE)
 
-    fun isInstalled(): Boolean = modelFile.exists() && modelFile.length() > MIN_MODEL_BYTES
+    fun isInstalled(): Boolean {
+        if (modelFile.exists() && modelFile.length() > MIN_MODEL_BYTES) return true
+        return runCatching { context.assets.open(MODEL_FILE).use { true } }.getOrDefault(false)
+    }
 
+    /** Copies the model already bundled in the APK. No network connection is used. */
     suspend fun download(onProgress: (Int) -> Unit = {}): Unit = withContext(Dispatchers.IO) {
-        if (isInstalled()) {
+        if (modelFile.exists() && modelFile.length() > MIN_MODEL_BYTES) {
             onProgress(100)
             return@withContext
         }
         val requiredSpace = 1_050L * 1024L * 1024L
         if (context.filesDir.usableSpace < requiredSpace) {
-            throw IllegalStateException("Na stiahnutie väčšieho offline modelu je potrebných aspoň 1,05 GB voľného miesta.")
+            throw IllegalStateException("Na prípravu offline AI je potrebných aspoň 1,05 GB voľného miesta.")
         }
         val temp = File(context.filesDir, "$MODEL_FILE.part")
-        var connection: HttpURLConnection? = null
         try {
-            connection = (URL(MODEL_URL).openConnection() as HttpURLConnection).apply {
-                connectTimeout = 20000
-                readTimeout = 120000
-                instanceFollowRedirects = true
-                setRequestProperty("User-Agent", "JARVIS-Android")
-                setRequestProperty("Accept-Encoding", "identity")
-            }
-            connection.connect()
-            if (connection.responseCode !in 200..299) {
-                throw IllegalStateException("Model server returned HTTP ${connection.responseCode}")
-            }
-            val total = connection.contentLengthLong
-            onProgress(0)
-            connection.inputStream.use { input ->
+            context.assets.open(MODEL_FILE).use { input ->
                 FileOutputStream(temp).use { output ->
                     val buffer = ByteArray(1024 * 1024)
                     var copied = 0L
@@ -69,15 +54,12 @@ class OfflineBrain(private val context: Context) {
                         if (count < 0) break
                         output.write(buffer, 0, count)
                         copied += count
-                        val denominator = if (total > 0L) total else 932L * 1024L * 1024L
-                        onProgress(((copied * 100) / denominator).toInt().coerceIn(0, 99))
+                        onProgress(((copied * 100) / (932L * 1024L * 1024L)).toInt().coerceIn(0, 99))
                     }
                     output.fd.sync()
                 }
             }
-            if (temp.length() < MIN_MODEL_BYTES) {
-                throw IllegalStateException("Downloaded model is incomplete")
-            }
+            if (temp.length() < MIN_MODEL_BYTES) throw IllegalStateException("Model vložený v APK je neúplný.")
             if (!temp.renameTo(modelFile)) {
                 temp.copyTo(modelFile, overwrite = true)
                 temp.delete()
@@ -86,8 +68,6 @@ class OfflineBrain(private val context: Context) {
         } catch (error: Exception) {
             temp.delete()
             throw error
-        } finally {
-            connection?.disconnect()
         }
     }
 
@@ -96,7 +76,8 @@ class OfflineBrain(private val context: Context) {
      * The on-device model has a limited context window, so only a short recent history is supplied.
      */
     suspend fun answer(prompt: String, extraContext: String = ""): String = withContext(Dispatchers.IO) {
-        check(isInstalled()) { "Offline AI model is not installed." }
+        download()
+        check(modelFile.exists() && modelFile.length() > MIN_MODEL_BYTES) { "Bundled offline AI model is unavailable." }
 
         val prefs = context.getSharedPreferences("jarvis", Context.MODE_PRIVATE)
         val memory = (prefs.getString("memories", "").orEmpty() + "\nImportované rozhovory používateľa (lokálny kontext):\n" + prefs.getString("imported_chat_context", "").orEmpty()).takeLast(4500)
