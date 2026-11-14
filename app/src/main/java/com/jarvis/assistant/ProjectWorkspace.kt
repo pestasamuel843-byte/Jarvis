@@ -527,13 +527,18 @@ window.applyJarvisEdit=function(raw){
  appliedEdits.add(q);
  const editGroup=new THREE.Group();object.add(editGroup);
  const metal=new THREE.MeshStandardMaterial({color:0x9cefff,metalness:.85,roughness:.18});
- const addMatch=q.match(/(?:pridaj|vytvor|vymodeluj|create|add)\s+(?:mi\s+)?(?:nový\s+|novy\s+)?(valec|cylinder|guľu|gulu|sphere|kužeľ|kuzel|cone|torus|prstenec|rovinu|plochu|plane|kváder|kvader|kocku|box)/i);
+ const addMatch=q.match(/(?:pridaj|vytvor|vymodeluj|create|add)\s+(?:mi\s+)?(?:nový\s+|novy\s+)?(valec|cylinder|guľu|gulu|sphere|kužeľ|kuzel|cone|torus|prstenec|rovinu|plochu|plane|kváder|kvader|kocku|box|kapsulu|capsule|dvanásťsten|dvanaststen|osemsten|icosahedron|dodecahedron|tetrahedron|torusknot)/i);
  if(addMatch){
   const kind=addMatch[1].toLocaleLowerCase('sk');let geometry;
   if(kind.includes('valec')||kind.includes('cylinder'))geometry=new THREE.CylinderGeometry(.65,.65,1.8,48);
   else if(kind.includes('guľ')||kind.includes('gul')||kind==='sphere')geometry=new THREE.SphereGeometry(.9,48,32);
   else if(kind.includes('kuže')||kind.includes('kuzel')||kind==='cone')geometry=new THREE.ConeGeometry(.8,1.8,48);
   else if(kind==='torus'||kind.includes('prstenec'))geometry=new THREE.TorusGeometry(.75,.2,20,64);
+  else if(kind==='torusknot')geometry=new THREE.TorusKnotGeometry(.7,.18,160,20);
+  else if(kind.includes('kapsul')||kind==='capsule')geometry=new THREE.CapsuleGeometry(.55,1.1,8,24);
+  else if(kind.includes('dvanásť')||kind.includes('dvanast')||kind==='dodecahedron')geometry=new THREE.DodecahedronGeometry(.95,0);
+  else if(kind.includes('osemsten')||kind==='icosahedron')geometry=new THREE.IcosahedronGeometry(.95,0);
+  else if(kind==='tetrahedron')geometry=new THREE.TetrahedronGeometry(1.1,0);
   else if(kind==='plane'||kind.includes('rovinu')||kind.includes('plochu'))geometry=new THREE.PlaneGeometry(2,2,12,12);
   else if(kind.includes('kváder')||kind.includes('kvader'))geometry=new THREE.BoxGeometry(2,1,1);
   else geometry=new THREE.BoxGeometry(1.5,1.5,1.5);
