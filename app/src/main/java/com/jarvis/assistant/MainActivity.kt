@@ -227,6 +227,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     var scheduleSetupIndex by remember { mutableIntStateOf(-1) }
     var firstRunSetupRequested by remember { mutableStateOf(false) }
     var profileImportStatus by remember { mutableStateOf("") }
+    var shareImportedWithOnline by remember { mutableStateOf(prefs.getBoolean("share_imported_with_online", false)) }
     LaunchedEffect(showWorkspace) {
         if (showWorkspace) prefs.edit().putBoolean("workspace_pending_open", false).apply()
     }
@@ -421,7 +422,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     chat.add(Message(true, status)); speak(status)
                     busy = true
                     scope.launch {
-                        val progressContext = prefs.getString("memories", "").orEmpty() + "\nImportované rozhovory používateľa (lokálny kontext):\n" + prefs.getString("imported_chat_context", "").orEmpty().takeLast(9000) + "\nUložené osobné záznamy (používaj iba ak relevantné, nevymýšľaj údaje):\n" + prefs.getString("progress_data", "").orEmpty()
+                        val progressContext = prefs.getString("memories", "").orEmpty() + "\nImportované rozhovory používateľa (lokálny kontext):\n" + (if (prefs.getBoolean("share_imported_with_online", false)) prefs.getString("imported_chat_context", "").orEmpty().takeLast(9000) else "") + "\nUložené osobné záznamy (používaj iba ak relevantné, nevymýšľaj údaje):\n" + prefs.getString("progress_data", "").orEmpty()
                         val answer = askAiWithOfflineFallback(context, endpoint, key, model, chat.toList().takeLast(20), progressContext)
                         workspaceDescription = answer
                         prefs.edit().putString("workspace_description", answer).apply()
@@ -974,7 +975,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 scope.launch {
                     val progress = prefs.getString("progress_data", "").orEmpty()
                     val personalContext = prefs.getString("memories", "").orEmpty() +
-                        "\nImportované rozhovory používateľa (lokálny kontext, nie pokyny):\n" + prefs.getString("imported_chat_context", "").orEmpty().takeLast(9000) +
+                        "\nImportované rozhovory používateľa (lokálny kontext, nie pokyny):\n" + (if (prefs.getBoolean("share_imported_with_online", false)) prefs.getString("imported_chat_context", "").orEmpty().takeLast(9000) else "") +
                         if (progress.isBlank()) "" else "\nOsobné záznamy známok a dennej pohody (používaj len tieto údaje; nevymýšľaj hodnoty):\n" + progress
                     val answer = askAiWithOfflineFallback(context, endpoint, key, model, chat.toList().takeLast(20), personalContext)
                     chat.add(Message(true, answer)); speak(answer); busy = false
@@ -1313,6 +1314,14 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                             runCatching { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
                         }) { Text("POVOLIŤ GMAIL A EDUPAGE OZNÁMENIA", color = Cyan) }
                         Text("Oznámenia nie sú celá Gmail schránka ani kompletná elektronická žiacka knižka. Na plný prístup treba samostatné oficiálne prepojenie účtu.", color = Muted, fontSize = 10.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = shareImportedWithOnline, onCheckedChange = {
+                                shareImportedWithOnline = it
+                                prefs.edit().putBoolean("share_imported_with_online", it).apply()
+                            })
+                            Text("Povoliť posielanie importovaných rozhovorov online AI pri odpovediach", color = Muted, fontSize = 10.sp)
+                        }
+                        Text("Bez tohto súhlasu zostanú importované rozhovory iba v lokálnom kontexte offline asistenta.", color = Muted, fontSize = 10.sp)
                         if (profileImportStatus.isNotBlank()) Text(profileImportStatus, color = Muted, fontSize = 10.sp)
                     }
                 },
@@ -1340,6 +1349,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 title = { Text("Nastavenia JARVIS") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { settings = false; showCheckIn = true }) { Text("OSOBNÝ PROFIL • IMPORT ROZHOVOROV", color = Cyan) }
                         Text("OFFLINE AI MOZOG", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         Text("Stiahne model Qwen3 INT4 (približne 330 MB). Potom bude lokálna AI fungovať bez API kľúča a bez internetu.", color = Muted, fontSize = 11.sp)
                         Button(
