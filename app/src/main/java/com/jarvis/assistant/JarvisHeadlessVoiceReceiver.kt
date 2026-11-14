@@ -20,6 +20,17 @@ import kotlinx.coroutines.runBlocking
 class JarvisHeadlessVoiceReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         val action = intent?.action ?: return
+        if (action == JarvisAppLockService.ACTION_VERIFIED) {
+            val verifiedPackage = intent.getStringExtra(JarvisAppLockService.EXTRA_PACKAGE).orEmpty()
+            val label = runCatching {
+                val info = context.packageManager.getApplicationInfo(verifiedPackage, 0)
+                context.packageManager.getApplicationLabel(info).toString()
+            }.getOrDefault(verifiedPackage)
+            val message = "Overené: aplikácia $label sa skutočne zobrazila v popredí."
+            deliverSpeech(context, message)
+            runCatching { showNotification(context, "JARVIS • Akcia overená", message) }
+            return
+        }
         if (action == JarvisVoiceService.ACTION_WAKE) {
             if (!MainActivity.isUiAttached) {
                 runCatching { showNotification(context, "JARVIS počúva", "Počúvam, pane. Povedzte svoj príkaz.") }
