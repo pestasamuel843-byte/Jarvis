@@ -10,7 +10,7 @@ object WorkspaceCommandProcessor {
     data class Result(val state: ProjectState, val spokenResponse: String)
 
     private val workspaceWords = listOf("projekt", "pracovný priestor", "pracovny priestor", "3d", "trojrozmer", "model", "navrhni", "navrhn", "vizualiz", "nakresli", "vymodeluj", "ukáž mi v 3d", "ukaz mi v 3d")
-    private val editWords = listOf("spoiler", "krídlo", "kridlo", "svetl", "reflektor", "led", "disk", "ráfik", "rafik", "červen", "cerv", "modr", "zelen", "zmeň farbu", "zmen farbu", "pridaj", "odstráň", "odstran", "uprav", "zväčši", "zvacsi", "zmenši", "zmensi", "otoč", "otoc", "dvere", "okno", "strecha", "koles", "nárazník", "naraznik")
+    private val editWords = listOf("spoiler", "krídlo", "kridlo", "svetl", "reflektor", "led", "disk", "ráfik", "rafik", "červen", "cerv", "modr", "zmeň farbu", "zmen farbu")
     private val mapWords = listOf("mapu", "mapa", "zemeguľ", "zemegul", "ulic", "trasu", "trasa", "polohu")
 
     fun load(context: Context): ProjectState {
