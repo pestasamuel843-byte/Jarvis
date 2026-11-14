@@ -278,6 +278,8 @@ class OfflineBrain(private val context: Context) {
             if (useQwenFallback()) throw gemmaError
             android.util.Log.e("JARVIS-OfflineAI", "Gemma 4 runtime failed; switching to bundled Qwen3.", gemmaError)
             prefs.edit().putString(MODEL_CHOICE_PREF, "qwen").apply()
+            // Free the large Gemma file before copying the bundled fallback.
+            runCatching { File(context.filesDir, MODEL_FILE).delete() }
             copyBundledQwen {}
             createInitializedEngine()
         }
