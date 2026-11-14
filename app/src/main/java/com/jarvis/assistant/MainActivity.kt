@@ -2110,7 +2110,7 @@ Máš prístup iba k funkciám, ktoré aplikácia výslovne implementuje; nikdy 
 Trvalá pamäť používateľa (použi len keď relevantná):
 $memory
 ${if (webContext.isNotBlank()) "\nWEBOVÉ VÝSLEDKY (môžu byť neúplné; používaj ich kriticky):\n$webContext" else ""}
-""".trimIndent()
+""".trimIndent() + "\n" + JarvisIntelligence.SYSTEM_PROMPT_EXTENSION
         connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = 20000
