@@ -32,6 +32,8 @@ object JarvisAgent {
         "spotify" to AppTarget("com.spotify.music", "https://open.spotify.com/"),
         "netflix" to AppTarget("com.netflix.mediaclient", "https://www.netflix.com/"),
         "mapy" to AppTarget("com.google.android.apps.maps", "https://maps.google.com/"),
+        "mapu" to AppTarget("com.google.android.apps.maps", "https://maps.google.com/"),
+        "google mapy" to AppTarget("com.google.android.apps.maps", "https://maps.google.com/"),
         "google maps" to AppTarget("com.google.android.apps.maps", "https://maps.google.com/"),
         "maps" to AppTarget("com.google.android.apps.maps", "https://maps.google.com/"),
         "whatsapp" to AppTarget("com.whatsapp", "https://web.whatsapp.com/"),
