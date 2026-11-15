@@ -1713,17 +1713,18 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                         TextButton(onClick = { settings = false; showCheckIn = true }) { Text("OSOBNÝ PROFIL • IMPORT ROZHOVOROV", color = Cyan) }
                         Text("VZHĽAD A NÁLADA JARVIS", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         Text("Aktuálny režim: $adaptiveMood. Zmena sa uloží a platí aj po reštarte.", color = Muted, fontSize = 11.sp)
-                        androidx.compose.foundation.layout.FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(5.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            JarvisAdaptiveStyle.modes().forEach { mode ->
-                                TextButton(onClick = {
-                                    adaptiveMood = mode
-                                    val accent = JarvisAdaptiveStyle.color(mode)
-                                    CyanState.value = Color(accent)
-                                    prefs.edit().putString("jarvis_mood", mode).putInt("jarvis_accent_color", accent).apply()
-                                }) { Text(mode, color = if (adaptiveMood == mode) Cyan else Muted, fontSize = 10.sp) }
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            JarvisAdaptiveStyle.modes().chunked(4).forEach { modesRow ->
+                                Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    modesRow.forEach { mode ->
+                                        TextButton(onClick = {
+                                            adaptiveMood = mode
+                                            val accent = JarvisAdaptiveStyle.color(mode)
+                                            CyanState.value = Color(accent)
+                                            prefs.edit().putString("jarvis_mood", mode).putInt("jarvis_accent_color", accent).apply()
+                                        }) { Text(mode, color = if (adaptiveMood == mode) Cyan else Muted, fontSize = 10.sp) }
+                                    }
+                                }
                             }
                         }
                         Text("Hlasom môžeš povedať: Jarvis, prepni sa do pokojného režimu alebo zmeň farbu na fialovú.", color = Muted, fontSize = 10.sp)
