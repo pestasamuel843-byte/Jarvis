@@ -39,6 +39,8 @@ object WorkspaceCommandProcessor {
         val externalMapsLaunch = Regex("(?i)^(?:otvor|spusti|zapni)\\\\s+(?:(?:google\\\\s+)?(?:maps|mapy|mapu))$").containsMatchIn(command) ||
             q in setOf("google maps", "mapy", "mapu", "otvor google maps", "otvor mapy", "otvor mapu")
         if (externalMapsLaunch) return null
+        val mapControlRequest = listOf("priblíž mapu", "pribliz mapu", "zväčši mapu", "zvacsi mapu", "oddiaľ mapu", "oddial mapu", "zmenši mapu", "zmensi mapu", "posuň mapu", "posun mapu", "mapu doľava", "mapu dolava", "mapu doprava", "mapu hore", "mapu dole").any(q::contains)
+        if (mapControlRequest) return null
         val previous = load(context)
         val explicitWorkspace = workspaceWords.any(q::contains)
         val projectEdit = editWords.any(q::contains) && (prefs.getBoolean("project_exists", false) || explicitWorkspace)
