@@ -94,6 +94,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private var tts: TextToSpeech? = null
+    @Volatile private var ttsVoiceReady = false
     @Volatile private var speechOutputActive = false
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -125,8 +126,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 override fun onError(utteranceId: String?) { speechOutputActive = false; startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
                 override fun onError(utteranceId: String?, errorCode: Int) { speechOutputActive = false; startService(Intent(this@MainActivity, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_RESUME)) }
             })
-            // Never treat the word "neural" as evidence of a male voice: that selected
-            // a female Slovak voice on some Android TTS engines.
+            // Explicitly select the Slovak Lukáš voice when installed.
+            // Never fall back to an unidentified default voice (which may be female).
             val slovakVoices = engine.voices?.filter { it.locale.language == "sk" }.orEmpty()
             val lukasVoice = slovakVoices.firstOrNull {
                 val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
@@ -134,21 +135,28 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             }
             val maleSlovak = slovakVoices.firstOrNull {
                 val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
-                name.contains("male") || name.contains("masculine") || name.contains("man") || name.contains("muž") || name.contains("muz")
+                name.contains("male") || name.contains("masculine") ||
+                    name.contains("man") || name.contains("muž") || name.contains("muz")
             }
             val selectedVoice = lukasVoice ?: maleSlovak
             if (selectedVoice != null) {
                 engine.voice = selectedVoice
-                android.util.Log.i("JARVIS-TTS", "Selected Slovak voice: ${selectedVoice.name}")
+                engine.setPitch(1.0f)
+                ttsVoiceReady = true
+                android.util.Log.i("JARVIS-TTS", "Selected Slovak male voice: ${selectedVoice.name}")
             } else {
-                // Device fallback only: pitch is lowered, but this cannot guarantee a male voice.
-                engine.setPitch(0.84f)
-                android.util.Log.w("JARVIS-TTS", "No identifiable Slovak male/Lukas voice installed; using lower-pitch Slovak fallback. Install a male Slovak voice for the intended JARVIS voice.")
+                ttsVoiceReady = false
+                android.util.Log.e("JARVIS-TTS", "No Slovak Lukáš or identifiable male voice installed. Speech disabled to prevent female default.")
+                Toast.makeText(this, "Nainštaluj slovenský hlas Lukáš v nastaveniach prevodu textu na reč Androidu.", Toast.LENGTH_LONG).show()
             }
         }
     }
     private fun speak(text: String) {
         val engine = tts ?: return
+        if (!ttsVoiceReady) {
+            Toast.makeText(this, "Hlas Lukáš nie je v systéme dostupný. Skontroluj nastavenia prevodu textu na reč.", Toast.LENGTH_LONG).show()
+            return
+        }
         // Mark speech synchronously so the microphone loop cannot hear JARVIS speaking.
         speechOutputActive = true
         if (JarvisVoiceService.isRunning) startService(Intent(this, JarvisVoiceService::class.java).setAction(JarvisVoiceService.ACTION_PAUSE))
