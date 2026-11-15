@@ -56,6 +56,16 @@ object JarvisAccessibilityController {
                 ({ globalAction(AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS, "Otvoril som panel oznámení.") })
             lower in setOf("otvor rýchle nastavenia", "otvor rychle nastavenia", "zobraz rýchle nastavenia", "zobraz rychle nastavenia") ->
                 ({ globalAction(AccessibilityService.GLOBAL_ACTION_QUICK_SETTINGS, "Otvoril som rýchle nastavenia.") })
+            lower in setOf("rozdeľ obrazovku", "rozdel obrazovku", "rozdeľ obrazovku na dve", "rozdel obrazovku na dve",
+                "rozdeli obrazovku na dve", "zapni rozdelenú obrazovku", "zapni rozdelenu obrazovku",
+                "split screen", "otvor rozdelenú obrazovku", "otvor rozdelenu obrazovku") ->
+                ({ splitScreen() })
+            lower in setOf("priblíž obrazovku", "pribliz obrazovku", "zväčši obrazovku", "zvacsi obrazovku",
+                "priblíž obsah", "pribliz obsah", "zoom in", "zväčši", "zvacsi") ->
+                ({ screenZoom(true) })
+            lower in setOf("oddiaľ obrazovku", "oddial obrazovku", "zmenši obrazovku", "zmensi obrazovku",
+                "oddiaľ obsah", "oddial obsah", "zoom out", "zmenši", "zmensi") ->
+                ({ screenZoom(false) })
             lower in setOf("priblíž mapu", "pribliz mapu", "zväčši mapu", "zvacsi mapu", "zoom in mapy", "zoom in mapa") ->
                 ({ mapZoom(true) })
             lower in setOf("oddiaľ mapu", "oddi al mapu", "oddial mapu", "zmenši mapu", "zmensi mapu", "zoom out mapy", "zoom out mapa") ->
@@ -105,6 +115,51 @@ object JarvisAccessibilityController {
     }
 
     private fun root(): AccessibilityNodeInfo? = service?.rootInActiveWindow
+
+    /** Requests Android's native split-screen UI; actual support is device/OEM dependent. */
+    private fun splitScreen(): String {
+        val current = service ?: return "Na rozdelenie obrazovky povoľte JARVIS v nastaveniach Prístupnosti."
+        val action = AccessibilityService.GLOBAL_ACTION_TOGGLE_SPLIT_SCREEN
+        if (!current.systemActions.any { it.id == action }) {
+            return "Tento Android alebo výrobca tabletu momentálne neposkytuje JARVIS-u systémovú akciu rozdelenia obrazovky."
+        }
+        val started = current.performGlobalAction(action)
+        if (started) {
+            current.getSharedPreferences("jarvis_autonomous", Context.MODE_PRIVATE)
+                .edit().putBoolean("launch_adjacent_next", true).apply()
+            return "Požiadal som Android o rozdelenie obrazovky. Pri ďalšom otvorení aplikácie skúsim umiestniť ju do druhej polovice."
+        }
+        return "Android odmietol rozdeliť obrazovku."
+    }
+
+    /** Accessibility multi-touch pinch. Apps may ignore zoom gestures if they do not support pinch zoom. */
+    private fun screenZoom(zoomIn: Boolean): String {
+        val current = service ?: return "Na gestá obrazovky povoľte JARVIS v nastaveniach Prístupnosti."
+        val activeRoot = root() ?: return "Aktívna aplikácia neposkytla oblasť obrazovky."
+        val bounds = Rect()
+        activeRoot.getBoundsInScreen(bounds)
+        if (bounds.width() < 220 || bounds.height() < 220) return "Oblasť obrazovky je príliš malá na gesto priblíženia."
+        val cx = bounds.centerX().toFloat()
+        val cy = bounds.centerY().toFloat()
+        val span = minOf(bounds.width(), bounds.height()) * 0.16f
+        val inner = span * 0.45f
+        val outer = span
+        val first = Path().apply {
+            moveTo(cx - if (zoomIn) inner else outer, cy)
+            lineTo(cx - if (zoomIn) outer else inner, cy)
+        }
+        val second = Path().apply {
+            moveTo(cx + if (zoomIn) inner else outer, cy)
+            lineTo(cx + if (zoomIn) outer else inner, cy)
+        }
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(first, 0, 420))
+            .addStroke(GestureDescription.StrokeDescription(second, 0, 420))
+            .build()
+        return if (current.dispatchGesture(gesture, null, null)) {
+            if (zoomIn) "Odoslal som gesto priblíženia." else "Odoslal som gesto oddialenia."
+        } else "Android nedovolil gesto priblíženia alebo oddialenia."
+    }
 
     private fun globalAction(action: Int, success: String): String {
         val current = service ?: return "Na ovládanie obrazovky najprv povoľte JARVIS v nastaveniach Prístupnosti."
