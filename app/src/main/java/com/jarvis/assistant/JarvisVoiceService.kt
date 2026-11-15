@@ -61,7 +61,28 @@ class JarvisVoiceService : Service() {
             speechReady = status == TextToSpeech.SUCCESS
             if (speechReady) {
                 speechEngine?.language = Locale("sk", "SK")
-                speechEngine?.setSpeechRate(0.96f)
+                speechEngine?.setSpeechRate(0.94f)
+                val slovakVoices = speechEngine?.voices?.filter { it.locale.language == "sk" }.orEmpty()
+                val lukasVoice = slovakVoices.firstOrNull {
+                    val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
+                    name.contains("lukas") || name.contains("lukáš")
+                }
+                val maleSlovakVoice = slovakVoices.firstOrNull {
+                    val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
+                    name.contains("male") || name.contains("masculine") || name.contains("man") ||
+                        name.contains("muž") || name.contains("muz")
+                }
+                val selectedVoice = lukasVoice ?: maleSlovakVoice
+                if (selectedVoice != null) {
+                    speechEngine?.voice = selectedVoice
+                    speechEngine?.setPitch(1.0f)
+                    android.util.Log.i("JARVIS-TTS", "Background voice selected: ${selectedVoice.name}")
+                } else {
+                    // Avoid an unverified default voice; lower pitch is only a fallback,
+                    // not proof that the installed voice is male.
+                    speechEngine?.setPitch(0.84f)
+                    android.util.Log.w("JARVIS-TTS", "No identifiable Slovak male/Lukas voice installed for background speech.")
+                }
                 speechEngine?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(utteranceId: String?) {}
                     override fun onDone(utteranceId: String?) { resumeAfterSpeech() }
