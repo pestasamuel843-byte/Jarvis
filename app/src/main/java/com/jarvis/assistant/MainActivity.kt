@@ -99,6 +99,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Register periodic local security reviews; WorkManager persists the schedule.
+        runCatching { JarvisCyberDefense.schedule(this) }
+        Thread {
+            runCatching { JarvisCyberDefense.runAndNotify(applicationContext) }
+        }.start()
         // UI attachment is tracked in onResume/onPause, not onCreate/onDestroy:
         // the Activity can remain alive while the tablet is locked or the app is backgrounded.
         // Film-style full-screen interface: hide status/navigation bars while JARVIS is open.
