@@ -56,6 +56,14 @@ object JarvisAccessibilityController {
                 ({ globalAction(AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS, "Otvoril som panel oznámení.") })
             lower in setOf("otvor rýchle nastavenia", "otvor rychle nastavenia", "zobraz rýchle nastavenia", "zobraz rychle nastavenia") ->
                 ({ globalAction(AccessibilityService.GLOBAL_ACTION_QUICK_SETTINGS, "Otvoril som rýchle nastavenia.") })
+            lower in setOf("priblíž mapu", "pribliz mapu", "zväčši mapu", "zvacsi mapu", "zoom in mapy", "zoom in mapa") ->
+                ({ mapZoom(true) })
+            lower in setOf("oddiaľ mapu", "oddi al mapu", "oddial mapu", "zmenši mapu", "zmensi mapu", "zoom out mapy", "zoom out mapa") ->
+                ({ mapZoom(false) })
+            lower in setOf("posuň mapu doľava", "posun mapu dolava", "mapu doľava", "mapu dolava") -> ({ mapPan("left") })
+            lower in setOf("posuň mapu doprava", "posun mapu doprava", "mapu doprava") -> ({ mapPan("right") })
+            lower in setOf("posuň mapu hore", "posun mapu hore", "mapu hore") -> ({ mapPan("up") })
+            lower in setOf("posuň mapu dole", "posun mapu dole", "mapu dole") -> ({ mapPan("down") })
             lower in setOf("posuň dole", "posun dole", "scroll dole", "skrol dole", "skrolni dole",
                 "scrolluj dole", "posuň stránku dole", "posun stranku dole", "zroluj dole", "skroluj dole",
                 "posuň obrazovku dole", "posun obrazovku dole") ->
@@ -186,6 +194,65 @@ object JarvisAccessibilityController {
         return if (target.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) {
             "Text som vložil do aktívneho poľa. Zatiaľ som nič neodoslal."
         } else "Aplikácia nedovolila vložiť text do tohto poľa."
+    }
+
+    private fun requireGoogleMaps(): Pair<AccessibilityService, Rect>? {
+        val current = service ?: return null
+        val activeRoot = root() ?: return null
+        if (activeRoot.packageName?.toString() != "com.google.android.apps.maps") return null
+        val bounds = Rect()
+        activeRoot.getBoundsInScreen(bounds)
+        if (bounds.width() < 160 || bounds.height() < 160) return null
+        return current to bounds
+    }
+
+    /** Two-finger pinch gesture, restricted to the Google Maps app. */
+    private fun mapZoom(zoomIn: Boolean): String {
+        val target = requireGoogleMaps()
+            ?: return "Najprv otvorte Google Maps. Priblíženie hlasom ovládam iba v tejto aplikácii."
+        val (current, bounds) = target
+        val cx = bounds.centerX().toFloat()
+        val cy = bounds.centerY().toFloat()
+        val radius = minOf(bounds.width(), bounds.height()) * 0.10f
+        val inner = radius * 0.45f
+        val outer = radius
+        val left = android.graphics.Path().apply {
+            moveTo(cx - if (zoomIn) inner else outer, cy)
+            lineTo(cx - if (zoomIn) outer else inner, cy)
+        }
+        val right = android.graphics.Path().apply {
+            moveTo(cx + if (zoomIn) inner else outer, cy)
+            lineTo(cx + if (zoomIn) outer else inner, cy)
+        }
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(left, 0, 420))
+            .addStroke(GestureDescription.StrokeDescription(right, 0, 420))
+            .build()
+        return if (current.dispatchGesture(gesture, null, null)) {
+            if (zoomIn) "Približujem mapu." else "Odďaľujem mapu."
+        } else "Android nedovolil gesto priblíženia mapy."
+    }
+
+    /** One-finger map pan, restricted to Google Maps so it cannot scroll unrelated apps. */
+    private fun mapPan(direction: String): String {
+        val target = requireGoogleMaps()
+            ?: return "Najprv otvorte Google Maps. Posúvanie mapy hlasom je dostupné iba v tejto aplikácii."
+        val (current, bounds) = target
+        val cx = bounds.centerX().toFloat()
+        val cy = bounds.centerY().toFloat()
+        val dx = bounds.width() * 0.22f
+        val dy = bounds.height() * 0.22f
+        val (startX, startY, endX, endY) = when (direction) {
+            "left" -> listOf(cx + dx, cy, cx - dx, cy)
+            "right" -> listOf(cx - dx, cy, cx + dx, cy)
+            "up" -> listOf(cx, cy + dy, cx, cy - dy)
+            else -> listOf(cx, cy - dy, cx, cy + dy)
+        }
+        val path = android.graphics.Path().apply { moveTo(startX, startY); lineTo(endX, endY) }
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, 420))
+            .build()
+        return if (current.dispatchGesture(gesture, null, null)) "Posúvam mapu." else "Android nedovolil posun mapy."
     }
 
     private fun scroll(forward: Boolean): String {
