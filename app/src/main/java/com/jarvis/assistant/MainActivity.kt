@@ -133,12 +133,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
                 name.contains("lukas") || name.contains("lukáš")
             }
-            val maleSlovak = slovakVoices.firstOrNull {
-                val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
-                name.contains("male") || name.contains("masculine") ||
-                    name.contains("man") || name.contains("muž") || name.contains("muz")
-            }
-            val selectedVoice = lukasVoice ?: maleSlovak
+            val selectedVoice = lukasVoice
             if (selectedVoice != null) {
                 engine.voice = selectedVoice
                 engine.setPitch(1.0f)
