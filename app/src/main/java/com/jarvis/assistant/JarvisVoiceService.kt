@@ -76,12 +76,11 @@ class JarvisVoiceService : Service() {
                 if (selectedVoice != null) {
                     speechEngine?.voice = selectedVoice
                     speechEngine?.setPitch(1.0f)
-                    android.util.Log.i("JARVIS-TTS", "Background voice selected: ${selectedVoice.name}")
+                    android.util.Log.i("JARVIS-TTS", "Background Slovak male voice selected: ${selectedVoice.name}")
                 } else {
-                    // Avoid an unverified default voice; lower pitch is only a fallback,
-                    // not proof that the installed voice is male.
-                    speechEngine?.setPitch(0.84f)
-                    android.util.Log.w("JARVIS-TTS", "No identifiable Slovak male/Lukas voice installed for background speech.")
+                    speechReady = false
+                    android.util.Log.e("JARVIS-TTS", "No Slovak Lukáš or identifiable male voice installed; refusing female/default voice.")
+                    sendStatus("NENAINŠTALOVANÝ SLOVENSKÝ MUŽSKÝ HLAS LUKÁŠ")
                 }
                 speechEngine?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(utteranceId: String?) {}
