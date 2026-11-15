@@ -502,17 +502,6 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             chat.add(Message(true, response)); speak(response)
             return
         }
-        val healthQuery = Regex("(?i).*(?:čo o tom vieme|co o tom vieme|čo vieme o tom|co vieme o tom|čo vieme o mojom srdci|co vieme o mojom srdci|čo vieš o mojom tepe|co vies o mojom tepe).*").matches(text) &&
-            Regex("(?i).*(?:srdc|tep|tréning|trening|cvičen|cvicen|zdrav|pulz).*").matches(text)
-        if (healthQuery) {
-            val response = JarvisPersonalProfiles.healthSummary(context)
-            activeDossierName = "Zdravie a tréning"
-            activeDossierSummary = response
-            activeDossierProfile = null
-            chat.add(Message(true, "Otvoril som zdravotný prehľad. Oddeľujem uložené údaje od všeobecných informácií."))
-            speak(response)
-            return
-        }
         val personQuery = Regex("(?i)^(?:ukáž čo vieme o|ukaz co vieme o|čo vieš o|co vies o|ukáž profil|ukaz profil)\\s+(.+)$").find(text)
         if (personQuery != null) {
             val personName = personQuery.groupValues[1].trim()
@@ -561,7 +550,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 val answer = if (timetable.isBlank()) "Pane, rozvrh ešte nie je nastavený. Povedzte: nastav rozvrh." else "Váš uložený rozvrh: " + timetable.replace("\n", ". ")
                 chat.add(Message(true, answer)); speak(answer)
             }
-            text.contains("graf", true) || text.contains("známk", true) || text.contains("zlepšil", true) || text.contains("zhoršil", true) || text.contains("mentáln", true) || text.contains("ako som sa mal", true) || text.contains("zdrav", true) || text.contains("osobný prehľad", true) -> {
+            text.contains("graf", true) || text.contains("známk", true) || text.contains("zlepšil", true) || text.contains("zhoršil", true) || text.contains("mentáln", true) || text.contains("ako som sa mal", true) || text.contains("osobný prehľad", true) -> {
                 showProgress = true
                 val progress = prefs.getString("progress_data", "").orEmpty()
                 val gradeCount = progress.lines().count { it.contains(" | ZNÁMKA | ") }
