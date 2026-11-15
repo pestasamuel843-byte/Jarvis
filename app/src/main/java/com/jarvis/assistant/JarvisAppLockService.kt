@@ -22,6 +22,7 @@ class JarvisAppLockService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null || event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val foreground = event.packageName?.toString() ?: return
+        runCatching { JarvisCyberDefense.onForegroundPackage(this, foreground) }
         val verification = getSharedPreferences("jarvis_action_verification", MODE_PRIVATE)
         val now = System.currentTimeMillis()
         verification.edit()
