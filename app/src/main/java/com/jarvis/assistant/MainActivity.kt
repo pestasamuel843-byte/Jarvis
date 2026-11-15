@@ -138,7 +138,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 engine.voice = selectedVoice
                 android.util.Log.i("JARVIS-TTS", "Selected Slovak voice: ${selectedVoice.name}")
             } else {
-                android.util.Log.w("JARVIS-TTS", "No identifiable Slovak male/Lukas voice installed; using Android default Slovak voice. Install/select a Slovak male voice in Android Text-to-speech settings.")
+                // Device fallback only: pitch is lowered, but this cannot guarantee a male voice.
+                engine.setPitch(0.84f)
+                android.util.Log.w("JARVIS-TTS", "No identifiable Slovak male/Lukas voice installed; using lower-pitch Slovak fallback. Install a male Slovak voice for the intended JARVIS voice.")
             }
         }
     }
