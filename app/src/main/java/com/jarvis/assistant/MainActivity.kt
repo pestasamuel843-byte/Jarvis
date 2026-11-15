@@ -396,18 +396,22 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
         val admissionsRequest = Regex(
             "(?i)^(?:prihlás\\s+ma|prihlas\\s+ma|nájdi\\s+prihlášku|najdi\\s+prihlasku)\\s+(?:na\\s+)?(?:prijímačky|prijimacky|prijímacie\\s+skúšky|prijimacie\\s+skusky)(?:\\s+na)?\\s+(.+)$"
         ).find(text)
-        if (schoolWebRequest != null || admissionsRequest != null) {
-            val school = (schoolWebRequest?.groupValues?.get(1) ?: admissionsRequest?.groupValues?.get(1))
-                .orEmpty().trim()
-            val query = if (admissionsRequest != null) {
-                "$school oficiálna stránka prijímacie konanie prihláška"
-            } else {
-                "$school oficiálna stránka školy"
+        val openDayRequest = Regex(
+            "(?i)^(?:prihlás\\s+ma|prihlas\\s+ma|nájdi|najdi)\\s+(?:na\\s+)?(?:dod|deň\\s+otvorených\\s+dverí|den\\s+otvorenych\\s+dveri)(?:\\s+na)?\\s+(.+)$"
+        ).find(text)
+        if (schoolWebRequest != null || admissionsRequest != null || openDayRequest != null) {
+            val school = (schoolWebRequest?.groupValues?.get(1) ?: admissionsRequest?.groupValues?.get(1)
+                ?: openDayRequest?.groupValues?.get(1)).orEmpty().trim()
+            val query = when {
+                admissionsRequest != null -> "$school oficiálna stránka prijímacie konanie prihláška"
+                openDayRequest != null -> "$school oficiálna stránka deň otvorených dverí registrácia DOD"
+                else -> "$school oficiálna stránka školy"
             }
-            val answer = if (admissionsRequest != null)
-                "Vyhľadávam oficiálne prijímacie konanie školy $school. Najprv overím stránku a podmienky; prihlášku neodošlem bez tvojej kontroly."
-            else
-                "Vyhľadávam oficiálnu stránku školy $school. Skontrolujeme doménu a údaje školy."
+            val answer = when {
+                admissionsRequest != null -> "Vyhľadávam oficiálne prijímacie konanie školy $school. Najprv overím stránku a podmienky; prihlášku neodošlem bez tvojej kontroly."
+                openDayRequest != null -> "Vyhľadávam oficiálnu registráciu na Deň otvorených dverí školy $school. Skontrolujeme dátum a formulár."
+                else -> "Vyhľadávam oficiálnu stránku školy $school. Skontrolujeme doménu a údaje školy."
+            }
             chat.add(Message(false, text))
             chat.add(Message(true, answer))
             speak(answer)
