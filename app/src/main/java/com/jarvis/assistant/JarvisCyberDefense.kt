@@ -118,7 +118,10 @@ internal object JarvisCyberDefense {
         val fingerprint = highRisk.joinToString("|") { it.packageName + ":" + it.score }
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val previous = prefs.getString("last_alert_fingerprint", "").orEmpty()
-        prefs.edit().putString("last_scan_summary", "Kontrola dokončená. Podozrivé signály: ${findings.size}.").apply()
+        prefs.edit()
+            .putString("last_scan_summary", "Kontrola dokončená. Podozrivé signály: ${findings.size}.")
+            .putStringSet("high_risk_packages", highRisk.map { it.packageName }.toSet())
+            .apply()
         if (highRisk.isNotEmpty() && fingerprint != previous) {
             notify(context, highRisk)
             prefs.edit().putString("last_alert_fingerprint", fingerprint).apply()
@@ -128,7 +131,21 @@ internal object JarvisCyberDefense {
         return findings
     }
 
-    private fun notify(context: Context, findings: List<Finding>) {
+    fun onForegroundPackage(context: Context, packageName: String) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val flagged = prefs.getStringSet("high_risk_packages", emptySet()).orEmpty()
+        if (packageName !in flagged) return
+        val lastPackage = prefs.getString("last_foreground_alert", "").orEmpty()
+        if (lastPackage == packageName) return
+        val label = runCatching {
+            context.packageManager.getApplicationLabel(context.packageManager.getApplicationInfo(packageName, 0)).toString()
+        }.getOrDefault(packageName)
+        val item = Finding(label, packageName, 5, listOf("aplikácia s rizikovými signálmi bola otvorená"))
+        notify(context, listOf(item), foreground = true)
+        prefs.edit().putString("last_foreground_alert", packageName).apply()
+    }
+
+    private fun notify(context: Context, findings: List<Finding>, foreground: Boolean = false) {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) {
             manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "JARVIS Cyber Defense", NotificationManager.IMPORTANCE_HIGH))
@@ -140,7 +157,7 @@ internal object JarvisCyberDefense {
         )
         val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(context, CHANNEL_ID) else @Suppress("DEPRECATION") Notification.Builder(context)
         val notification = builder.setSmallIcon(android.R.drawable.ic_lock_lock)
-            .setContentTitle("JARVIS: podozrivé správanie aplikácie")
+            .setContentTitle(if (foreground) "JARVIS: otvorila sa podozrivá aplikácia" else "JARVIS: podozrivé správanie aplikácie")
             .setContentText(names)
             .setStyle(Notification.BigTextStyle().bigText(
                 "Našiel som aplikácie s kombináciou rizikových signálov: $names. Nie je to dôkaz vírusu. Otvor JARVIS a skontroluj podrobnosti."
