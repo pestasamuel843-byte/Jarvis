@@ -550,7 +550,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 val answer = if (timetable.isBlank()) "Pane, rozvrh ešte nie je nastavený. Povedzte: nastav rozvrh." else "Váš uložený rozvrh: " + timetable.replace("\n", ". ")
                 chat.add(Message(true, answer)); speak(answer)
             }
-            text.contains("graf", true) || text.contains("známk", true) || text.contains("zlepšil", true) || text.contains("zhoršil", true) || text.contains("mentáln", true) || text.contains("ako som sa mal", true) || text.contains("osobný prehľad", true) -> {
+            text.startsWith("ukáž graf", true) || text.startsWith("ukaz graf", true) || text.startsWith("zobraz graf", true) || text.startsWith("ukáž mi graf", true) || text.startsWith("ukaz mi graf", true) || text == "moje známky" || text == "ukáž známky" || text == "ukaz znamky" || text == "môj osobný prehľad" || text == "moj osobny prehlad" || text.startsWith("ukáž môj osobný prehľad", true) || text.startsWith("ukaz moj osobny prehlad", true) || text.startsWith("ako som sa mal", true) -> {
                 showProgress = true
                 val progress = prefs.getString("progress_data", "").orEmpty()
                 val gradeCount = progress.lines().count { it.contains(" | ZNÁMKA | ") }
@@ -561,7 +561,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 }
                 chat.add(Message(true, answer)); speak(answer)
             }
-            text.contains("projekt", true) || text.contains("nakresli", true) || text.contains("pracovný priestor", true) || text.contains("navrhni", true) || text.contains("vizualiz", true) || text.contains("premietni", true) || text.contains("ukáž mi v 3d", true) || text.contains("model", true) || text.contains("mapu", true) || text.contains("mapa", true) || text.contains("zobraz map", true) || text.contains("ukáž map", true) || text.contains("cestu okolo", true) || text.contains("trasu", true) || text.contains("okolie školy", true) || text.contains("zemeguľ", true) || text.contains("zemegul", true) || text.contains("ulic", true) || text.contains("globe mode", true) || text.contains("street mode", true) || text.contains("mozog", true) || text.contains("nemocnicu", true) || text.contains("auto", true) -> {
+            text.startsWith("navrhni ", true) || text.startsWith("nakresli ", true) || text.startsWith("vytvor 3d", true) || text.startsWith("urob 3d", true) || text.startsWith("modeluj ", true) || text.startsWith("projektuj ", true) || text.startsWith("vizualizuj ", true) || text.startsWith("premietni ", true) || text.startsWith("otvor pracovný priestor", true) || text.startsWith("otvor pracovny priestor", true) || text.startsWith("ukáž mi v 3d", true) || text.startsWith("ukaz mi v 3d", true) || text.startsWith("zobraz mapu", true) || text.startsWith("ukáž mapu", true) || text.startsWith("ukaz mapu", true) || text.startsWith("otvor mapu", true) || text.startsWith("zobraz zemeguľu", true) || text.startsWith("zobraz zemegulu", true) || text.startsWith("ukáž trasu", true) || text.startsWith("ukaz trasu", true) || text.startsWith("vytvor projekt", true) || text.startsWith("otvor projekt", true) -> {
                 showWorkspace = true
                 showChat = false
                 lastWorkspaceRequest = text
@@ -684,7 +684,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 val answer = "Históriu konverzácie som vymazal, pane."
                 chat.add(Message(true, answer)); speak(answer)
             }
-            text.contains("batéria", true) || text.contains("stav batérie", true) -> {
+            text == "batéria" || text == "stav batérie" || text == "koľko mám batérie" || text == "koľko je batérie" -> {
                 val battery = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
                 val percent = battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
                 val answer = if (percent >= 0) "Batéria má $percent percent, pane." else "Stav batérie sa nepodarilo zistiť."
@@ -1036,7 +1036,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     busy = false
                 }
             }
-            text.contains("wifi", true) || text.contains("wi-fi", true) || text.contains("internet", true) -> {
+            text.startsWith("zapni wifi", true) || text.startsWith("zapni wi-fi", true) || text.startsWith("vypni wifi", true) || text.startsWith("vypni wi-fi", true) || text.startsWith("pripoj sa na wifi", true) || text.startsWith("pripoj sa na wi-fi", true) || text.startsWith("otvor wifi", true) || text.startsWith("otvor wi-fi", true) -> {
                 val connectivity = context.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
                 val network = connectivity.activeNetwork
                 val capabilities = connectivity.getNetworkCapabilities(network)
