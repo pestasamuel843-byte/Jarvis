@@ -317,7 +317,14 @@ class OfflineBrain(private val context: Context) {
                             "Buď presný, nevymýšľaj fakty, zdroje, merania, diagnózy ani výsledky akcií a priznaj neistotu. " +
                             "V bežnom rozhovore používaj prirodzený situačný humor; pri vážnych, zdravotných a bezpečnostných témach bez humoru. " +
                             JarvisIntelligence.SYSTEM_PROMPT_EXTENSION + "\n" +
-                            JarvisProtection.promptRules(context) + "\n" +
+                            "AKTUÁLNY KOMUNIKAČNÝ REŽIM: " + when (prefs.getString("jarvis_mood", "PROFESIONÁLNY")) {
+                                "POKOJNÝ" -> "pokojný, trpezlivý, jemný a stručný"
+                                "UVOĽNENÝ" -> "uvoľnený, prirodzený, so situačným humorom; vážne témy bez humoru"
+                                "SÚSTREDENÝ" -> "sústredený na cieľ, presný, minimum odbočiek"
+                                "CITLIVÝ" -> "citlivý, pozorný, vecný a bez humoru"
+                                else -> "profesionálny, pokojný, kompetentný a prirodzený"
+                            } + ". Režim prispôsobuje štýl odpovede, nie fakty ani bezpečnostné pravidlá.\\n" +
+                            JarvisProtection.promptRules(context) + "\\n" +
                             JarvisPersonalProfiles.promptContext(context) + "\n" +
                             "Používateľova lokálna pamäť (použi iba ak je relevantná):\n" +
                             memory.ifBlank { "Zatiaľ bez uložených preferencií." } +
