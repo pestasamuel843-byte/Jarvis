@@ -120,6 +120,15 @@ object JarvisAccessibilityController {
     private fun nodeLabel(node: AccessibilityNodeInfo): String =
         (node.text?.toString().orEmpty().ifBlank { node.contentDescription?.toString().orEmpty() }).trim()
 
+    /** Read only the currently visible EduPage screen after an explicit user request. */
+    fun readVisibleScreenForPackages(packages: Set<String>): String? {
+        val result = runOnMain {
+            val activePackage = root()?.packageName?.toString().orEmpty()
+            if (activePackage !in packages) "" else readVisibleScreen()
+        }
+        return result.takeIf { it.isNotBlank() }
+    }
+
     private fun readVisibleScreen(): String {
         if (service == null) return "Na čítanie obrazovky povoľte JARVIS v nastaveniach Prístupnosti."
         val activeRoot = root() ?: return "Aktívna aplikácia neposkytla čitateľný obsah obrazovky."
