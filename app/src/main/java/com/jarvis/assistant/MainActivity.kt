@@ -1032,6 +1032,19 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 }
             }
             text.contains("upozornen", true) || text.contains("aké mám správy", true) || text.contains("mám nejaké správy", true) || text.contains("prečítaj známky", true) || text.contains("známky z edupage", true) || text.contains("prečítaj edupage", true) || text.contains("prečítaj správy", true) || text.contains("čítaj správy", true) || text.contains("prečítaj emaily", true) || text.contains("prečítaj e-maily", true) || text.contains("nové správy", true) || text.contains("správy z messenger", true) || text.contains("správy z instagram", true) || text.contains("správy z facebook", true) || text.contains("správy z whatsapp", true) || text.contains("whatsapp správy", true) -> {
+                val asksForGrades = text.contains("prečítaj známky", true) ||
+                    text.contains("prečítaj edupage", true) || text.contains("známky z edupage", true)
+                if (asksForGrades) {
+                    val visibleGrades = JarvisAccessibilityController.readVisibleScreenForPackages(
+                        setOf("air.org.edupage", "air.org.edupagealt", "com.edupage.student")
+                    )
+                    if (!visibleGrades.isNullOrBlank()) {
+                        val report = "Na otvorenej obrazovke EduPage vidím tento obsah, pane:\\n$visibleGrades"
+                        chat.add(Message(true, report)); speak(report)
+                        return
+                    }
+                }
+
                 val enabled = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners").orEmpty()
                     .contains(context.packageName + "/" + GmailNotificationListener::class.java.name)
                 if (!enabled) {
