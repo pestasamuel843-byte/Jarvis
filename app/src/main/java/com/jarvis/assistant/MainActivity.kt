@@ -84,7 +84,46 @@ import java.util.Locale
 
 private val Bg = Color(0xFF070B12)
 private val Panel = Color(0xFF101A27)
-private val Cyan = Color(0xFF4DEBFF)
+private val CyanState = mutableStateOf(Color(0xFF4DEBFF))
+private val Cyan: Color get() = CyanState.value
+
+private object JarvisAdaptiveStyle {
+    private val palettes = linkedMapOf(
+        "PROFESIONÁLNY" to 0xFF4DEBFF.toInt(),
+        "POKOJNÝ" to 0xFF80AFFF.toInt(),
+        "UVOĽNENÝ" to 0xFFFFC078.toInt(),
+        "SÚSTREDENÝ" to 0xFF7CFFB2.toInt(),
+        "CITLIVÝ" to 0xFFB9A0FF.toInt(),
+        "ČERVENÝ" to 0xFFFF5364.toInt(),
+        "FIALOVÝ" to 0xFFB58CFF.toInt(),
+        "ZELENÝ" to 0xFF67E6A5.toInt()
+    )
+    fun color(mode: String): Int = palettes[mode] ?: palettes.getValue("PROFESIONÁLNY")
+    fun modes(): List<String> = palettes.keys.toList()
+    fun detect(text: String): String? {
+        val q = text.lowercase(Locale.ROOT)
+        return when {
+            listOf("pokojný režim", "pokojny rezim", "upokoj sa", "buď pokojný", "bud pokojny").any(q::contains) -> "POKOJNÝ"
+            listOf("uvoľnený režim", "uvolneny rezim", "buď veselý", "bud vesely", "uvoľni atmosféru", "uvolni atmosferu").any(q::contains) -> "UVOĽNENÝ"
+            listOf("sústredený režim", "sustredeny rezim", "pracovný režim", "pracovny rezim", "sústreď sa", "sustred sa").any(q::contains) -> "SÚSTREDENÝ"
+            listOf("citlivý režim", "citlivy rezim", "vážny režim", "vazny rezim", "buď citlivý", "bud citlivy").any(q::contains) -> "CITLIVÝ"
+            listOf("profesionálny režim", "profesionalny rezim", "späť na profesionálny", "spat na profesionalny").any(q::contains) -> "PROFESIONÁLNY"
+            listOf("zmeň farbu na červenú", "zmen farbu na cervenu", "červená farba", "cervena farba").any(q::contains) -> "ČERVENÝ"
+            listOf("zmeň farbu na fialovú", "zmen farbu na fialovu", "fialová farba", "fialova farba").any(q::contains) -> "FIALOVÝ"
+            listOf("zmeň farbu na zelenú", "zmen farbu na zelenu", "zelená farba", "zelena farba").any(q::contains) -> "ZELENÝ"
+            else -> null
+        }
+    }
+    fun prompt(mode: String): String = when (mode) {
+        "POKOJNÝ" -> "Aktuálny režim POKOJNÝ: hovori pokojne, trpezlivo, jemne a stručne. Nezahlcuj používateľa."
+        "UVOĽNENÝ" -> "Aktuálny režim UVOĽNENÝ: prirodzený rozhovor, situačný humor a ľahkosť; rešpektuj hranice a vážne témy."
+        "SÚSTREDENÝ" -> "Aktuálny režim SÚSTREDENÝ: prioritizuj úlohu, odpovedaj presne, obmedz spoločenské odbočky a sleduj kroky."
+        "CITLIVÝ" -> "Aktuálny režim CITLIVÝ: počúvaj, buď empatický a vecný, bez humoru a bez nátlaku."
+        else -> "Aktuálny režim PROFESIONÁLNY: pokojný, kompetentný, stručný a prirodzený."
+    }
+    fun current(context: Context): String =
+        context.getSharedPreferences("jarvis", Context.MODE_PRIVATE).getString("jarvis_mood", "PROFESIONÁLNY") ?: "PROFESIONÁLNY"
+}
 private val Muted = Color(0xFF9BAFC2)
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
@@ -237,6 +276,11 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     var model by remember { mutableStateOf(prefs.getString("model", "gemini-2.5-flash")?.let { if (it == "@cf/meta/llama-3.1-8b-instruct" && endpoint.contains("generativelanguage.googleapis.com")) "gemini-2.5-flash" else it } ?: "gemini-2.5-flash") }
     var key by remember { mutableStateOf(prefs.getString("key", "") ?: "") }
     var settings by remember { mutableStateOf(false) }
+    var adaptiveMood by remember { mutableStateOf(JarvisAdaptiveStyle.current(context)) }
+    LaunchedEffect(adaptiveMood) {
+        val accent = prefs.getInt("jarvis_accent_color", JarvisAdaptiveStyle.color(adaptiveMood))
+        CyanState.value = Color(accent)
+    }
     var showAdvancedSettings by remember { mutableStateOf(false) }
     var apiTestResult by remember { mutableStateOf("") }
     var apiTesting by remember { mutableStateOf(false) }
@@ -358,6 +402,26 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             protectionLevel = JarvisProtection.NORMAL
             chat.add(Message(false, text))
             val response = "Ochranný režim ukončený. Obnovujem bežné nastavenia, pane. Ak nebezpečenstvo stále trvá, najprv zostaňte pri dôveryhodnej osobe."
+            chat.add(Message(true, response)); speak(response)
+            return
+        }
+        val requestedMood = JarvisAdaptiveStyle.detect(text)
+        if (requestedMood != null) {
+            adaptiveMood = requestedMood
+            val accent = JarvisAdaptiveStyle.color(requestedMood)
+            CyanState.value = Color(accent)
+            prefs.edit().putString("jarvis_mood", requestedMood).putInt("jarvis_accent_color", accent).apply()
+            chat.add(Message(false, text))
+            val response = when (requestedMood) {
+                "POKOJNÝ" -> "Pokojný režim aktivovaný. Stíšim tón komunikácie a rozhranie prechádza na jemnú modrú."
+                "UVOĽNENÝ" -> "Uvoľnený režim aktivovaný. Môžeme trochu povoliť kravatu — obrazne, samozrejme."
+                "SÚSTREDENÝ" -> "Sústredený režim aktivovaný. Prioritou je úloha, minimum odbočiek."
+                "CITLIVÝ" -> "Citlivý režim aktivovaný. Budem reagovať pokojne, pozorne a bez humoru."
+                "ČERVENÝ" -> "Rozhranie mení akcent na červený. Komunikačný režim zostáva nezmenený."
+                "FIALOVÝ" -> "Rozhranie mení akcent na fialový."
+                "ZELENÝ" -> "Rozhranie mení akcent na zelený."
+                else -> "Profesionálny režim aktivovaný. Rozhranie obnovilo štandardný vzhľad."
+            }
             chat.add(Message(true, response)); speak(response)
             return
         }
@@ -1647,6 +1711,22 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         TextButton(onClick = { settings = false; showCheckIn = true }) { Text("OSOBNÝ PROFIL • IMPORT ROZHOVOROV", color = Cyan) }
+                        Text("VZHĽAD A NÁLADA JARVIS", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("Aktuálny režim: $adaptiveMood. Zmena sa uloží a platí aj po reštarte.", color = Muted, fontSize = 11.sp)
+                        androidx.compose.foundation.layout.FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(5.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            JarvisAdaptiveStyle.modes().forEach { mode ->
+                                TextButton(onClick = {
+                                    adaptiveMood = mode
+                                    val accent = JarvisAdaptiveStyle.color(mode)
+                                    CyanState.value = Color(accent)
+                                    prefs.edit().putString("jarvis_mood", mode).putInt("jarvis_accent_color", accent).apply()
+                                }) { Text(mode, color = if (adaptiveMood == mode) Cyan else Muted, fontSize = 10.sp) }
+                            }
+                        }
+                        Text("Hlasom môžeš povedať: Jarvis, prepni sa do pokojného režimu alebo zmeň farbu na fialovú.", color = Muted, fontSize = 10.sp)
                         Text("OFFLINE AI MOZOG", color = Cyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         Text("Offline AI nevyžaduje účet ani API kľúč. Na zariadení s aspoň 8 GB RAM sa JARVIS pokúsi stiahnuť Gemma 4 E2B (približne 2,59 GB); ak to zlyhá alebo sa model nespustí, automaticky použije záložný Qwen3 1.7B INT4 (približne 932 MB), ktorý je súčasťou APK. Pri prvom stiahnutí Gemma je potrebný internet a približne 3,2 GB voľného miesta.", color = Muted, fontSize = 11.sp)
                         Button(
