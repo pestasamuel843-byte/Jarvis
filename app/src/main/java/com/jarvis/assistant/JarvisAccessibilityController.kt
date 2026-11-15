@@ -22,6 +22,19 @@ object JarvisAccessibilityController {
     fun execute(context: Context, raw: String): String? {
         val command = raw.trim()
         val lower = command.lowercase()
+        val confirmation = Regex("(?i)^potvrdzujem (?:kliknutie na|stlačenie tlačidla|stlacenie tlacidla)\\s+(.+)$").find(command)
+        if (confirmation != null) {
+            val target = confirmation.groupValues[1].trim()
+            val prefs = service?.getSharedPreferences("jarvis_accessibility_pending", Context.MODE_PRIVATE)
+            val pending = prefs?.getString("target", "").orEmpty()
+            val created = prefs?.getLong("created_at", 0L) ?: 0L
+            if (!pending.equals(target, ignoreCase = true) || System.currentTimeMillis() - created > 30_000L) {
+                prefs?.edit()?.clear()?.apply()
+                return "Nemám čakajúcu citlivú akciu s týmto názvom. Najprv ju vyberte."
+            }
+            prefs?.edit()?.clear()?.apply()
+            return runOnMain { clickVisibleText(target, allowSensitive = true) }
+        }
         val action: (() -> String)? = when {
             lower in setOf("prečítaj obrazovku", "precitaj obrazovku", "čo je na obrazovke", "co je na obrazovke",
                 "prečítaj stránku", "precitaj stranku", "prečítaj obsah", "precitaj obsah") ->
@@ -94,8 +107,15 @@ object JarvisAccessibilityController {
             else "Viditeľný obsah obrazovky:\n$result"
     }
 
-    private fun clickVisibleText(target: String): String {
+    private fun clickVisibleText(target: String, allowSensitive: Boolean = false): String {
         if (target.isBlank()) return "Povedzte názov tlačidla alebo položky."
+        val sensitive = Regex("(?i)(odoslať|odoslat|send|delete|vymazať|vymazat|zmazať|zmazat|kúpiť|kupit|buy|zaplatiť|zaplatit|pay|publikovať|publikovat|publish|objednať|objednat|confirm|potvrdiť|potvrdit)")
+            .containsMatchIn(target)
+        if (sensitive && !allowSensitive) {
+            service?.getSharedPreferences("jarvis_accessibility_pending", Context.MODE_PRIVATE)?.edit()
+                ?.putString("target", target)?.putLong("created_at", System.currentTimeMillis())?.apply()
+            return "Toto môže odoslať, vymazať, zverejniť alebo zaplatiť. Ak to naozaj chcete vykonať, do 30 sekúnd povedzte: Potvrdzujem stlačenie tlačidla $target."
+        }
         if (service == null) return "Na ovládanie aplikácií povoľte JARVIS v nastaveniach Prístupnosti."
         val activeRoot = root() ?: return "Aktívna aplikácia neposkytla ovládateľné prvky."
         val matches = mutableListOf<AccessibilityNodeInfo>()
