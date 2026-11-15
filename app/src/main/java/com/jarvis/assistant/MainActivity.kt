@@ -2267,7 +2267,7 @@ internal suspend fun generate3DSceneSpec(context: Context, command: String): Str
 Vytvor technický 3D/CAD návrh podľa požiadavky používateľa. Vráť IBA platný JSON.
 Objekt: {"type":"box|sphere|cylinder|cone|torus|plane|capsule|dodecahedron|icosahedron|tetrahedron|torusKnot|mesh","name":"názov","position":[x,y,z],"rotation":[x,y,z],"scale":[x,y,z],"color":"#RRGGBB","dimensions":[šírka,výška,hĺbka],"vertices":[[x,y,z],...],"faces":[[index,index,index,...],...]}
 Pri CAD box použi dimensions. Pri vlastnej topológii použi type mesh, vertices ako zdieľané 3D vrcholy a faces ako polygóny s indexmi vrcholov v správnom poradí. Vytváraj uzavreté/manifold telesá, ak to tvar umožňuje. Max 40 objektov, 300 vrcholov a 600 stien na mesh; súradnice -10 až 10. Každý objekt má name,type,position,rotation,scale,color; mesh navyše vertices a faces. Iba JSON.
-${if (hasExistingScene) "AKTÍVNA EXISTUJÚCA SCÉNA (uprav ju podľa požiadavky, zachovaj všetky nezmenené objekty a ich rozmery):\\n$existingScene\\n" else "Vytvor novú scénu od začiatku.\\n"}\nPoužívateľova požiadavka: $command
+${if (hasExistingScene) "AKTÍVNA EXISTUJÚCA SCÉNA (uprav ju podľa požiadavky, zachovaj všetky nezmenené objekty a ich rozmery):\n$existingScene\n" else "Vytvor novú scénu od začiatku.\n"}\nPoužívateľova požiadavka: $command
 """.trimIndent()
     val answer = askAiWithOfflineFallback(
         context,
