@@ -57,6 +57,16 @@ internal object JarvisPersonalProfiles {
         return if (removed) "Profil osoby $name som odstránil." else "Profil osoby $name som nenašiel."
     }
 
+    fun healthSummary(context: Context): String {
+        val notes = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString("health_notes", "").orEmpty().trim()
+        return if (notes.isBlank()) {
+            "V zdravotných poznámkach zatiaľ nemám uložené žiadne záznamy. Nemám ani aktuálne meranie tepu z hodiniek, pokiaľ nie sú výslovne prepojené. Rýchlejší tep pri tréningu môže byť bežnou reakciou na fyzickú záťaž. Ak je však nezvyčajne vysoký, neustupuje po oddychu alebo sa pridá bolesť na hrudi, výrazná dýchavičnosť, závrat či pocit na odpadnutie, prestaň cvičiť a hneď to povedz trénerovi alebo rodičovi; pri vážnych príznakoch treba urgentnú zdravotnú pomoc."
+        } else {
+            "Uložené zdravotné poznámky: $notes. Tieto záznamy nie sú diagnóza. Nemám automaticky prístup k aktuálnemu tepu z hodiniek, ak nie sú prepojené."
+        }
+    }
+
     fun clearHealthNotes(context: Context): String {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove("health_notes").apply()
         return "Lokálne zdravotné poznámky som vymazal."
