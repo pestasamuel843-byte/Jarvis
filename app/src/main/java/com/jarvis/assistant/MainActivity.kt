@@ -59,6 +59,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -243,6 +245,9 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     var scheduleSetupIndex by remember { mutableIntStateOf(-1) }
     var firstRunSetupRequested by remember { mutableStateOf(false) }
     var profileImportStatus by remember { mutableStateOf("") }
+    var activeDossierName by remember { mutableStateOf<String?>(null) }
+    var activeDossierSummary by remember { mutableStateOf("") }
+    var activeDossierProfile by remember { mutableStateOf<PersonProfile?>(null) }
     var protectionLevel by remember { mutableIntStateOf(JarvisProtection.currentLevel(context)) }
     var shareImportedWithOnline by remember { mutableStateOf(prefs.getBoolean("share_imported_with_online", false)) }
     var offlineModelReady by remember { mutableStateOf(offlineBrain.isPrepared()) }
@@ -493,10 +498,17 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             chat.add(Message(true, response)); speak(response)
             return
         }
-        val personQuery = Regex("(?i)^(?:čo vieš o|ukáž profil)\\s+(.+)$").find(text)
+        val personQuery = Regex("(?i)^(?:ukáž čo vieme o|ukaz co vieme o|čo vieš o|co vies o|ukáž profil|ukaz profil)\\s+(.+)$").find(text)
         if (personQuery != null) {
-            val response = JarvisPersonalProfiles.personSummary(context, personQuery.groupValues[1])
-            chat.add(Message(true, response)); speak(response)
+            val personName = personQuery.groupValues[1].trim()
+            val response = JarvisPersonalProfiles.personSummary(context, personName)
+            activeDossierName = personName
+            activeDossierSummary = response
+            activeDossierProfile = PersonProfileStore.all(context).firstOrNull {
+                it.displayName.equals(personName, ignoreCase = true)
+            }
+            chat.add(Message(true, "Otvoril som spis osoby $personName. Začínam prehľad dostupných informácií."))
+            speak(response)
             return
         }
         // Agent tool routing: parse a natural-language request into one or more Android actions.
@@ -1498,6 +1510,15 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                 }
             )
         }
+        if (activeDossierName != null) {
+            PersonDossierDialog(
+                name = activeDossierName.orEmpty(),
+                summary = activeDossierSummary,
+                profile = activeDossierProfile,
+                onClose = { activeDossierName = null; activeDossierSummary = ""; activeDossierProfile = null },
+                onSpeak = { speak(activeDossierSummary) }
+            )
+        }
         if (settings) {
             AlertDialog(
                 onDismissRequest = { settings = false },
@@ -1591,6 +1612,87 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
     }
 }
 
+
+@Composable
+private fun PersonDossierDialog(
+    name: String,
+    summary: String,
+    profile: PersonProfile?,
+    onClose: () -> Unit,
+    onSpeak: () -> Unit
+) {
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(
+            Modifier.fillMaxSize().background(Color(0xFF050B13))
+                .border(1.dp, Cyan.copy(alpha = .55f))
+                .padding(horizontal = 24.dp, vertical = 18.dp)
+        ) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("J.A.R.V.I.S.  /  OSOBNÝ SPIS", color = Cyan, fontSize = 10.sp, letterSpacing = 2.sp)
+                    Text(name.uppercase(Locale.ROOT), color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Light, letterSpacing = 2.sp)
+                    Text("LOKÁLNE ZÁZNAMY • ZDROJE A ISTOTA", color = Muted, fontSize = 8.sp, letterSpacing = 1.sp)
+                }
+                TextButton(onClick = onClose) { Text("ZAVRIEŤ", color = Cyan) }
+            }
+            Spacer(Modifier.height(18.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                DossierMetric("VZŤAH", profile?.relationship?.takeIf { it.isNotBlank() } ?: "NEZADANÝ", Modifier.weight(1f))
+                DossierMetric("ZÁZNAMY", (profile?.facts?.size ?: 0).toString(), Modifier.weight(1f))
+                DossierMetric("SPOMIENKY", (profile?.sharedMemories?.size ?: 0).toString(), Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(18.dp))
+            Text("ČO O OSOBE VIEME", color = Cyan, fontSize = 10.sp, letterSpacing = 1.5.sp)
+            Spacer(Modifier.height(8.dp))
+            Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
+                .background(Color(0xFF0B1723), RoundedCornerShape(12.dp)).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (profile != null) {
+                    profile.facts.forEach { fact ->
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(fact.text, color = Color.White, fontSize = 14.sp)
+                            Text("ZDROJ: ${fact.source}  •  ${fact.sourceDetail}", color = Muted, fontSize = 9.sp)
+                        }
+                        Divider(color = Cyan.copy(alpha = .14f))
+                    }
+                    if (profile.sharedMemories.isNotEmpty()) {
+                        Text("SPOLOČNÉ SPOMIENKY", color = Cyan, fontSize = 10.sp)
+                        profile.sharedMemories.forEach { Text("• $it", color = Color.White, fontSize = 13.sp) }
+                    }
+                    if (profile.communicationPreferences.isNotEmpty()) {
+                        Text("KOMUNIKÁCIA", color = Cyan, fontSize = 10.sp)
+                        profile.communicationPreferences.forEach { Text("• $it", color = Color.White, fontSize = 13.sp) }
+                    }
+                    if (profile.openTopics.isNotEmpty()) {
+                        Text("OTVORENÉ TÉMY", color = Cyan, fontSize = 10.sp)
+                        profile.openTopics.forEach { Text("• $it", color = Color.White, fontSize = 13.sp) }
+                    }
+                    if (profile.facts.isEmpty() && profile.sharedMemories.isEmpty() &&
+                        profile.communicationPreferences.isEmpty() && profile.openTopics.isEmpty()) {
+                        Text("Spis zatiaľ neobsahuje podrobné záznamy.", color = Muted, fontSize = 13.sp)
+                    }
+                } else {
+                    Text(summary, color = Color.White, fontSize = 15.sp)
+                    Text("Tieto poznámky pochádzajú z lokálnych používateľských záznamov. Nie sú automaticky overenými faktmi.", color = Muted, fontSize = 11.sp)
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                OutlinedButton(onClick = onSpeak) { Text("PREČÍTAŤ SPIS", color = Cyan) }
+                Spacer(Modifier.width(10.dp))
+                Button(onClick = onClose) { Text("HOTOVO") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DossierMetric(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier.background(Color(0xFF0B1723), RoundedCornerShape(9.dp)).padding(10.dp)) {
+        Text(label, color = Muted, fontSize = 8.sp, letterSpacing = 1.sp)
+        Text(value, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    }
+}
 
 private data class JarvisTask(val title: String, val done: Boolean)
 
