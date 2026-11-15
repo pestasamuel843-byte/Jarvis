@@ -35,6 +35,11 @@ object JarvisAccessibilityController {
             prefs?.edit()?.clear()?.apply()
             return runOnMain { clickVisibleText(target, allowSensitive = true) }
         }
+        val typePrefix = Regex("(?i)^(?:napíš|napis|zadaj) do aktívneho poľa\\s+(.+)$").find(command)
+            ?: Regex("(?i)^(?:napíš|napis|zadaj) do aktivneho pola\\s+(.+)$").find(command)
+        if (typePrefix != null) return runOnMain { typeIntoFocusedField(typePrefix.groupValues[1]) }
+        val longPress = Regex("(?i)^(?:podrž na|podrz na|dlho stlač|dlho stlac)\\s+(.+)$").find(command)
+        if (longPress != null) return runOnMain { clickVisibleText(longPress.groupValues[1].trim(), longClick = true) }
         val action: (() -> String)? = when {
             lower in setOf("prečítaj obrazovku", "precitaj obrazovku", "čo je na obrazovke", "co je na obrazovke",
                 "prečítaj stránku", "precitaj stranku", "prečítaj obsah", "precitaj obsah") ->
@@ -107,7 +112,7 @@ object JarvisAccessibilityController {
             else "Viditeľný obsah obrazovky:\n$result"
     }
 
-    private fun clickVisibleText(target: String, allowSensitive: Boolean = false): String {
+    private fun clickVisibleText(target: String, allowSensitive: Boolean = false, longClick: Boolean = false): String {
         if (target.isBlank()) return "Povedzte názov tlačidla alebo položky."
         val sensitive = Regex("(?i)(odoslať|odoslat|send|delete|vymazať|vymazat|zmazať|zmazat|kúpiť|kupit|buy|zaplatiť|zaplatit|pay|publikovať|publikovat|publish|objednať|objednat|confirm|potvrdiť|potvrdit)")
             .containsMatchIn(target)
@@ -135,9 +140,40 @@ object JarvisAccessibilityController {
         var clickable: AccessibilityNodeInfo? = unique.first()
         while (clickable != null && !clickable.isClickable) clickable = clickable.parent
         val node = clickable ?: unique.first()
-        val success = node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-        return if (success) "Stlačil som „$target“. Overujem zmenu obrazovky."
-            else "Položku „$target“ Android označil ako neovládateľnú."
+        val action = if (longClick) AccessibilityNodeInfo.ACTION_LONG_CLICK else AccessibilityNodeInfo.ACTION_CLICK
+        val success = node.performAction(action)
+        return if (success) {
+            if (longClick) "Podržal som „$target“." else "Stlačil som „$target“. Overujem zmenu obrazovky."
+        } else "Položku „$target“ Android označil ako neovládateľnú."
+    }
+
+
+    private fun typeIntoFocusedField(value: String): String {
+        if (value.isBlank()) return "Text na vloženie je prázdny."
+        if (service == null) return "Na zadávanie textu povoľte JARVIS v nastaveniach Prístupnosti."
+        val activeRoot = root() ?: return "Aktívna aplikácia neposkytla textové pole."
+        val editable = mutableListOf<AccessibilityNodeInfo>()
+        walk(activeRoot) { node -> if (node.isVisibleToUser && node.isEditable) editable.add(node) }
+        if (editable.isEmpty()) return "Na obrazovke som nenašiel viditeľné textové pole."
+        val focused = editable.filter { it.isFocused }
+        val target = when {
+            focused.size == 1 -> focused.first()
+            focused.size > 1 -> return "Je aktívnych viac textových polí. Ťuknite prstom do toho správneho a zopakujte príkaz."
+            editable.size == 1 -> editable.first()
+            else -> return "Našiel som viac textových polí. Najprv ťuknite do poľa, do ktorého mám písať."
+        }
+        val fieldHint = listOfNotNull(target.hintText?.toString(), target.contentDescription?.toString(), target.text?.toString())
+            .joinToString(" ").lowercase()
+        if (target.isPassword || Regex("(?i)(heslo|password|pin|kód|kod|cvv|cvc|card number|číslo karty|cislo karty|overovací kód|overovaci kod|otp)")
+                .containsMatchIn(fieldHint)) {
+            return "Do hesiel, PIN-ov a platobných alebo overovacích polí text nevkladám."
+        }
+        val args = android.os.Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, value)
+        }
+        return if (target.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) {
+            "Text som vložil do aktívneho poľa. Zatiaľ som nič neodoslal."
+        } else "Aplikácia nedovolila vložiť text do tohto poľa."
     }
 
     private fun scroll(forward: Boolean): String {
