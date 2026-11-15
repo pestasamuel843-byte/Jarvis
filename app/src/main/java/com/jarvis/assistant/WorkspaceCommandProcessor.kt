@@ -35,6 +35,10 @@ object WorkspaceCommandProcessor {
         if (command.isBlank()) return null
         val prefs = context.getSharedPreferences("jarvis_workspace", Context.MODE_PRIVATE)
         val q = command.lowercase(Locale.ROOT)
+        // Plain map-opening requests belong to Google Maps via JarvisAgent, not the built-in map workspace.
+        val externalMapsLaunch = Regex("(?i)^(?:otvor|spusti|zapni)\\\\s+(?:(?:google\\\\s+)?(?:maps|mapy|mapu))$").containsMatchIn(command) ||
+            q in setOf("google maps", "mapy", "mapu", "otvor google maps", "otvor mapy", "otvor mapu")
+        if (externalMapsLaunch) return null
         val previous = load(context)
         val explicitWorkspace = workspaceWords.any(q::contains)
         val projectEdit = editWords.any(q::contains) && (prefs.getBoolean("project_exists", false) || explicitWorkspace)
