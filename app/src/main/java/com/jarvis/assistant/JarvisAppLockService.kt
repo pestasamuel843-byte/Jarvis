@@ -5,8 +5,8 @@ import android.view.accessibility.AccessibilityEvent
 import android.content.Intent
 
 /**
- * Optional app-lock service. It only watches the foreground package name;
- * it does not read screen text or window contents.
+ * User-enabled accessibility bridge for explicit screen actions, plus optional app locking.
+ * Screen text is inspected only when a voice command requests it.
  */
 class JarvisAppLockService : AccessibilityService() {
     override fun onServiceConnected() {
