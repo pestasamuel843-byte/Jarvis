@@ -67,12 +67,7 @@ class JarvisVoiceService : Service() {
                     val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
                     name.contains("lukas") || name.contains("lukáš")
                 }
-                val maleSlovakVoice = slovakVoices.firstOrNull {
-                    val name = (it.name + " " + it.locale.displayName).lowercase(Locale.ROOT)
-                    name.contains("male") || name.contains("masculine") || name.contains("man") ||
-                        name.contains("muž") || name.contains("muz")
-                }
-                val selectedVoice = lukasVoice ?: maleSlovakVoice
+                val selectedVoice = lukasVoice
                 if (selectedVoice != null) {
                     speechEngine?.voice = selectedVoice
                     speechEngine?.setPitch(1.0f)
