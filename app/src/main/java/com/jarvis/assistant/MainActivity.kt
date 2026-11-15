@@ -499,6 +499,17 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             chat.add(Message(true, response)); speak(response)
             return
         }
+        val healthQuery = Regex("(?i).*(?:čo o tom vieme|co o tom vieme|čo vieme o tom|co vieme o tom|čo vieme o mojom srdci|co vieme o mojom srdci|čo vieš o mojom tepe|co vies o mojom tepe).*").matches(text) &&
+            Regex("(?i).*(?:srdc|tep|tréning|trening|cvičen|cvicen|zdrav|pulz).*").matches(text)
+        if (healthQuery) {
+            val response = JarvisPersonalProfiles.healthSummary(context)
+            activeDossierName = "Zdravie a tréning"
+            activeDossierSummary = response
+            activeDossierProfile = null
+            chat.add(Message(true, "Otvoril som zdravotný prehľad. Oddeľujem uložené údaje od všeobecných informácií."))
+            speak(response)
+            return
+        }
         val personQuery = Regex("(?i)^(?:ukáž čo vieme o|ukaz co vieme o|čo vieš o|co vies o|ukáž profil|ukaz profil)\\s+(.+)$").find(text)
         if (personQuery != null) {
             val personName = personQuery.groupValues[1].trim()
@@ -1652,7 +1663,7 @@ private fun PersonDossierDialog(
                     Spacer(Modifier.width(12.dp))
                 }
                 Column(Modifier.weight(1f)) {
-                    Text("J.A.R.V.I.S.  /  OSOBNÝ SPIS", color = Cyan, fontSize = 10.sp, letterSpacing = 2.sp)
+                    Text(if (name.equals("Zdravie a tréning", true)) "J.A.R.V.I.S.  /  ZDRAVOTNÝ PREHĽAD" else "J.A.R.V.I.S.  /  OSOBNÝ SPIS", color = Cyan, fontSize = 10.sp, letterSpacing = 2.sp)
                     Text(name.uppercase(Locale.ROOT), color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Light, letterSpacing = 2.sp)
                     Text("LOKÁLNE ZÁZNAMY • ZDROJE A ISTOTA", color = Muted, fontSize = 8.sp, letterSpacing = 1.sp)
                 }
