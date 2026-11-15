@@ -100,7 +100,7 @@ object JarvisAccessibilityController {
         val lines = linkedSetOf<String>()
         walk(activeRoot) { node ->
             val value = nodeLabel(node)
-            if (value.isNotBlank() && value.length <= 500) lines.add(value)
+            if (node.isVisibleToUser && value.isNotBlank() && value.length <= 500) lines.add(value)
         }
         val result = lines.take(55).joinToString("\n").take(6500)
         return if (result.isBlank()) "Na tejto obrazovke nie je dostupný čitateľný text."
@@ -121,15 +121,15 @@ object JarvisAccessibilityController {
         val matches = mutableListOf<AccessibilityNodeInfo>()
         walk(activeRoot) { node ->
             val label = nodeLabel(node)
-            if (label.equals(target, ignoreCase = true)) matches.add(node)
+            if (node.isVisibleToUser && label.equals(target, ignoreCase = true)) matches.add(node)
         }
         if (matches.isEmpty()) {
             walk(activeRoot) { node ->
                 val label = nodeLabel(node)
-                if (label.contains(target, ignoreCase = true)) matches.add(node)
+                if (node.isVisibleToUser && label.contains(target, ignoreCase = true)) matches.add(node)
             }
         }
-        val unique = matches.distinctBy { nodeLabel(it) + "|" + it.className + "|" + it.isClickable }
+        val unique = matches
         if (unique.isEmpty()) return "Na obrazovke som nenašiel položku „$target“."
         if (unique.size > 1) return "Našiel som viac položiek s názvom „$target“. Spresnite, ktorú mám vybrať."
         var clickable: AccessibilityNodeInfo? = unique.first()
