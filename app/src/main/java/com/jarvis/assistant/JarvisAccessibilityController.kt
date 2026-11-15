@@ -159,8 +159,7 @@ object JarvisAccessibilityController {
         val target = when {
             focused.size == 1 -> focused.first()
             focused.size > 1 -> return "Je aktívnych viac textových polí. Ťuknite prstom do toho správneho a zopakujte príkaz."
-            editable.size == 1 -> editable.first()
-            else -> return "Našiel som viac textových polí. Najprv ťuknite do poľa, do ktorého mám písať."
+            else -> return "Najprv ťuknite prstom do textového poľa, do ktorého mám písať."
         }
         val fieldHint = listOfNotNull(target.hintText?.toString(), target.contentDescription?.toString(), target.text?.toString())
             .joinToString(" ").lowercase()
