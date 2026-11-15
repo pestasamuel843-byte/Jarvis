@@ -21,6 +21,7 @@ import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.widget.Toast
+import android.widget.ImageView
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
@@ -1628,6 +1629,14 @@ private fun PersonDossierDialog(
                 .padding(horizontal = 24.dp, vertical = 18.dp)
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                if (!profile?.photoUri.isNullOrBlank()) {
+                    AndroidView(
+                        factory = { viewContext -> ImageView(viewContext).apply { scaleType = ImageView.ScaleType.CENTER_CROP } },
+                        update = { imageView -> runCatching { imageView.setImageURI(Uri.parse(profile?.photoUri)) } },
+                        modifier = Modifier.size(76.dp).clip(RoundedCornerShape(10.dp))
+                    )
+                    Spacer(Modifier.width(12.dp))
+                }
                 Column(Modifier.weight(1f)) {
                     Text("J.A.R.V.I.S.  /  OSOBNÝ SPIS", color = Cyan, fontSize = 10.sp, letterSpacing = 2.sp)
                     Text(name.uppercase(Locale.ROOT), color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Light, letterSpacing = 2.sp)
@@ -1667,7 +1676,10 @@ private fun PersonDossierDialog(
                         Text("OTVORENÉ TÉMY", color = Cyan, fontSize = 10.sp)
                         profile.openTopics.forEach { Text("• $it", color = Color.White, fontSize = 13.sp) }
                     }
-                    if (profile.facts.isEmpty() && profile.sharedMemories.isEmpty() &&
+                    if (profile.facts.isEmpty() && summary.isNotBlank()) {
+                        Text(summary, color = Color.White, fontSize = 14.sp)
+                        Text("Staršie lokálne poznámky; používateľské záznamy, nie automaticky overené fakty.", color = Muted, fontSize = 10.sp)
+                    } else if (profile.facts.isEmpty() && profile.sharedMemories.isEmpty() &&
                         profile.communicationPreferences.isEmpty() && profile.openTopics.isEmpty()) {
                         Text("Spis zatiaľ neobsahuje podrobné záznamy.", color = Muted, fontSize = 13.sp)
                     }
