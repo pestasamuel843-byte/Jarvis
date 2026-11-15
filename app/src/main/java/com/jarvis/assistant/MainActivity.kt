@@ -502,13 +502,27 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
         val personQuery = Regex("(?i)^(?:ukáž čo vieme o|ukaz co vieme o|čo vieš o|co vies o|ukáž profil|ukaz profil)\\s+(.+)$").find(text)
         if (personQuery != null) {
             val personName = personQuery.groupValues[1].trim()
-            val response = JarvisPersonalProfiles.personSummary(context, personName)
-            activeDossierName = personName
-            activeDossierSummary = response
-            activeDossierProfile = PersonProfileStore.all(context).firstOrNull {
+            val profile = PersonProfileStore.all(context).firstOrNull {
                 it.displayName.equals(personName, ignoreCase = true)
             }
-            chat.add(Message(true, "Otvoril som spis osoby $personName. Začínam prehľad dostupných informácií."))
+            val legacy = JarvisPersonalProfiles.personSummary(context, personName)
+            val response = if (profile != null && (profile.facts.isNotEmpty() || profile.sharedMemories.isNotEmpty() ||
+                profile.communicationPreferences.isNotEmpty() || profile.openTopics.isNotEmpty())) {
+                buildString {
+                    append("Spis osoby ${profile.displayName}. ")
+                    if (profile.relationship.isNotBlank()) append("Vzťah: ${profile.relationship}. ")
+                    profile.facts.forEach { append(it.text).append(". Zdroj: ").append(
+                        when (it.source) { "person" -> "osoba"; "public_source" -> "verejný zdroj"; "user" -> "vaše poznámky"; else -> "neoverené" }
+                    ).append(". ") }
+                    if (profile.sharedMemories.isNotEmpty()) append("Spoločné spomienky: ").append(profile.sharedMemories.joinToString(". ")).append(". ")
+                    if (profile.communicationPreferences.isNotEmpty()) append("Komunikácia: ").append(profile.communicationPreferences.joinToString(". ")).append(". ")
+                    if (profile.openTopics.isNotEmpty()) append("Otvorené témy: ").append(profile.openTopics.joinToString(". ")).append(". ")
+                }
+            } else legacy
+            activeDossierName = profile?.displayName ?: personName
+            activeDossierSummary = response
+            activeDossierProfile = profile
+            chat.add(Message(true, "Otvoril som spis osoby ${profile?.displayName ?: personName}. Začínam prehľad dostupných informácií."))
             speak(response)
             return
         }
