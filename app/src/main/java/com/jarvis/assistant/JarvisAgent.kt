@@ -68,6 +68,7 @@ object JarvisAgent {
     }
 
     fun execute(context: Context, raw: String): String? {
+        JarvisAccessibilityController.execute(context, raw)?.let { return it }
         val normalized = normalize(raw)
         if (normalized.isBlank()) return null
         val prefs = context.getSharedPreferences(AUTONOMOUS_PREFS, Context.MODE_PRIVATE)
