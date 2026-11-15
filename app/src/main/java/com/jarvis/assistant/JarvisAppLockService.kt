@@ -9,6 +9,16 @@ import android.content.Intent
  * it does not read screen text or window contents.
  */
 class JarvisAppLockService : AccessibilityService() {
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        JarvisAccessibilityController.attach(this)
+    }
+
+    override fun onDestroy() {
+        JarvisAccessibilityController.detach(this)
+        super.onDestroy()
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null || event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val foreground = event.packageName?.toString() ?: return
