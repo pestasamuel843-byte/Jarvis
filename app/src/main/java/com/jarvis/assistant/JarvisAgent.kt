@@ -3,6 +3,7 @@ package com.jarvis.assistant
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.provider.Settings
 import java.net.URLEncoder
 import java.util.Locale
 
@@ -70,6 +71,12 @@ object JarvisAgent {
     fun execute(context: Context, raw: String): String? {
         JarvisAccessibilityController.execute(context, raw)?.let { return it }
         val normalized = normalize(raw)
+        if (normalized in setOf("otvor nastavenia pristupnosti", "otvor pristupnost", "zapni pristupnost jarvis", "nastavenia pristupnosti")) {
+            return runCatching {
+                context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                "Otvoril som nastavenia Prístupnosti. Nájdite JARVIS a povoľte jeho službu, ak chcete ovládanie obrazovky."
+            }.getOrElse { "Nastavenia Prístupnosti sa nepodarilo otvoriť: ${it.message ?: "chyba Androidu"}." }
+        }
         if (normalized.isBlank()) return null
         val prefs = context.getSharedPreferences(AUTONOMOUS_PREFS, Context.MODE_PRIVATE)
 
