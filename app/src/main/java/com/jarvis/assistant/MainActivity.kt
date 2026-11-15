@@ -99,6 +99,10 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 7401)
+        }
         // Register periodic local security reviews; WorkManager persists the schedule.
         runCatching { JarvisCyberDefense.schedule(this) }
         Thread {
