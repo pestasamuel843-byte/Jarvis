@@ -177,7 +177,7 @@ object JarvisAgent {
                     .putString("pending_package", target.packageName)
                     .putLong("pending_since", System.currentTimeMillis())
                     .apply()
-                launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                applyAdjacentLaunchIfRequested(context, launch)
                 context.startActivity(launch)
                 "Požiadavku na otvorenie $requested som odovzdal Androidu. Overujem, či sa aplikácia skutočne zobrazila."
             }.getOrElse {
@@ -199,7 +199,7 @@ object JarvisAgent {
                 .putString("pending_package", match!!.activityInfo.packageName)
                 .putLong("pending_since", System.currentTimeMillis())
                 .apply()
-            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            applyAdjacentLaunchIfRequested(context, launch)
             context.startActivity(launch)
             "Požiadavku na otvorenie $requested som odovzdal Androidu. Overujem, či sa aplikácia skutočne zobrazila."
         }.getOrElse {
@@ -240,9 +240,21 @@ object JarvisAgent {
         }.getOrElse { "E-mailovú aplikáciu sa nepodarilo otvoriť: ${it.message ?: "chyba Androidu"}." }
     }
 
+    /** Uses Android's best-effort adjacent-window launch after a spoken split-screen request. */
+    private fun applyAdjacentLaunchIfRequested(context: Context, intent: Intent) {
+        val prefs = context.getSharedPreferences(AUTONOMOUS_PREFS, Context.MODE_PRIVATE)
+        if (prefs.getBoolean("launch_adjacent_next", false)) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT or Intent.FLAG_ACTIVITY_NEW_TASK)
+            prefs.edit().putBoolean("launch_adjacent_next", false).apply()
+        } else {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+    }
+
     private fun openUrl(context: Context, url: String, success: String): String =
         runCatching {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            applyAdjacentLaunchIfRequested(context, intent)
             val targetPackage = intent.resolveActivity(context.packageManager)?.packageName
             if (targetPackage != null) {
                 context.getSharedPreferences("jarvis_action_verification", Context.MODE_PRIVATE).edit()
