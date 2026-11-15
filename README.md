@@ -79,6 +79,15 @@ Important limits:
 - These changes do not yet silence Android system notifications, run a full autonomous agent, contact family/emergency services, or execute actions without confirmation.
 - The visual protection state is a first implementation, not a complete redesign of every screen. No build or on-device test is claimed until the GitHub Actions build succeeds and the APK is installed on the target tablet.
 
+## Cyber Defense — ochrana tabletu
+
+- Pri spustení JARVIS-u sa vykoná lokálna kontrola metadát nainštalovaných aplikácií a naplánujú sa opakované kontroly približne každých 12 hodín cez WorkManager.
+- Vyhodnocujú sa rizikové signály: neznámy zdroj inštalácie, citlivé SMS/oprávnenia, služba Prístupnosti a zobrazovanie cez iné aplikácie.
+- Pri kombinácii signálov JARVIS zobrazí upozornenie; ak je zapnutá jeho služba Prístupnosti, upozorní aj pri otvorení aplikácie označenej poslednou kontrolou.
+- Hlasový príkaz: `Jarvis, skontroluj tablet`.
+- Výsledok je heuristické hodnotenie, nie potvrdenie infekcie. Modul zatiaľ nekontroluje obsah súborov, sieťovú komunikáciu ani správanie procesov na úrovni antivírusu; aplikácie automaticky nezastavuje, neizoluje ani neodinštaluje.
+- Upozornenia vyžadujú povolenie oznámení. Varovanie pri otvorení aplikácie vyžaduje, aby používateľ zapol JARVIS v nastaveniach Prístupnosti. Periodické kontroly závisia od plánovača Androidu.
+
 ## Technical details
 
 - Kotlin, Jetpack Compose, Java 17, Android SDK 35.
