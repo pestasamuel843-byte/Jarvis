@@ -375,6 +375,54 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             chat.add(Message(true, answer)); speak(answer)
             return
         }
+        // Screen actions are delegated to Android Accessibility before generic AI routing.
+        // Navigation, scrolling, visible-text reading, and ordinary clicks do not need confirmation;
+        // destructive or externally committing actions remain guarded by the controller.
+        val screenAction = JarvisAccessibilityController.execute(context, text)
+        if (screenAction != null) {
+            chat.add(Message(false, text))
+            chat.add(Message(true, screenAction))
+            speak(screenAction)
+            showChat = true
+            showWorkspace = false
+            return
+        }
+
+        // Open official school pages/search results in the browser. JARVIS must inspect
+        // the resulting page before claiming that a school or registration form is official.
+        val schoolWebRequest = Regex(
+            "(?i)^(?:otvor|nájdi|najdi|vyhľadaj|vyhladaj)\\s+(?:mi\\s+)?(?:oficiálnu\\s+stránku|oficialnu\\s+stranku|stránku|stranku|web)\\s+(.+)$"
+        ).find(text)
+        val admissionsRequest = Regex(
+            "(?i)^(?:prihlás\\s+ma|prihlas\\s+ma|nájdi\\s+prihlášku|najdi\\s+prihlasku)\\s+(?:na\\s+)?(?:prijímačky|prijimacky|prijímacie\\s+skúšky|prijimacie\\s+skusky)(?:\\s+na)?\\s+(.+)$"
+        ).find(text)
+        if (schoolWebRequest != null || admissionsRequest != null) {
+            val school = (schoolWebRequest?.groupValues?.get(1) ?: admissionsRequest?.groupValues?.get(1))
+                .orEmpty().trim()
+            val query = if (admissionsRequest != null) {
+                "$school oficiálna stránka prijímacie konanie prihláška"
+            } else {
+                "$school oficiálna stránka školy"
+            }
+            val answer = if (admissionsRequest != null)
+                "Vyhľadávam oficiálne prijímacie konanie školy $school. Najprv overím stránku a podmienky; prihlášku neodošlem bez tvojej kontroly."
+            else
+                "Vyhľadávam oficiálnu stránku školy $school. Skontrolujeme doménu a údaje školy."
+            chat.add(Message(false, text))
+            chat.add(Message(true, answer))
+            speak(answer)
+            showChat = true
+            showWorkspace = false
+            runCatching {
+                val url = Uri.parse("https://www.google.com/search?q=" + URLEncoder.encode(query, "UTF-8"))
+                context.startActivity(Intent(Intent.ACTION_VIEW, url))
+            }.onFailure {
+                val error = "Vyhľadávanie sa nepodarilo otvoriť."
+                chat.add(Message(true, error)); speak(error)
+            }
+            return
+        }
+
         // Project commands are executed by the headless project layer first.
         // The workspace UI is only opened as a visual renderer when available.
         val projectResult = WorkspaceCommandProcessor.process(context, text)
