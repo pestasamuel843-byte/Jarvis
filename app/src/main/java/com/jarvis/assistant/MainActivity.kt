@@ -380,6 +380,32 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
             chat.add(Message(true, answer)); speak(answer)
             return
         }
+        val cyberDefenseRequest = text.lowercase(Locale.ROOT).contains("skontroluj zabezpecenie") ||
+            text.lowercase(Locale.ROOT).contains("skontroluj zabezpečenie") ||
+            text.lowercase(Locale.ROOT).contains("skontroluj tablet") ||
+            text.lowercase(Locale.ROOT).contains("bezpecnostna kontrola") ||
+            text.lowercase(Locale.ROOT).contains("bezpečnostná kontrola") ||
+            text.lowercase(Locale.ROOT).contains("spusti cyber defense")
+        if (cyberDefenseRequest) {
+            chat.add(Message(false, text))
+            chat.add(Message(true, "Spúšťam kontrolu nainštalovaných aplikácií a ich rizikových oprávnení."))
+            showChat = true
+            showWorkspace = false
+            scope.launch {
+                val findings = withContext(Dispatchers.IO) { JarvisCyberDefense.runAndNotify(context) }
+                val report = if (findings.isEmpty()) {
+                    "Kontrola dokončená. Nenašiel som aplikáciu s kombináciou sledovaných rizikových signálov. Nie je to záruka, že tablet neobsahuje škodlivý softvér."
+                } else {
+                    val details = findings.take(6).joinToString("\n") { item ->
+                        "• ${item.app} — ${item.signals.joinToString("; ")}"
+                    }
+                    "Kontrola dokončená. Našiel som ${findings.size} aplikácií s rizikovými signálmi:\n$details\nTieto signály nie sú dôkazom vírusu. Nič som automaticky nezakázal ani neodinštaloval."
+                }
+                chat.add(Message(true, report))
+                speak(report)
+            }
+            return
+        }
         // Screen actions are delegated to Android Accessibility before generic AI routing.
         // Navigation, scrolling, visible-text reading, and ordinary clicks do not need confirmation;
         // destructive or externally committing actions remain guarded by the controller.
