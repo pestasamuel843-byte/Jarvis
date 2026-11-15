@@ -1039,7 +1039,7 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                         setOf("air.org.edupage", "air.org.edupagealt", "com.edupage.student")
                     )
                     if (!visibleGrades.isNullOrBlank()) {
-                        val report = "Na otvorenej obrazovke EduPage vidím tento obsah, pane:\\n$visibleGrades"
+                        val report = "Na otvorenej obrazovke EduPage vidím tento obsah, pane:\n$visibleGrades"
                         chat.add(Message(true, report)); speak(report)
                         return
                     }
