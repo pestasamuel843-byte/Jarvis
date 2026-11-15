@@ -2260,11 +2260,14 @@ private suspend fun askAiWithOfflineFallback(
 /** Generates a validated, editable primitive-based scene description for the 3D renderer. */
 internal suspend fun generate3DSceneSpec(context: Context, command: String): String? {
     val prefs = context.getSharedPreferences("jarvis", Context.MODE_PRIVATE)
+    val workspace = context.getSharedPreferences("jarvis_workspace", Context.MODE_PRIVATE)
+    val existingScene = workspace.getString("workspace_last_scene_spec", "").orEmpty().take(18_000)
+    val hasExistingScene = runCatching { JSONObject(existingScene).optJSONArray("objects")?.length()?.let { it > 0 } == true }.getOrDefault(false)
     val prompt = """
 Vytvor technický 3D/CAD návrh podľa požiadavky používateľa. Vráť IBA platný JSON.
 Objekt: {"type":"box|sphere|cylinder|cone|torus|plane|capsule|dodecahedron|icosahedron|tetrahedron|torusKnot|mesh","name":"názov","position":[x,y,z],"rotation":[x,y,z],"scale":[x,y,z],"color":"#RRGGBB","dimensions":[šírka,výška,hĺbka],"vertices":[[x,y,z],...],"faces":[[index,index,index,...],...]}
 Pri CAD box použi dimensions. Pri vlastnej topológii použi type mesh, vertices ako zdieľané 3D vrcholy a faces ako polygóny s indexmi vrcholov v správnom poradí. Vytváraj uzavreté/manifold telesá, ak to tvar umožňuje. Max 40 objektov, 300 vrcholov a 600 stien na mesh; súradnice -10 až 10. Každý objekt má name,type,position,rotation,scale,color; mesh navyše vertices a faces. Iba JSON.
-Používateľova požiadavka: $command
+${if (hasExistingScene) "AKTÍVNA EXISTUJÚCA SCÉNA (uprav ju podľa požiadavky, zachovaj všetky nezmenené objekty a ich rozmery):\\n$existingScene\\n" else "Vytvor novú scénu od začiatku.\\n"}\nPoužívateľova požiadavka: $command
 """.trimIndent()
     val answer = askAiWithOfflineFallback(
         context,
@@ -2338,10 +2341,9 @@ Používateľova požiadavka: $command
     }
     if (objects.length() == 0) return null
     val spec = JSONObject().put("objects", objects).toString()
-    val workspace = context.getSharedPreferences("jarvis_workspace", Context.MODE_PRIVATE)
-    val edits = runCatching { JSONArray(workspace.getString("project_edits", "[]").orEmpty()) }.getOrElse { JSONArray() }
-    edits.put(spec)
-    while (edits.length() > 40) edits.remove(0)
+    // A generated scene is a replacement snapshot, not another layer to replay.
+    // Keeping only the latest JSON scene prevents duplicated geometry after recomposition.
+    val edits = JSONArray().put(spec)
     workspace.edit().putString("project_edits", edits.toString()).putString("workspace_last_scene_spec", spec).apply()
     return spec
 }
