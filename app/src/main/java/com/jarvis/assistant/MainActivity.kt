@@ -1229,6 +1229,9 @@ private fun JarvisScreen(speak: (String) -> Unit, isSpeaking: () -> Boolean) {
                     JarvisVoiceService.ACTION_STATUS -> {
                         val status = intent.getStringExtra(JarvisVoiceService.EXTRA_STATUS).orEmpty()
                         listening = status != "HLASOVÝ MODUL VYPNUTÝ"
+                        if (status.contains("NENAINŠTALOVANÝ SLOVENSKÝ MUŽSKÝ HLAS LUKÁŠ")) {
+                            Toast.makeText(context, "V systéme chýba hlas sk-SK-LukasNeural. JARVIS nepoužije ženský náhradný hlas.", Toast.LENGTH_LONG).show()
+                        }
                     }
                     "com.jarvis.assistant.PROTECTION_ALERT" -> {
                         protectionLevel = JarvisProtection.currentLevel(context)
@@ -1674,12 +1677,18 @@ private fun PersonDossierDialog(
             }
             Spacer(Modifier.height(18.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DossierMetric("VZŤAH", profile?.relationship?.takeIf { it.isNotBlank() } ?: "NEZADANÝ", Modifier.weight(1f))
-                DossierMetric("ZÁZNAMY", (profile?.facts?.size ?: 0).toString(), Modifier.weight(1f))
-                DossierMetric("SPOMIENKY", (profile?.sharedMemories?.size ?: 0).toString(), Modifier.weight(1f))
+                if (name.equals("Zdravie a tréning", true)) {
+                    DossierMetric("OBLASŤ", "ZDRAVIE", Modifier.weight(1f))
+                    DossierMetric("ULOŽENÉ ZÁZNAMY", if (summary.contains("zatiaľ nemám uložené")) "0" else "DOSTUPNÉ", Modifier.weight(1f))
+                    DossierMetric("MERANIE TEPU", "NEPREPOJENÉ", Modifier.weight(1f))
+                } else {
+                    DossierMetric("VZŤAH", profile?.relationship?.takeIf { it.isNotBlank() } ?: "NEZADANÝ", Modifier.weight(1f))
+                    DossierMetric("ZÁZNAMY", (profile?.facts?.size ?: 0).toString(), Modifier.weight(1f))
+                    DossierMetric("SPOMIENKY", (profile?.sharedMemories?.size ?: 0).toString(), Modifier.weight(1f))
+                }
             }
             Spacer(Modifier.height(18.dp))
-            Text("ČO O OSOBE VIEME", color = Cyan, fontSize = 10.sp, letterSpacing = 1.5.sp)
+            Text(if (name.equals("Zdravie a tréning", true)) "ZÁZNAMY A VŠEOBECNÉ INFORMÁCIE" else "ČO O OSOBE VIEME", color = Cyan, fontSize = 10.sp, letterSpacing = 1.5.sp)
             Spacer(Modifier.height(8.dp))
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())
                 .background(Color(0xFF0B1723), RoundedCornerShape(12.dp)).padding(16.dp),
@@ -1713,7 +1722,7 @@ private fun PersonDossierDialog(
                     }
                 } else {
                     Text(summary, color = Color.White, fontSize = 15.sp)
-                    Text("Tieto poznámky pochádzajú z lokálnych používateľských záznamov. Nie sú automaticky overenými faktmi.", color = Muted, fontSize = 11.sp)
+                    Text(if (name.equals("Zdravie a tréning", true)) "Zdravotné údaje sa ukladajú iba na výslovnú žiadosť. Všeobecné informácie nie sú diagnóza." else "Tieto poznámky pochádzajú z lokálnych používateľských záznamov. Nie sú automaticky overenými faktmi.", color = Muted, fontSize = 11.sp)
                 }
             }
             Spacer(Modifier.height(12.dp))
